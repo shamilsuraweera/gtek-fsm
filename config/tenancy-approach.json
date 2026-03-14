@@ -1,0 +1,55 @@
+{
+  "project": "Vanguard FSM",
+  "phase": "0",
+  "description": "High-level multi-tenant approach for consistent tenant isolation across backend, API, and clients.",
+  "strategy": {
+    "model": "Shared database, shared schema, tenant discriminator",
+    "tenant_key": "TenantId",
+    "tenant_key_type": "GUID",
+    "required_on_entities": true,
+    "soft_delete_required": true,
+    "audit_fields_required": [
+      "CreatedAt",
+      "UpdatedAt"
+    ]
+  },
+  "tenant_context": {
+    "resolution_order": [
+      "JWT claim: tenant_id",
+      "Request header: X-Tenant-Id (fallback for internal/admin operations only)",
+      "Reject request if tenant cannot be resolved"
+    ],
+    "propagation": [
+      "API request context",
+      "Application services",
+      "Repository/database access",
+      "SignalR connection context"
+    ]
+  },
+  "isolation_rules": [
+    "Every tenant-scoped query must filter by TenantId.",
+    "Every create operation must stamp TenantId from resolved tenant context.",
+    "Cross-tenant reads/writes are blocked by default.",
+    "Cross-tenant operations require an explicit privileged management flow and audit logging.",
+    "TenantId is immutable after record creation."
+  ],
+  "client_expectations": {
+    "mobile": [
+      "Do not expose tenant switch in customer/worker mobile flows.",
+      "Session token determines tenant context."
+    ],
+    "web": [
+      "Customer care and management sessions are tenant-scoped by default.",
+      "Any tenant override capability is future-gated and privileged-only."
+    ]
+  },
+  "signalr": {
+    "tenant_scoped_channels": true,
+    "rule": "Pipeline updates and request events are only broadcast within the same tenant context."
+  },
+  "non_goals_phase_0": [
+    "No per-tenant dedicated database provisioning.",
+    "No tenant self-service onboarding automation.",
+    "No advanced tenant billing, limits, or feature flags enforcement."
+  ]
+}

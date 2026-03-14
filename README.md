@@ -33,6 +33,11 @@ This repository is in early scaffolding stage (Phase 0).
 
 Naming conventions are defined in `config/naming-conventions.json`.
 
+## Tenancy and Architecture Rules
+
+- Tenancy approach is defined in `config/tenancy-approach.json`.
+- Baseline layering and dependency rules are defined in `config/architecture-rules.json`.
+
 ## Roadmap
 
 See `roadmap.txt` for the phase-by-phase plan.
