@@ -5,10 +5,10 @@ Phase 0 — Solution Architecture & Project Scaffolding
 0.1 Architecture & Solution Shape
 
 0.1.1 [DONE] Define the top-level solution structure for backend, web portal, mobile app, shared libraries, database assets, and deployment/configuration files.
-0.1.2 Decide the project boundaries for Domain, Application, Infrastructure, API, shared contracts, and UI clients.
-0.1.3 Establish naming conventions for projects, namespaces, folders, environments, and configuration keys.
-0.1.4 Define the tenancy approach at a high level so every later component is built with tenant isolation in mind.
-0.1.5 Write the baseline architectural rules for dependency direction, layering, and where business logic is allowed to live.
+0.1.2 [DONE] Decide the project boundaries for Domain, Application, Infrastructure, API, shared contracts, and UI clients.
+0.1.3 [DONE] Establish naming conventions for projects, namespaces, folders, environments, and configuration keys.
+0.1.4 [DONE] Define the tenancy approach at a high level so every later component is built with tenant isolation in mind.
+0.1.5 [DONE] Write the baseline architectural rules for dependency direction, layering, and where business logic is allowed to live.
 
 0.2 Repository & Project Scaffolding
 
