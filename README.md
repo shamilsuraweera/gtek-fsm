@@ -29,6 +29,10 @@ This repository is in early scaffolding stage (Phase 0).
 - `web-portal/customer-care/` and `web-portal/management/` - web client areas
 - `mobile-app/customer-worker/` - shared mobile client area for customer and worker flows
 
+## Naming Conventions
+
+Naming conventions are defined in `config/naming-conventions.json`.
+
 ## Roadmap
 
 See `roadmap.txt` for the phase-by-phase plan.
