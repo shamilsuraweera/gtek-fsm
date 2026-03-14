@@ -19,6 +19,16 @@ This repository is in early scaffolding stage (Phase 0).
 - `deploy/` - deployment and runtime orchestration assets
 - `config/` - environment and configuration templates
 
+## Project Boundaries
+
+- `backend/domain/` - domain entities, value objects, and domain rules
+- `backend/application/` - use cases and application orchestration
+- `backend/infrastructure/` - persistence and external integrations
+- `backend/api/` - HTTP host and transport layer
+- `shared/contracts/` - shared API and cross-client contracts
+- `web-portal/customer-care/` and `web-portal/management/` - web client areas
+- `mobile-app/customer-worker/` - shared mobile client area for customer and worker flows
+
 ## Roadmap
 
 See `roadmap.txt` for the phase-by-phase plan.

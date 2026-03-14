@@ -1,0 +1,46 @@
+{
+  "project": "Vanguard FSM",
+  "phase": "0",
+  "task": "0.1.2",
+  "description": "High-level project boundaries for clean architecture and UI clients.",
+  "boundaries": {
+    "backend": {
+      "domain": {
+        "path": "backend/domain",
+        "responsibility": "Core business entities, value objects, domain rules, and domain events."
+      },
+      "application": {
+        "path": "backend/application",
+        "responsibility": "Use cases, orchestration, interfaces, and application services."
+      },
+      "infrastructure": {
+        "path": "backend/infrastructure",
+        "responsibility": "Persistence, external integrations, and infrastructure implementations."
+      },
+      "api": {
+        "path": "backend/api",
+        "responsibility": "HTTP host, controllers/endpoints, middleware, and transport mapping."
+      }
+    },
+    "shared": {
+      "contracts": {
+        "path": "shared/contracts",
+        "responsibility": "Shared request/response contracts and cross-client DTO definitions."
+      }
+    },
+    "ui_clients": {
+      "web_portal": {
+        "path": "web-portal",
+        "subareas": [
+          "web-portal/customer-care",
+          "web-portal/management"
+        ],
+        "responsibility": "Customer Care and Management web experiences."
+      },
+      "mobile_app": {
+        "path": "mobile-app/customer-worker",
+        "responsibility": "Unified mobile client covering Customer and Worker experiences."
+      }
+    }
+  }
+}
