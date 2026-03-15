@@ -1,6 +1,6 @@
-# Vanguard FSM
+# GTEK FSM
 
-Vanguard FSM is a multi-tenant Facility Service Management platform with:
+GTEK FSM is a multi-tenant Facility Service Management platform with:
 - Mobile app for Customers and Workers
 - Web portal for Management and Customer Care
 - Shared .NET and MS SQL backend

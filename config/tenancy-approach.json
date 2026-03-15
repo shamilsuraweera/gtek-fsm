@@ -1,5 +1,5 @@
 {
-  "project": "Vanguard FSM",
+  "project": "GTEK FSM",
   "phase": "0",
   "description": "High-level multi-tenant approach for consistent tenant isolation across backend, API, and clients.",
   "strategy": {

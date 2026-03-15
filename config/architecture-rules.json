@@ -1,5 +1,5 @@
 {
-  "project": "Vanguard FSM",
+  "project": "GTEK FSM",
   "phase": "0",
   "description": "Baseline architectural dependency and layering rules for clean architecture.",
   "layers": {

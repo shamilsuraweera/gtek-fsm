@@ -1,25 +1,25 @@
 {
-  "project": "Vanguard FSM",
+  "project": "GTEK FSM",
   "phase": "0",
   "description": "Naming conventions for projects, namespaces, folders, environments, and configuration keys.",
   "projects": {
-    "dotnet_prefix": "Vanguard.FSM",
+    "dotnet_prefix": "GTEK.FSM",
     "patterns": {
-      "backend_domain": "Vanguard.FSM.Backend.Domain",
-      "backend_application": "Vanguard.FSM.Backend.Application",
-      "backend_infrastructure": "Vanguard.FSM.Backend.Infrastructure",
-      "backend_api": "Vanguard.FSM.Backend.Api",
-      "shared_contracts": "Vanguard.FSM.Shared.Contracts",
-      "database": "Vanguard.FSM.Database",
+      "backend_domain": "GTEK.FSM.Backend.Domain",
+      "backend_application": "GTEK.FSM.Backend.Application",
+      "backend_infrastructure": "GTEK.FSM.Backend.Infrastructure",
+      "backend_api": "GTEK.FSM.Backend.Api",
+      "shared_contracts": "GTEK.FSM.Shared.Contracts",
+      "database": "GTEK.FSM.Database",
       "tests": "<ProjectName>.Tests"
     }
   },
   "namespaces": {
     "rule": "Namespace mirrors project name and subfolder path using PascalCase.",
     "examples": [
-      "Vanguard.FSM.Backend.Application.Requests.Commands",
-      "Vanguard.FSM.Backend.Infrastructure.Persistence",
-      "Vanguard.FSM.Shared.Contracts.ServiceRequests"
+      "GTEK.FSM.Backend.Application.Requests.Commands",
+      "GTEK.FSM.Backend.Infrastructure.Persistence",
+      "GTEK.FSM.Shared.Contracts.ServiceRequests"
     ]
   },
   "folders": {
