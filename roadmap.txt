@@ -1,0 +1,91 @@
+GTEK FSM — Roadmap
+
+Phase 0 — Solution Architecture & Project Scaffolding
+
+0.1 Architecture & Solution Shape
+
+0.1.1 [DONE] Define the top-level solution structure for backend, web portal, mobile app, shared libraries, database assets, and deployment/configuration files.
+0.1.2 [DONE] Decide the project boundaries for Domain, Application, Infrastructure, API, shared contracts, and UI clients.
+0.1.3 [DONE] Establish naming conventions for projects, namespaces, folders, environments, and configuration keys.
+0.1.4 [DONE] Define the tenancy approach at a high level so every later component is built with tenant isolation in mind.
+0.1.5 [DONE] Write the baseline architectural rules for dependency direction, layering, and where business logic is allowed to live.
+
+0.2 Repository & Project Scaffolding
+
+0.2.1 Create the .NET solution and all initial projects with correct project references.
+0.2.2 Scaffold the backend API host with health-check and versioned base routing only.
+0.2.3 Scaffold the web portal application shell with an empty layout and placeholder route structure.
+0.2.4 Scaffold the mobile application shell for customer and worker experiences within one app structure or a clearly separated client strategy.
+0.2.5 Add shared libraries for DTOs, constants, result models, and cross-client design tokens or theme definitions where applicable.
+
+0.3 Backend Foundation
+
+0.3.1 Add base configuration loading for local, development, and production environments.
+0.3.2 Set up dependency injection registration structure by layer, even if service implementations are still placeholders.
+0.3.3 Add logging, exception handling, and API response baseline behavior.
+0.3.4 Create a health endpoint and a minimal readiness check for demo and deployment validation.
+0.3.5 Establish API versioning and a route organization pattern for future modules.
+
+0.4 Web Portal Foundation
+
+0.4.1 Create the main portal shell with role-oriented navigation placeholders for Customer Care and Management.
+0.4.2 Add theme infrastructure for light and dark modes, including persisted preference and system preference detection.
+0.4.3 Set up base layout regions such as top bar, side navigation, content area, and right-side drawer container.
+0.4.4 Add placeholder routes for the future major areas so navigation is clickable from the start of UI phases.
+0.4.5 Establish shared styling tokens for spacing, typography, colors, and elevation.
+
+0.5 Mobile App Foundation
+
+0.5.1 Create the mobile app shell with base navigation for Customer and Worker sections.
+0.5.2 Add light/dark theme support using the same design token direction as the web portal.
+0.5.3 Set up app-level state containers for session, tenant context, and theme preference without implementing auth flows yet.
+0.5.4 Add placeholder screens for Home, Requests, Jobs, Profile, and Settings so future UI work plugs into a stable navigation model.
+Configure environment-based API endpoint settings for local and non-local builds.
+
+0.6 Shared Contracts & UI Foundations
+
+0.6.1 Create a shared vocabulary for core concepts such as tenant, user role, request stage, subscription tier, and availability status.
+0.6.2 Define placeholder API contract folders and request/response model organization.
+0.6.3 Establish a shared icon, typography, spacing, and component naming strategy across web and mobile.
+0.6.4 Define baseline empty states, loading states, and error-state patterns to keep future UI work consistent.
+0.6.5 Prepare a design token structure that supports neutral, minimal styling across both clients.
+
+0.7 Data & Infrastructure Scaffolding
+
+0.7.1 Set up the SQL Server connection strategy and environment-specific connection configuration.
+0.7.2 Create the database project or migration strategy skeleton without implementing the business schema yet.
+0.7.3 Define how seed data, migrations, and local database startup will be handled in development.
+0.7.4 Add containerization or local service orchestration for API and SQL Server if that will be part of the team workflow.
+0.7.5 Prepare configuration placeholders for SignalR, storage, and external services without enabling full feature logic.
+
+0.8 Development Workflow & Quality Baseline
+
+0.8.1 Add build scripts or task definitions so the solution, API, web portal, and mobile client can be started consistently from VS Code on Ubuntu.
+0.8.2 Configure formatting, linting, and basic code-quality rules for .NET and frontend code.
+0.8.3 Add initial CI checks for restore, build, and test project discovery even if tests are still empty.
+0.8.4 Create sample environment files or configuration templates for local setup.
+0.8.5 Define branch, commit, and pull request expectations so the project can scale cleanly from the start.
+
+Phase 1 — Domain Model & Database Foundation
+
+Phase 2 — Authentication, Identity & Multi-Tenancy
+
+Phase 3 — Core API Layer
+
+Phase 4 — Real-Time Infrastructure (SignalR)
+
+Phase 5 — Web Portal Shell & Navigation
+
+Phase 6 — Mobile App Shell & Navigation
+
+Phase 7 — Web Portal Feature Build-Out
+
+Phase 8 — Mobile App Feature Build-Out
+
+Phase 9 — Business Logic & Worker Matching
+
+Phase 10 — UI–API Integration & Data Wiring
+
+Phase 11 — QA, Security Hardening & Demo Readiness
+
+Phase 12 — Automation, Notifications & Analytics

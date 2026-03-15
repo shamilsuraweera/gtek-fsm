@@ -1,0 +1,81 @@
+{
+  "project": "GTEK FSM",
+  "phase": "0",
+  "description": "Baseline architectural dependency and layering rules for clean architecture.",
+  "layers": {
+    "domain": {
+      "path": "backend/domain",
+      "responsibility": "Business concepts and domain rules.",
+      "allowed_dependencies": [],
+      "forbidden_dependencies": [
+        "application",
+        "infrastructure",
+        "api",
+        "database drivers",
+        "web/mobile frameworks"
+      ]
+    },
+    "application": {
+      "path": "backend/application",
+      "responsibility": "Use-case orchestration and workflow coordination.",
+      "allowed_dependencies": [
+        "domain",
+        "shared/contracts"
+      ],
+      "forbidden_dependencies": [
+        "api",
+        "infrastructure concrete implementations",
+        "ui frameworks"
+      ]
+    },
+    "infrastructure": {
+      "path": "backend/infrastructure",
+      "responsibility": "Data access and external service adapters.",
+      "allowed_dependencies": [
+        "application abstractions",
+        "domain",
+        "shared/contracts"
+      ],
+      "forbidden_dependencies": [
+        "api controllers/endpoints",
+        "ui clients"
+      ]
+    },
+    "api": {
+      "path": "backend/api",
+      "responsibility": "Transport layer and composition root.",
+      "allowed_dependencies": [
+        "application",
+        "infrastructure (via DI setup)",
+        "shared/contracts"
+      ],
+      "forbidden_dependencies": [
+        "direct domain persistence concerns in controllers",
+        "ui clients"
+      ]
+    }
+  },
+  "business_logic_placement": {
+    "allowed": [
+      "domain entities/value objects",
+      "domain services",
+      "application use cases"
+    ],
+    "not_allowed": [
+      "controllers/endpoints",
+      "repository implementations",
+      "frontend views/components"
+    ]
+  },
+  "contracts": {
+    "shared_contracts_path": "shared/contracts",
+    "rule": "Contracts are transport-safe DTOs; domain entities are not exposed directly through API responses."
+  },
+  "cross_cutting": {
+    "logging": "Configured in API composition root and infrastructure; not in domain core.",
+    "validation": "Input validation at API boundary; business invariants in domain/application.",
+    "exceptions": "Domain and application throw meaningful exceptions; API maps to HTTP responses."
+  },
+  "manual_first_phase_rule": "Keep workflows manually triggered by user roles; defer automation logic to later phases without changing layer ownership.",
+  "enforcement_note": "Rules are currently documented conventions and should be enforced with project references and architecture tests in later phases."
+}
