@@ -505,3 +505,6 @@ build/
 .expo/
 .expo-shared/
 web-build/
+
+Task Tracker
+tracker.txt
