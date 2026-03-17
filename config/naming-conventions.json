@@ -1,0 +1,62 @@
+{
+  "project": "GTEK FSM",
+  "phase": "0",
+  "description": "Naming conventions for projects, namespaces, folders, environments, and configuration keys.",
+  "projects": {
+    "dotnet_prefix": "GTEK.FSM",
+    "patterns": {
+      "backend_domain": "GTEK.FSM.Backend.Domain",
+      "backend_application": "GTEK.FSM.Backend.Application",
+      "backend_infrastructure": "GTEK.FSM.Backend.Infrastructure",
+      "backend_api": "GTEK.FSM.Backend.Api",
+      "shared_contracts": "GTEK.FSM.Shared.Contracts",
+      "database": "GTEK.FSM.Database",
+      "tests": "<ProjectName>.Tests"
+    }
+  },
+  "namespaces": {
+    "rule": "Namespace mirrors project name and subfolder path using PascalCase.",
+    "examples": [
+      "GTEK.FSM.Backend.Application.Requests.Commands",
+      "GTEK.FSM.Backend.Infrastructure.Persistence",
+      "GTEK.FSM.Shared.Contracts.ServiceRequests"
+    ]
+  },
+  "folders": {
+    "repository_root": "kebab-case",
+    "architecture_boundaries": "lowercase",
+    "dotnet_source_subfolders": "PascalCase",
+    "notes": [
+      "Use singular folder names unless a folder naturally represents a collection (for example, Contracts).",
+      "Avoid abbreviations in folder names unless industry-standard (for example, API, DTO)."
+    ]
+  },
+  "environments": {
+    "allowed_values": [
+      "Local",
+      "Development",
+      "Staging",
+      "Production"
+    ],
+    "aspnetcore_environment": "Use exact casing from allowed_values.",
+    "appsettings_pattern": "appsettings.{Environment}.json"
+  },
+  "configuration_keys": {
+    "json_rule": "Use colon-delimited hierarchical keys with PascalCase segments.",
+    "environment_variable_rule": "Map ':' to '__' for environment variables.",
+    "required_sections": [
+      "ConnectionStrings",
+      "Jwt",
+      "SignalR",
+      "Tenancy",
+      "Features"
+    ],
+    "examples": [
+      "ConnectionStrings:MainDb",
+      "Jwt:Issuer",
+      "SignalR:HubPath",
+      "Tenancy:DefaultTenantId",
+      "Features:RealtimePipeline:Enabled"
+    ]
+  }
+}
