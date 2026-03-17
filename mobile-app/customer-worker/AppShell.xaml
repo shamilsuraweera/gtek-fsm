@@ -15,6 +15,22 @@
                 Title="Home"
                 ContentTemplate="{DataTemplate customer:HomePage}"
                 Route="CustomerHome" />
+            <ShellContent
+                Title="Requests"
+                ContentTemplate="{DataTemplate customer:RequestsPage}"
+                Route="CustomerRequests" />
+            <ShellContent
+                Title="Jobs"
+                ContentTemplate="{DataTemplate customer:JobsPage}"
+                Route="CustomerJobs" />
+            <ShellContent
+                Title="Profile"
+                ContentTemplate="{DataTemplate customer:ProfilePage}"
+                Route="CustomerProfile" />
+            <ShellContent
+                Title="Settings"
+                ContentTemplate="{DataTemplate customer:SettingsPage}"
+                Route="CustomerSettings" />
         </Tab>
 
         <!-- Worker section -->
@@ -23,6 +39,22 @@
                 Title="Home"
                 ContentTemplate="{DataTemplate worker:HomePage}"
                 Route="WorkerHome" />
+            <ShellContent
+                Title="Requests"
+                ContentTemplate="{DataTemplate worker:RequestsPage}"
+                Route="WorkerRequests" />
+            <ShellContent
+                Title="Jobs"
+                ContentTemplate="{DataTemplate worker:JobsPage}"
+                Route="WorkerJobs" />
+            <ShellContent
+                Title="Profile"
+                ContentTemplate="{DataTemplate worker:ProfilePage}"
+                Route="WorkerProfile" />
+            <ShellContent
+                Title="Settings"
+                ContentTemplate="{DataTemplate worker:SettingsPage}"
+                Route="WorkerSettings" />
         </Tab>
     </TabBar>
 
