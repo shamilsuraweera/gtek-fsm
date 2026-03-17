@@ -1,5 +1,37 @@
+:root {
+    --page-bg: #f1f4f8;
+    --surface: #ffffff;
+    --surface-2: #f7f7f7;
+    --text-primary: #1f2a37;
+    --text-muted: #5f6b79;
+    --border-color: #d6d5d5;
+    --link-color: #0f6abd;
+    --sidebar-grad-start: #0e356f;
+    --sidebar-grad-end: #1d2f56;
+    --nav-text: #d7dbe3;
+    --nav-hover-bg: rgba(255, 255, 255, 0.1);
+    --nav-active-bg: rgba(255, 255, 255, 0.35);
+}
+
+[data-theme="dark"] {
+    --page-bg: #0f141c;
+    --surface: #18202c;
+    --surface-2: #141b26;
+    --text-primary: #e8edf4;
+    --text-muted: #a3b0c0;
+    --border-color: #2d3b4f;
+    --link-color: #71b0ff;
+    --sidebar-grad-start: #172238;
+    --sidebar-grad-end: #0f1626;
+    --nav-text: #c4cedc;
+    --nav-hover-bg: rgba(255, 255, 255, 0.08);
+    --nav-active-bg: rgba(255, 255, 255, 0.25);
+}
+
 html, body {
     font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background-color: var(--page-bg);
+    color: var(--text-primary);
 }
 
 h1:focus {
@@ -7,7 +39,7 @@ h1:focus {
 }
 
 a, .btn-link {
-    color: #0071c1;
+    color: var(--link-color);
 }
 
 .btn-primary {
@@ -22,6 +54,7 @@ a, .btn-link {
 
 .content {
     padding-top: 1.1rem;
+    color: var(--text-primary);
 }
 
 .valid.modified:not([type=checkbox]) {

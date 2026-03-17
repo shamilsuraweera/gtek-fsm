@@ -1,4 +1,7 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
+@inject GTEK.FSM.WebPortal.Services.Theme.ThemeState ThemeState
+
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -10,6 +13,9 @@
                 <strong>GTEK FSM Portal</strong>
                 <span class="portal-subtitle">Customer Care and Management shell</span>
             </div>
+            <button class="theme-toggle" @onclick="ToggleThemeAsync">
+                Theme: @CurrentThemeLabel
+            </button>
         </div>
 
         <article class="content px-4">
@@ -17,3 +23,30 @@
         </article>
     </main>
 </div>
+
+@code {
+    private bool _initialized;
+
+    private string CurrentThemeLabel => ThemeState.CurrentMode == GTEK.FSM.WebPortal.Services.Theme.ThemeMode.Dark
+        ? "Dark"
+        : "Light";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            await ThemeState.InitializeAsync();
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleThemeAsync()
+    {
+        await ThemeState.ToggleAsync();
+    }
+
+    public void Dispose()
+    {
+    }
+}
