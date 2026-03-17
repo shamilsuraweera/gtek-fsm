@@ -1,5 +1,15 @@
 var builder = WebApplication.CreateBuilder(args);
 
+// Explicit environment-aware configuration load order:
+// 1) base appsettings.json
+// 2) appsettings.{Environment}.json
+// 3) environment variables (highest precedence)
+builder.Configuration.Sources.Clear();
+builder.Configuration
+	.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+	.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+	.AddEnvironmentVariables();
+
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
