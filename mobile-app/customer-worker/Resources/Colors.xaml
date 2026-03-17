@@ -4,14 +4,15 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <Color x:Key="Primary">#512BD4</Color>
-    <Color x:Key="Light">#DFD8F7</Color>
-    <Color x:Key="Dark">#2B0B98</Color>
+    <!-- Legacy keys remapped to neutral token direction aligned with web portal -->
+    <Color x:Key="Primary">#0F6ABD</Color>
+    <Color x:Key="Light">#F7F7F7</Color>
+    <Color x:Key="Dark">#18202C</Color>
     <Color x:Key="White">White</Color>
     <Color x:Key="Black">Black</Color>
-    <Color x:Key="LightGray">#E5E5E1</Color>
-    <Color x:Key="MidGray">#969696</Color>
-    <Color x:Key="DarkGray">#505050</Color>
+    <Color x:Key="LightGray">#D6D5D5</Color>
+    <Color x:Key="MidGray">#5F6B79</Color>
+    <Color x:Key="DarkGray">#2D3B4F</Color>
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="LightBrush" Color="{StaticResource Light}"/>
     <SolidColorBrush x:Key="DarkBrush" Color="{StaticResource Dark}"/>
@@ -30,5 +31,32 @@
     <Color x:Key="Blue100Accent">#3E8EED</Color>
     <Color x:Key="Blue200Accent">#72ACF1</Color>
     <Color x:Key="Blue300Accent">#A7CBF6</Color>
+
+    <!-- Semantic tokens for mobile screens and components -->
+    <Color x:Key="ColorBgPageLight">#F1F4F8</Color>
+    <Color x:Key="ColorBgPageDark">#0F141C</Color>
+    <Color x:Key="ColorBgSurfaceLight">#FFFFFF</Color>
+    <Color x:Key="ColorBgSurfaceDark">#18202C</Color>
+    <Color x:Key="ColorTextPrimaryLight">#1F2A37</Color>
+    <Color x:Key="ColorTextPrimaryDark">#E8EDF4</Color>
+    <Color x:Key="ColorTextMutedLight">#5F6B79</Color>
+    <Color x:Key="ColorTextMutedDark">#A3B0C0</Color>
+    <Color x:Key="ColorBorderDefaultLight">#D6D5D5</Color>
+    <Color x:Key="ColorBorderDefaultDark">#2D3B4F</Color>
+    <Color x:Key="ColorAccentLight">#0F6ABD</Color>
+    <Color x:Key="ColorAccentDark">#71B0FF</Color>
+
+    <SolidColorBrush x:Key="ColorBgPageBrush"
+                     Color="{AppThemeBinding Light={StaticResource ColorBgPageLight}, Dark={StaticResource ColorBgPageDark}}"/>
+    <SolidColorBrush x:Key="ColorBgSurfaceBrush"
+                     Color="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}"/>
+    <SolidColorBrush x:Key="ColorTextPrimaryBrush"
+                     Color="{AppThemeBinding Light={StaticResource ColorTextPrimaryLight}, Dark={StaticResource ColorTextPrimaryDark}}"/>
+    <SolidColorBrush x:Key="ColorTextMutedBrush"
+                     Color="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}"/>
+    <SolidColorBrush x:Key="ColorBorderDefaultBrush"
+                     Color="{AppThemeBinding Light={StaticResource ColorBorderDefaultLight}, Dark={StaticResource ColorBorderDefaultDark}}"/>
+    <SolidColorBrush x:Key="ColorAccentBrush"
+                     Color="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}"/>
 
 </ResourceDictionary>

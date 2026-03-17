@@ -5,23 +5,56 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:customer="clr-namespace:GTEK.FSM.MobileApp.Pages.Customer"
     xmlns:worker="clr-namespace:GTEK.FSM.MobileApp.Pages.Worker"
+    Route="AppShell"
     Shell.FlyoutBehavior="Disabled">
 
-    <TabBar>
+    <TabBar Route="RootTabs">
         <!-- Customer section -->
-        <Tab Title="Customer">
+        <Tab Title="Customer" Route="CustomerSection">
             <ShellContent
                 Title="Home"
                 ContentTemplate="{DataTemplate customer:HomePage}"
                 Route="CustomerHome" />
+            <ShellContent
+                Title="Requests"
+                ContentTemplate="{DataTemplate customer:RequestsPage}"
+                Route="CustomerRequests" />
+            <ShellContent
+                Title="Jobs"
+                ContentTemplate="{DataTemplate customer:JobsPage}"
+                Route="CustomerJobs" />
+            <ShellContent
+                Title="Profile"
+                ContentTemplate="{DataTemplate customer:ProfilePage}"
+                Route="CustomerProfile" />
+            <ShellContent
+                Title="Settings"
+                ContentTemplate="{DataTemplate customer:SettingsPage}"
+                Route="CustomerSettings" />
         </Tab>
 
         <!-- Worker section -->
-        <Tab Title="Worker">
+        <Tab Title="Worker" Route="WorkerSection">
             <ShellContent
                 Title="Home"
                 ContentTemplate="{DataTemplate worker:HomePage}"
                 Route="WorkerHome" />
+            <ShellContent
+                Title="Requests"
+                ContentTemplate="{DataTemplate worker:RequestsPage}"
+                Route="WorkerRequests" />
+            <ShellContent
+                Title="Jobs"
+                ContentTemplate="{DataTemplate worker:JobsPage}"
+                Route="WorkerJobs" />
+            <ShellContent
+                Title="Profile"
+                ContentTemplate="{DataTemplate worker:ProfilePage}"
+                Route="WorkerProfile" />
+            <ShellContent
+                Title="Settings"
+                ContentTemplate="{DataTemplate worker:SettingsPage}"
+                Route="WorkerSettings" />
         </Tab>
     </TabBar>
 
