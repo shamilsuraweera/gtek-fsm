@@ -1,0 +1,26 @@
+<Solution>
+  <Folder Name="/backend/" />
+  <Folder Name="/backend/api/">
+    <Project Path="backend/api/GTEK.FSM.Backend.Api.csproj" />
+  </Folder>
+  <Folder Name="/backend/application/">
+    <Project Path="backend/application/GTEK.FSM.Backend.Application.csproj" />
+  </Folder>
+  <Folder Name="/backend/domain/">
+    <Project Path="backend/domain/GTEK.FSM.Backend.Domain.csproj" />
+  </Folder>
+  <Folder Name="/backend/infrastructure/">
+    <Project Path="backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/mobile-app/" />
+  <Folder Name="/mobile-app/customer-worker/">
+    <Project Path="mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj" />
+  </Folder>
+  <Folder Name="/shared/" />
+  <Folder Name="/shared/contracts/">
+    <Project Path="shared/contracts/GTEK.FSM.Shared.Contracts.csproj" />
+  </Folder>
+  <Folder Name="/web-portal/">
+    <Project Path="web-portal/GTEK.FSM.WebPortal.csproj" />
+  </Folder>
+</Solution>

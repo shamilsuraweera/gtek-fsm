@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="GTEK.FSM.MobileApp.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:customer="clr-namespace:GTEK.FSM.MobileApp.Pages.Customer"
+    xmlns:worker="clr-namespace:GTEK.FSM.MobileApp.Pages.Worker"
+    Shell.FlyoutBehavior="Disabled">
+
+    <TabBar>
+        <!-- Customer section -->
+        <Tab Title="Customer">
+            <ShellContent
+                Title="Home"
+                ContentTemplate="{DataTemplate customer:HomePage}"
+                Route="CustomerHome" />
+        </Tab>
+
+        <!-- Worker section -->
+        <Tab Title="Worker">
+            <ShellContent
+                Title="Home"
+                ContentTemplate="{DataTemplate worker:HomePage}"
+                Route="WorkerHome" />
+        </Tab>
+    </TabBar>
+
+</Shell>

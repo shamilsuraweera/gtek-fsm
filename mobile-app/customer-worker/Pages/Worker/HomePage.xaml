@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="GTEK.FSM.MobileApp.Pages.Worker.HomePage"
+             Title="Home">
+    <VerticalStackLayout Padding="16">
+        <Label Text="Worker Home"
+               FontSize="24"
+               HorizontalOptions="Center" />
+        <Label Text="Placeholder — content will be added in Phase 6."
+               HorizontalOptions="Center" />
+    </VerticalStackLayout>
+</ContentPage>

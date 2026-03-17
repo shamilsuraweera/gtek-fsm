@@ -1,0 +1,6 @@
+@GTEK.FSM.Backend.Api_HostAddress = http://localhost:5023
+
+GET {{GTEK.FSM.Backend.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

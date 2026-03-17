@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\application\GTEK.FSM.Backend.Application.csproj" />
+    <ProjectReference Include="..\infrastructure\GTEK.FSM.Backend.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\shared\contracts\GTEK.FSM.Shared.Contracts.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>
