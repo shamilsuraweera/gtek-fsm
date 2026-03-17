@@ -1,5 +1,6 @@
 using GTEK.FSM.Backend.Application;
 using GTEK.FSM.Backend.Api.Middleware;
+using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Infrastructure;
 using GTEK.FSM.Shared.Contracts.Results;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -52,18 +53,7 @@ app.MapHealthChecks("/health/ready", new HealthCheckOptions
 	}
 });
 
-// Versioned API route baseline for future modules.
-var v1 = app.MapGroup("/api/v1");
-
-v1.MapGet("/ping", (HttpContext context) =>
-	Results.Ok(ApiResponse<object>.Ok(
-		data: new { status = "ok" },
-		message: "API is reachable.",
-		traceId: context.TraceIdentifier)));
-
-v1.MapGet("/error-test", () =>
-{
-	throw new InvalidOperationException("Error test endpoint triggered.");
-});
+// Versioned API route organization baseline for future modules.
+app.MapV1Endpoints();
 
 app.Run();
