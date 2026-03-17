@@ -38,6 +38,15 @@
     padding-bottom: 0.5rem;
 }
 
+.nav-section {
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #aeb7c7;
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
     .nav-item:first-of-type {
         padding-top: 1rem;
     }
