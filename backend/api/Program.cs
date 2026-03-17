@@ -1,3 +1,6 @@
+using GTEK.FSM.Backend.Application;
+using GTEK.FSM.Backend.Infrastructure;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Explicit environment-aware configuration load order:
@@ -10,6 +13,8 @@ builder.Configuration
 	.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
 	.AddEnvironmentVariables();
 
+builder.Services.AddApplication();
+builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
