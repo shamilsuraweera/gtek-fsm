@@ -6,6 +6,9 @@
   <Folder Name="/backend/application/">
     <Project Path="backend/application/GTEK.FSM.Backend.Application.csproj" />
   </Folder>
+  <Folder Name="/backend/domain.tests/">
+    <Project Path="backend/domain.tests/GTEK.FSM.Backend.Domain.Tests.csproj" />
+  </Folder>
   <Folder Name="/backend/domain/">
     <Project Path="backend/domain/GTEK.FSM.Backend.Domain.csproj" />
   </Folder>
