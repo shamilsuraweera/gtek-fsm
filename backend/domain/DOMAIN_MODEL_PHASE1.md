@@ -176,6 +176,14 @@ Scope boundary:
 - Events are capture-only in Phase 1.
 - No transport, broker, SignalR, or async delivery is enabled here.
 
+## Relational Table Design (Phase 1.2.1)
+
+Relational table design for Phase 1 aggregate roots is defined in:
+
+- `database/PHASE1_RELATIONAL_TABLE_DESIGN.md`
+
+That artifact specifies table columns, SQL types, nullability, and explicit tenant-safe foreign key relationships.
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.
