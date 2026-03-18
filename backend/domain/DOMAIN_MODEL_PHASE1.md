@@ -268,6 +268,28 @@ Detailed rationale, schema design, and implementation notes are captured in:
 
 - `database/PHASE1_RELATIONAL_TABLE_DESIGN.md` - "Auditing and Soft-Delete Strategy (Phase 1.2.4)" section
 
+## Naming Conventions Validation (Phase 1.2.5)
+
+Naming conventions were validated against:
+
+- `config/naming-conventions.json`
+
+Validated scopes:
+
+- Table names
+- Column names
+- Key names (`PK_`, `AK_`)
+- Foreign key names (`FK_`)
+- Index and uniqueness names (`IX_`, `UQ_`)
+- Migration identifier naming standard for upcoming EF migrations
+
+Outcome:
+
+- Current Phase 1.2 schema and EF naming are consistent.
+- No schema object renames were required.
+- Migration naming standard is documented in:
+  - `database/PHASE1_RELATIONAL_TABLE_DESIGN.md` under "Naming Convention Validation (Phase 1.2.5)".
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.

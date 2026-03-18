@@ -218,3 +218,58 @@ All five Phase 1 aggregates include auditing:
 - `Subscriptions` - CreatedAtUtc, UpdatedAtUtc, IsDeleted
 
 Auditing columns will help with compliance, troubleshooting, audit trails, and archive scenarios.
+
+## Naming Convention Validation (Phase 1.2.5)
+
+This section validates naming consistency across schema artifacts and EF mappings.
+
+### Validation Baseline
+
+- Source of truth: `config/naming-conventions.json`
+- EF mappings inspected:
+	- `backend/infrastructure/Persistence/Configurations/TenantConfiguration.cs`
+	- `backend/infrastructure/Persistence/Configurations/UserConfiguration.cs`
+	- `backend/infrastructure/Persistence/Configurations/ServiceRequestConfiguration.cs`
+	- `backend/infrastructure/Persistence/Configurations/JobConfiguration.cs`
+	- `backend/infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs`
+
+### Table and Column Naming
+
+- Table names use `PascalCase` plural nouns: `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`.
+- Column names follow `PascalCase` domain property names (for example `TenantId`, `ActiveJobId`, `CreatedAtUtc`).
+- Tenant discriminator naming is consistent: all tenant-owned tables use `TenantId`.
+
+### Key and Constraint Naming
+
+All key and relationship names follow explicit, stable prefixes:
+
+- Primary keys: `PK_<Table>`
+- Alternate keys: `AK_<Table>_<Columns>`
+- Foreign keys: `FK_<DependentTable>_<PrincipalTable>_<DependentColumns>`
+- Unique constraints/indexes: `UQ_<Table>_<Columns>`
+- Non-unique indexes: `IX_<Table>_<Columns>`
+
+Validated examples:
+
+- `PK_ServiceRequests`
+- `AK_Jobs_TenantId_Id`
+- `FK_ServiceRequests_Users_TenantId_CustomerUserId`
+- `UQ_Users_TenantId_ExternalIdentity`
+- `IX_Subscriptions_TenantId_StartsOnUtc`
+
+### Migration Identifier Naming Standard
+
+No migration files exist yet in `backend/infrastructure/Persistence/Migrations` (expected before Phase `1.3.1`).
+
+For long-term consistency, migration names must follow:
+
+- Command argument format: `dotnet ef migrations add <Name>` where `<Name>` is `PascalCase`
+- Name pattern: `<PhaseOrScope><Action><EntityOrConcern>`
+
+Examples:
+
+- `Phase1InitialSchema`
+- `Phase1AddAuditAndSoftDelete`
+- `Phase1RefineTenantIndexes`
+
+Result: Phase `1.2.5` naming validation is complete and no renames were required.
