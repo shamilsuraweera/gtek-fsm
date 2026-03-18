@@ -273,3 +273,29 @@ Examples:
 - `Phase1RefineTenantIndexes`
 
 Result: Phase `1.2.5` naming validation is complete and no renames were required.
+
+## Migration Baseline Validation (Phase 1.3.1)
+
+Initial migration generated:
+
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.cs`
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.Designer.cs`
+- `backend/infrastructure/Persistence/Migrations/GtekFsmDbContextModelSnapshot.cs`
+
+Clean-database validation executed against a fresh SQL Server target:
+
+- Database name: `GTEK_FSM_Phase1_Validation`
+- Reset step: `dotnet ef database drop --force` (reported DB absent on first run)
+- Apply step: `dotnet ef database update`
+- Result: `Applying migration '20260318161457_Phase1InitialSchema'. Done.`
+
+Post-apply schema check confirmed expected tables:
+
+- `Tenants`
+- `Users`
+- `ServiceRequests`
+- `Jobs`
+- `Subscriptions`
+- `__EFMigrationsHistory`
+
+This completes Phase `1.3.1` readiness: migration is production-shaped and reproducible from a clean database state.

@@ -290,6 +290,22 @@ Outcome:
 - Migration naming standard is documented in:
   - `database/PHASE1_RELATIONAL_TABLE_DESIGN.md` under "Naming Convention Validation (Phase 1.2.5)".
 
+## Initial Migration Baseline (Phase 1.3.1)
+
+The first production-shaped EF Core migration has been generated and validated.
+
+Migration artifacts:
+
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.cs`
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.Designer.cs`
+- `backend/infrastructure/Persistence/Migrations/GtekFsmDbContextModelSnapshot.cs`
+
+Validation summary:
+
+- Applied from clean database state to `GTEK_FSM_Phase1_Validation`.
+- Migration applied successfully (`Applying migration '20260318161457_Phase1InitialSchema'. Done.`).
+- Verified resulting base tables: `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions` plus `__EFMigrationsHistory`.
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.
