@@ -220,7 +220,56 @@ Design-level rationale and full index list are documented in:
 
 - `database/PHASE1_RELATIONAL_TABLE_DESIGN.md`
 
+## Auditing Columns and Soft-Delete Strategy (Phase 1.2.4)
+
+All Phase 1 aggregate roots include auditing and soft-delete capability:
+
+### Domain Model Changes
+
+All five aggregates (`Tenant`, `User`, `ServiceRequest`, `Job`, `Subscription`) now include three internal-settable properties:
+
+- `CreatedAtUtc` (`DateTime`): Timestamp when record was first persisted.
+- `UpdatedAtUtc` (`DateTime`): Timestamp of the most recent modification.
+- `IsDeleted` (`bool`): Soft-delete flag; `false` by default, set to `true` instead of physically removing records.
+
+### EF Core Configuration
+
+Auditing mappings are added to all five configuration classes:
+
+- `CreatedAtUtc` and `UpdatedAtUtc` are mapped to `datetime2(3)` with SQL Server `GETUTCDATE()` defaults.
+- `ValueGeneratedOnAdd()` ensures `CreatedAtUtc` is set exactly once at insertion.
+- `ValueGeneratedOnAddOrUpdate()` ensures `UpdatedAtUtc` is refreshed on each modification.
+- `IsDeleted` is mapped to `bit` with default `false` (0).
+
+### Global Query Filters
+
+EF Core query filters (`.HasQueryFilter()`) are applied in `GtekFsmDbContext.OnModelCreating()` to automatically exclude soft-deleted records:
+
+```csharp
+modelBuilder.Entity<Tenant>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<User>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<ServiceRequest>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<Job>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<Subscription>().HasQueryFilter(x => !x.IsDeleted);
+```
+
+This ensures all queries exclude soft-deleted records by default while still retaining recovery and audit trail capability.
+
+### Soft-Delete Behavior
+
+- **No physical deletes**: Records are marked deleted, not removed from the database.
+- **Query transparency**: Application code queries behave as if soft-deleted records do not exist.
+- **Audit trail**: Soft-deleted records remain in the database for compliance and recovery.
+- **Tenant isolation**: Soft-deleted records remain within their tenant scope even if visible via `.IgnoreQueryFilters()`.
+
+### Full Documentation
+
+Detailed rationale, schema design, and implementation notes are captured in:
+
+- `database/PHASE1_RELATIONAL_TABLE_DESIGN.md` - "Auditing and Soft-Delete Strategy (Phase 1.2.4)" section
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.
 - Event publishing/integration is deferred to later phases.
+

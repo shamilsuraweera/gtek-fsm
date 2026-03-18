@@ -35,6 +35,12 @@ public sealed class Subscription
 
     public DateTime? EndsOnUtc { get; private set; }
 
+    public DateTime CreatedAtUtc { get; internal set; }
+
+    public DateTime UpdatedAtUtc { get; internal set; }
+
+    public bool IsDeleted { get; internal set; }
+
     public IReadOnlyCollection<IDomainEvent> DomainEvents => this.domainEvents;
 
     public void ChangePlan(string planCode)

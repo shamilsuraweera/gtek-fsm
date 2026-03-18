@@ -35,6 +35,21 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
         builder.Property(x => x.AssignedWorkerUserId)
             .IsRequired(false);
 
+        builder.Property(x => x.CreatedAtUtc)
+            .HasColumnType("datetime2(3)")
+            .HasDefaultValueSql("GETUTCDATE()")
+            .ValueGeneratedOnAdd();
+
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnType("datetime2(3)")
+            .HasDefaultValueSql("GETUTCDATE()")
+            .ValueGeneratedOnAddOrUpdate();
+
+        builder.Property(x => x.IsDeleted)
+            .HasColumnType("bit")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.HasIndex(x => new { x.TenantId, x.ServiceRequestId })
             .HasDatabaseName("IX_Jobs_TenantId_ServiceRequestId");
 

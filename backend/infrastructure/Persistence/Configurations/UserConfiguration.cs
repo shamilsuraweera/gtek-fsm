@@ -30,6 +30,21 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(120)
             .IsRequired();
 
+        builder.Property(x => x.CreatedAtUtc)
+            .HasColumnType("datetime2(3)")
+            .HasDefaultValueSql("GETUTCDATE()")
+            .ValueGeneratedOnAdd();
+
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnType("datetime2(3)")
+            .HasDefaultValueSql("GETUTCDATE()")
+            .ValueGeneratedOnAddOrUpdate();
+
+        builder.Property(x => x.IsDeleted)
+            .HasColumnType("bit")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.HasIndex(x => x.TenantId)
             .HasDatabaseName("IX_Users_TenantId");
 

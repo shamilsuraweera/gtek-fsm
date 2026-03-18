@@ -34,6 +34,21 @@ public sealed class SubscriptionConfiguration : IEntityTypeConfiguration<Subscri
             .HasPrecision(3)
             .IsRequired(false);
 
+        builder.Property(x => x.CreatedAtUtc)
+            .HasColumnType("datetime2(3)")
+            .HasDefaultValueSql("GETUTCDATE()")
+            .ValueGeneratedOnAdd();
+
+        builder.Property(x => x.UpdatedAtUtc)
+            .HasColumnType("datetime2(3)")
+            .HasDefaultValueSql("GETUTCDATE()")
+            .ValueGeneratedOnAddOrUpdate();
+
+        builder.Property(x => x.IsDeleted)
+            .HasColumnType("bit")
+            .HasDefaultValue(false)
+            .IsRequired();
+
         builder.HasIndex(x => x.TenantId)
             .HasDatabaseName("IX_Subscriptions_TenantId");
 

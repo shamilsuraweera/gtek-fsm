@@ -27,6 +27,12 @@ public sealed class Tenant
 
     public Guid? ActiveSubscriptionId { get; private set; }
 
+    public DateTime CreatedAtUtc { get; internal set; }
+
+    public DateTime UpdatedAtUtc { get; internal set; }
+
+    public bool IsDeleted { get; internal set; }
+
     public IReadOnlyCollection<IDomainEvent> DomainEvents => this.domainEvents;
 
     public void Rename(string newName)

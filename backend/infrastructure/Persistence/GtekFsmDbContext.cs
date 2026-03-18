@@ -28,5 +28,22 @@ public class GtekFsmDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(GtekFsmDbContext).Assembly);
+
+        // Apply global soft-delete query filters for all tenant-owned aggregates.
+        // This ensures that IsDeleted = true records are automatically excluded from all queries.
+        modelBuilder.Entity<Tenant>()
+            .HasQueryFilter(x => !x.IsDeleted);
+
+        modelBuilder.Entity<User>()
+            .HasQueryFilter(x => !x.IsDeleted);
+
+        modelBuilder.Entity<ServiceRequest>()
+            .HasQueryFilter(x => !x.IsDeleted);
+
+        modelBuilder.Entity<Job>()
+            .HasQueryFilter(x => !x.IsDeleted);
+
+        modelBuilder.Entity<Subscription>()
+            .HasQueryFilter(x => !x.IsDeleted);
     }
 }
