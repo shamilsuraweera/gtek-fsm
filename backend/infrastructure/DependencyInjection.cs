@@ -12,6 +12,9 @@ public static class DependencyInjection
     {
         // Register DatabaseOptions from configuration
         services.Configure<DatabaseOptions>(configuration.GetSection("Database"));
+        services.Configure<SignalROptions>(configuration.GetSection("SignalR"));
+        services.Configure<StorageOptions>(configuration.GetSection("Storage"));
+        services.Configure<ExternalServicesOptions>(configuration.GetSection("ExternalServices"));
 
         var connectionString = configuration["Database:ConnectionString"]
             ?? configuration.GetConnectionString("MainDb")
