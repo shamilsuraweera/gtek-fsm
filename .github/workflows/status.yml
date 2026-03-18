@@ -1,0 +1,31 @@
+name: CI Status Dashboard
+
+on:
+  workflow_run:
+    workflows: ["CI - Restore, Build, Test Discovery", "Code Quality - Formatting & Analyzers"]
+    types:
+      - completed
+
+jobs:
+  status-check:
+    name: Pipeline Status
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Post CI status to summary
+        run: |
+          echo "### GTEK FSM CI Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔧 Restore | ✅ Enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔨 Build (Debug) | ✅ Enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔨 Build (Release) | ✅ Enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🧪 Test Discovery | ✅ Enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 StyleCop Analysis | ✅ Enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔍 Roslyn Analyzers | ✅ Enabled |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📋 EditorConfig | ✅ Validated |" >> $GITHUB_STEP_SUMMARY

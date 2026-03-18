@@ -1,0 +1,33 @@
+{
+  "$schema": "https://raw.githubusercontent.com/DotNetAnalyzers/StyleCopAnalyzers/master/StyleCop.Analyzers/StyleCop.Analyzers/Settings/stylecop.schema.json",
+  "settings": {
+    "documentationRules": {
+      "documentInternalElements": false,
+      "documentPrivateElements": false,
+      "documentInterfaces": true,
+      "documentPrivateMethods": false,
+      "companyName": "GTEK",
+      "copyrightText": "Copyright (c) {year} GTEK. All rights reserved.",
+      "headerDecoration": "-------",
+      "fileNamingConvention": "stylecop",
+      "documentationCulture": "en-US"
+    },
+    "indentationRules": {
+      "indentationSize": 4,
+      "useTabsForIndentation": false,
+      "tabSize": 4
+    },
+    "maintainabilityRules": {
+      "topLevelTypes": ["class", "interface", "struct"]
+    },
+    "layoutRules": {
+      "newlineAtEndOfFile": "require",
+      "allowConsecutiveUsings": true
+    },
+    "spacingRules": {
+      "indentationSize": 4,
+      "tabSize": 4,
+      "spacesPerIndentationLevel": 4
+    }
+  }
+}

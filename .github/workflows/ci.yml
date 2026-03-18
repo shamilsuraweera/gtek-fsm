@@ -1,0 +1,100 @@
+name: CI - Restore, Build, Test Discovery
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - develop
+  pull_request:
+    branches:
+      - main
+      - dev
+      - develop
+
+jobs:
+  build:
+    name: Build & Restore
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore NuGet packages
+        run: dotnet restore GTEK.FSM.slnx
+        continue-on-error: false
+
+      - name: Build solution (Debug)
+        run: dotnet build GTEK.FSM.slnx -c Debug --no-restore
+        continue-on-error: false
+
+      - name: Build solution (Release)
+        run: dotnet build GTEK.FSM.slnx -c Release --no-restore
+        continue-on-error: false
+
+  test-discovery:
+    name: Test Project Discovery
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Find test projects
+        id: test_discovery
+        run: |
+          echo "### Test Project Discovery" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Find all .csproj files containing 'Test' in name or path
+          test_projects=$(find . -type f -name "*Test*.csproj" -o -name "*Tests.csproj" 2>/dev/null | grep -v obj | grep -v bin)
+          
+          if [ -z "$test_projects" ]; then
+            echo "**Status:** ✅ No active test projects found (expected in Phase 0)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Note:** Test projects will be discovered automatically during Phase 1 and beyond." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "**Status:** ✅ Found test projects:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            echo "$test_projects" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "test_projects=$test_projects" >> $GITHUB_OUTPUT
+
+      - name: List test projects in console
+        if: steps.test_discovery.outputs.test_projects != ''
+        run: |
+          echo "🧪 Found test projects:"
+          echo "${{ steps.test_discovery.outputs.test_projects }}" | while read proj; do
+            if [ ! -z "$proj" ]; then
+              echo "  → $proj"
+            fi
+          done
+
+      - name: Display CI readiness
+        run: |
+          echo ""
+          echo "╔════════════════════════════════════════════════════════╗"
+          echo "║         CI Pipeline Ready for Phase 1 Tests           ║"
+          echo "╚════════════════════════════════════════════════════════╝"
+          echo ""
+          echo "✅ Restore and Build: PASSING"
+          echo "✅ Test Discovery: READY"
+          echo "⏳ Test Execution: Will activate when tests are added"
+          echo ""
