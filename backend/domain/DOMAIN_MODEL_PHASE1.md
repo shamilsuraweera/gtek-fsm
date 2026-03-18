@@ -63,7 +63,31 @@ This document defines the initial aggregate roots for Phase 1.1.1 and their owne
 - No aggregate root directly mutates another aggregate root.
 - Cross-aggregate consistency is coordinated in Application layer use cases.
 
+## Value Objects (Phase 1.1.2)
+
+The following immutable value objects are defined in `backend/domain/ValueObjects`:
+
+- `IdentityValue`
+  - Represents external identity provider + subject pair (`provider:subject`).
+  - Used to normalize identity references without embedding auth provider logic in aggregates.
+
+- `ContactDetails`
+  - Encapsulates email and phone contact values with basic format validation.
+
+- `Address`
+  - Encapsulates canonical service/location address fields with ISO alpha-2 country code.
+
+- `Money`
+  - Encapsulates decimal amount + ISO-4217 currency code.
+  - Enforces non-negative amounts and same-currency arithmetic.
+
+- `Rate` and `RateUnit`
+  - Represents billable rate and billing unit (`PerJob`, `PerHour`, `PerDay`).
+
+- `SchedulingWindow`
+  - Encapsulates UTC start/end timestamps and overlap logic for scheduling checks.
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.
-- Value objects, lifecycle enums, and domain events are introduced in 1.1.2, 1.1.3, and 1.1.5.
+- Lifecycle enums and domain events are introduced in 1.1.3 and 1.1.5.
