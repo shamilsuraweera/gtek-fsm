@@ -1,0 +1,64 @@
+GTEK FSM - EF Core Migration Strategy Skeleton (Phase 0.7.2)
+
+Tooling Choice
+- ORM/Migration tool: Entity Framework Core Migrations
+- Database provider: Microsoft SQL Server (Microsoft.EntityFrameworkCore.SqlServer)
+- Migration host project: backend/infrastructure
+- Startup project for configuration load: backend/api
+
+Folder Structure
+- database/migrations/    -> generated migration C# files can be placed here (output-dir usage)
+- database/scripts/       -> generated SQL scripts for deployment/review
+- database/seeds/         -> seed SQL/data placeholders (to be formalized in 0.7.3)
+
+Current Skeleton (No Business Schema)
+- Empty DbContext added: GtekFsmDbContext
+- Design-time factory added: GtekFsmDbContextFactory
+- DI registration added for DbContext and SQL Server provider
+- No DbSet<> registrations
+- No domain tables or constraints introduced
+
+Migration Command Baseline
+- Add migration:
+  dotnet ef migrations add <MigrationName> \
+    --project backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj \
+    --startup-project backend/api/GTEK.FSM.Backend.Api.csproj \
+    --context GtekFsmDbContext \
+    --output-dir ../../database/migrations
+
+- Update database:
+  dotnet ef database update \
+    --project backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj \
+    --startup-project backend/api/GTEK.FSM.Backend.Api.csproj \
+    --context GtekFsmDbContext
+
+- Remove last migration (if not applied):
+  dotnet ef migrations remove \
+    --project backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj \
+    --startup-project backend/api/GTEK.FSM.Backend.Api.csproj \
+    --context GtekFsmDbContext
+
+- Generate idempotent SQL deployment script:
+  dotnet ef migrations script \
+    --project backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj \
+    --startup-project backend/api/GTEK.FSM.Backend.Api.csproj \
+    --context GtekFsmDbContext \
+    --idempotent \
+    --output database/scripts/gtek-fsm-migrations.sql
+
+Naming Conventions
+- Migration name format: YYYYMMDDHHMM_<short_description>
+  Example: 202603181530_initial_platform_baseline
+- One logical change set per migration
+- Do not combine unrelated schema changes in one migration
+
+Rollback Baseline
+- Preferred: Create forward-fix migration when possible
+- Manual rollback script can be generated from target migration range:
+  dotnet ef migrations script <FROM> <TO> ...
+- In production, review SQL scripts before apply/rollback
+
+Notes
+- This phase defines scaffolding only.
+- Business entities and real schema start in Phase 1.
+- Seed strategy and local startup automation are handled in task 0.7.3.
