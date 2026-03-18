@@ -1,0 +1,100 @@
+GTEK FSM - Integration Configuration Placeholders (Phase 0.7.5)
+
+Purpose
+- Define baseline configuration keys for future SignalR, storage, and external integrations.
+- Keep all feature switches disabled by default in Phase 0.
+
+Sections Added
+- SignalR
+- Storage
+- ExternalServices
+- Features
+
+1) SignalR
+Path: SignalR
+Keys
+- HubPath (string) -> default "/hubs/pipeline"
+- EnableDetailedErrors (bool) -> default false
+- ClientTimeoutSeconds (int) -> default 30
+- HandshakeTimeoutSeconds (int) -> default 15
+
+Notes
+- Placeholder only; no SignalR pipeline activation in this phase.
+
+2) Storage
+Path: Storage
+Keys
+- DefaultProvider (string) -> "Local" in Development, "Blob" placeholder in Production
+- Local:RootPath (string)
+- Blob:ConnectionString (secret string)
+- Blob:ContainerName (string)
+- S3:ServiceUrl (string)
+- S3:BucketName (string)
+- S3:AccessKey (secret string)
+- S3:SecretKey (secret string)
+- S3:Region (string)
+
+Notes
+- No storage client registration yet.
+
+3) ExternalServices
+Path: ExternalServices
+Groups
+- Notifications
+  - Enabled (bool)
+  - Provider (string)
+  - BaseUrl (string)
+  - ApiKey (secret string)
+- Maps
+  - Enabled (bool)
+  - Provider (string)
+  - BaseUrl (string)
+  - ApiKey (secret string)
+- Payments
+  - Enabled (bool)
+  - Provider (string)
+  - BaseUrl (string)
+  - ApiKey (secret string)
+  - WebhookSecret (secret string)
+- Webhooks
+  - Enabled (bool)
+  - SignatureHeader (string)
+  - SigningSecret (secret string)
+
+Notes
+- External integrations remain disabled and unimplemented in Phase 0.
+
+4) Features (Feature Flags)
+Path: Features
+Keys
+- RealtimePipeline:Enabled (bool) -> false
+- Storage:Enabled (bool) -> false
+- ExternalNotifications:Enabled (bool) -> false
+- ExternalMaps:Enabled (bool) -> false
+- Payments:Enabled (bool) -> false
+
+Environment Override Guidance
+- Base defaults: backend/api/appsettings.json
+- Development overrides: backend/api/appsettings.Development.json
+- Production placeholders: backend/api/appsettings.Production.json
+- Highest precedence: environment variables (recommended for secrets)
+
+Environment Variable Examples
+- SignalR__HubPath=/hubs/pipeline
+- Storage__Blob__ConnectionString=<secret>
+- Storage__Blob__ContainerName=gtek-fsm-assets
+- ExternalServices__Notifications__ApiKey=<secret>
+- ExternalServices__Payments__WebhookSecret=<secret>
+- Features__RealtimePipeline__Enabled=false
+
+Secret Handling Policy
+- Do not commit real credentials to source control.
+- Use environment variables, secret stores, or CI/CD secret management.
+- Keep placeholder values empty in repository files.
+
+Implementation Status
+- Options are bound in DI:
+  - SignalROptions
+  - StorageOptions
+  - ExternalServicesOptions
+- No runtime clients or feature pipelines enabled in this phase.

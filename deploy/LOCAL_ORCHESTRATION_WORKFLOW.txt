@@ -1,0 +1,77 @@
+GTEK FSM - Local Container Orchestration Workflow (Phase 0.7.4)
+
+Purpose
+- Provide a consistent local environment using Docker Compose.
+- Orchestrate API + SQL Server in one command across team machines (Ubuntu-first).
+
+Services
+- sqlserver: SQL Server 2022 Developer Edition
+- backend-api: ASP.NET Core API container
+
+Files
+- docker-compose.yml
+- backend/api/Dockerfile
+- .env.example
+- deploy/scripts/dev-up.sh
+- deploy/scripts/dev-down.sh
+- deploy/scripts/dev-logs.sh
+- deploy/scripts/dev-reset.sh
+
+Prerequisites
+- Docker Engine and Docker Compose plugin installed
+- Port availability:
+  - SQL: ${SQL_SERVER_PORT:-1433}
+  - API: ${API_PORT:-8080}
+
+First Run
+1) Create local environment file:
+   cp .env.example .env
+
+2) Update .env values, especially SA_PASSWORD.
+
+3) Start stack:
+   ./deploy/scripts/dev-up.sh
+
+4) Validate health:
+   docker compose ps
+
+5) Initialize database migrations:
+   ./database/scripts/dev-db-init.sh
+
+6) Prepare seed pipeline:
+   ./database/scripts/dev-db-seed.sh
+
+Daily Flow
+- Start services:
+  ./deploy/scripts/dev-up.sh
+- View logs:
+  ./deploy/scripts/dev-logs.sh
+- Stop services:
+  ./deploy/scripts/dev-down.sh
+
+Clean Reset (Destructive)
+- Remove all container state and DB volume:
+  ./deploy/scripts/dev-reset.sh
+
+Migration + Seed Flow with Containers
+1) Ensure stack is running (dev-up).
+2) Apply migrations from host:
+   ./database/scripts/dev-db-init.sh
+3) Seed flow:
+   ./database/scripts/dev-db-seed.sh
+
+Troubleshooting
+- Compose file validation:
+  docker compose config
+- If SQL healthcheck fails:
+  - verify SA_PASSWORD meets SQL complexity requirements
+  - inspect logs: docker compose logs sqlserver
+- If API cannot connect to SQL:
+  - ensure sqlserver service is healthy
+  - verify connection string environment values in compose
+- If ports conflict:
+  - change SQL_SERVER_PORT/API_PORT in .env
+
+Notes
+- This phase only introduces orchestration scaffolding.
+- Production deployment model is out of scope for Phase 0.

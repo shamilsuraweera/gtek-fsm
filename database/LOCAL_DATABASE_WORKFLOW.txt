@@ -1,0 +1,93 @@
+GTEK FSM - Local Database Development Workflow (Phase 0.7.3)
+
+Scope
+- This workflow defines how developers initialize, reset, migrate, and seed local databases.
+- No business schema/table definitions are introduced in this phase.
+
+Prerequisites
+- .NET SDK 10 installed
+- dotnet-ef tool available
+  dotnet tool install --global dotnet-ef
+- SQL Server reachable from local machine
+- ASPNETCORE_ENVIRONMENT defaults to Development unless overridden
+
+Project References
+- Migration project:
+  backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj
+- Startup/configuration project:
+  backend/api/GTEK.FSM.Backend.Api.csproj
+- DbContext:
+  GtekFsmDbContext
+
+First-Time Setup
+1) Ensure connection string is configured for Development in:
+   backend/api/appsettings.Development.json
+
+2) Initialize database with migrations:
+   ./database/scripts/dev-db-init.sh
+
+3) Prepare seed pipeline:
+   ./database/scripts/dev-db-seed.sh
+
+Daily Development Flow
+1) Pull latest code.
+2) Apply any new migrations:
+   ./database/scripts/dev-db-init.sh
+3) If needed, run seed preparation/execution:
+   ./database/scripts/dev-db-seed.sh
+
+Creating a New Migration
+1) Make model/configuration changes in infrastructure/domain layers.
+2) Create migration:
+   dotnet ef migrations add <MigrationName> \
+     --project backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj \
+     --startup-project backend/api/GTEK.FSM.Backend.Api.csproj \
+     --context GtekFsmDbContext \
+     --output-dir ../../database/migrations
+
+3) Apply migration locally:
+   ./database/scripts/dev-db-init.sh
+
+4) Generate SQL script for review/deployment artifacts:
+   dotnet ef migrations script \
+     --project backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj \
+     --startup-project backend/api/GTEK.FSM.Backend.Api.csproj \
+     --context GtekFsmDbContext \
+     --idempotent \
+     --output database/scripts/gtek-fsm-migrations.sql
+
+Reset Workflow (Destructive - Development Only)
+- Use when local schema/data is inconsistent:
+  ./database/scripts/dev-db-reset.sh
+
+Seed Data Workflow
+- Seed files are stored in database/seeds/.
+- Execution order is controlled by numeric prefixes (001, 002, ...).
+- In Phase 0.7.3, seed execution is placeholder-only because business tables are not present.
+
+Team Sync Workflow
+1) Pull latest branch.
+2) Build backend:
+   dotnet build backend/api/GTEK.FSM.Backend.Api.csproj
+3) Apply migrations:
+   ./database/scripts/dev-db-init.sh
+4) Run seed preparation/execution:
+   ./database/scripts/dev-db-seed.sh
+
+Rollback Guidance
+- Preferred approach: create forward-fix migration.
+- If needed, generate migration script between versions:
+  dotnet ef migrations script <FROM_MIGRATION> <TO_MIGRATION> \
+    --project backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj \
+    --startup-project backend/api/GTEK.FSM.Backend.Api.csproj \
+    --context GtekFsmDbContext
+
+Troubleshooting
+- Tool missing:
+  dotnet tool install --global dotnet-ef
+- Build errors before migration commands:
+  dotnet build backend/api/GTEK.FSM.Backend.Api.csproj
+- Wrong environment loaded:
+  export ASPNETCORE_ENVIRONMENT=Development
+- Connection issues:
+  verify backend/api/appsettings.Development.json and SQL Server availability
