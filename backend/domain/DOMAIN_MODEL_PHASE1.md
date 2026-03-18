@@ -341,8 +341,57 @@ Safety model:
 - Script-level idempotency from `dbo.__SeedHistory` prevents repeated file execution.
 - Row-level idempotency remains enforced in seed SQL with `IF NOT EXISTS` patterns.
 
-## Notes
+## Database Reset, Reapply, and Verification (Phase 1.3.4)
 
-- This is the minimal phase-1 aggregate shape for schema and persistence work.
-- Event publishing/integration is deferred to later phases.
+Comprehensive scripts and tasks automate the entire local database workflow.
+
+Scripts:
+
+- `database/scripts/dev-db-init.sh`
+  - Applies pending migrations using `dotnet ef database update`.
+  - Uses Infrastructure project as both `--project` and `--startup-project` for reliable EF tooling.
+
+- `database/scripts/dev-db-reset.sh`
+  - Drops the local database and reapplies all migrations from scratch.
+  - Ensures a clean schema baseline for validation.
+  - Uses Infrastructure project for startup to avoid EF tooling dependency issues.
+
+- `database/scripts/dev-db-seed.sh`
+  - Executes seed SQL scripts in numeric order with idempotent history tracking.
+  - Skips already-applied scripts on repeated runs.
+  - Loads connection settings from `.env` or environment variables.
+
+- `database/scripts/dev-db-verify.sh`
+  - Validates schema: confirms all Phase 1 tables exist.
+  - Validates seed data: checks that baseline reference counts match expected values.
+  - Returns success (exit 0) if all checks pass, failure (exit 1) otherwise.
+  - Gracefully skips if `sqlcmd` is unavailable.
+
+- `database/scripts/dev-db-refresh.sh`
+  - Orchestrates a complete end-to-end workflow:
+    1. Reset database (drop + recreate)
+    2. Verify schema was created
+    3. Apply seed data
+    4. Verify seed data populations
+  - Suitable for establishing a known-good state before development sessions.
+
+VS Code Tasks:
+
+- `Database: Init (Apply Migrations)` → runs dev-db-init.sh
+- `Database: Reset (Drop + Recreate)` → runs dev-db-reset.sh
+- `Database: Seed` → runs dev-db-seed.sh
+- `Database: Refresh (Reset + Init + Seed + Verify)` → runs dev-db-refresh.sh
+- `Database: Verify Schema & Data` → runs dev-db-verify.sh
+
+Verification coverage:
+
+- Schema validation checks:
+  - `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`
+  - `__EFMigrationsHistory` (EF migration tracking table)
+- Seed data validation checks:
+  - Reference tenant count: 1 (REF-BASELINE)
+  - User count: 6 (role placeholders)
+  - Subscription tier count: 3 (FREE, PROFESSIONAL, ENTERPRISE)
+  - ServiceRequest status count: 6 (stage placeholders)
+  - Job assignment status count: 6 (status placeholders)
 

@@ -150,6 +150,26 @@
 			}
 		},
 		{
+			"label": "Database: Refresh (Reset + Init + Seed + Verify)",
+			"type": "shell",
+			"command": "./database/scripts/dev-db-refresh.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Database: Verify Schema & Data",
+			"type": "shell",
+			"command": "./database/scripts/dev-db-verify.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
 			"label": "Clean: Build Artifacts",
 			"type": "shell",
 			"command": "find . -type d -name 'bin' -o -name 'obj' | xargs rm -rf",

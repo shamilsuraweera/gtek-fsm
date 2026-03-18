@@ -60,6 +60,24 @@ Reset Workflow (Destructive - Development Only)
 - Use when local schema/data is inconsistent:
   ./database/scripts/dev-db-reset.sh
 
+Comprehensive Refresh Workflow (Destructive - Development Only)
+- Complete reset from scratch including verification:
+  ./database/scripts/dev-db-refresh.sh
+- This orchestrates: reset → init → seed → verify in sequence.
+- Useful for ensuring a known-good state before development sessions.
+
+Verification Workflow
+- To verify current schema and seed state without changes:
+  ./database/scripts/dev-db-verify.sh
+- Checks that all required tables exist and baseline seed data is present.
+
+Available VS Code Tasks (Ctrl+Shift+B)
+- Database: Init (Apply Migrations)
+- Database: Reset (Drop + Recreate)
+- Database: Seed
+- Database: Refresh (Reset + Init + Seed + Verify)
+- Database: Verify Schema & Data
+
 Seed Data Workflow
 - Seed files are stored in database/seeds/.
 - Execution order is controlled by numeric prefixes (001, 002, ...).
