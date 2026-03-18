@@ -1,10 +1,10 @@
+using GTEK.FSM.Backend.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 
 namespace GTEK.FSM.Backend.Infrastructure.Persistence;
 
 /// <summary>
-/// EF Core DbContext baseline for migration infrastructure.
-/// Domain DbSet mappings will be introduced in Phase 1.
+/// EF Core DbContext for GTEK FSM persistence.
 /// </summary>
 public class GtekFsmDbContext : DbContext
 {
@@ -13,11 +13,20 @@ public class GtekFsmDbContext : DbContext
     {
     }
 
+    public DbSet<Tenant> Tenants => this.Set<Tenant>();
+
+    public DbSet<User> Users => this.Set<User>();
+
+    public DbSet<ServiceRequest> ServiceRequests => this.Set<ServiceRequest>();
+
+    public DbSet<Job> Jobs => this.Set<Job>();
+
+    public DbSet<Subscription> Subscriptions => this.Set<Subscription>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // Intentionally empty in Phase 0.7.2.
-        // Entity mappings and constraints are added when domain models are introduced.
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(GtekFsmDbContext).Assembly);
     }
 }

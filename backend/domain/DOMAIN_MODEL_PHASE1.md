@@ -184,6 +184,28 @@ Relational table design for Phase 1 aggregate roots is defined in:
 
 That artifact specifies table columns, SQL types, nullability, and explicit tenant-safe foreign key relationships.
 
+## EF Core Entity Mapping (Phase 1.2.2)
+
+Infrastructure mappings are defined in:
+
+- `backend/infrastructure/Persistence/Configurations/TenantConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/UserConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/ServiceRequestConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/JobConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs`
+
+DbContext registration and model wiring:
+
+- `backend/infrastructure/Persistence/GtekFsmDbContext.cs`
+
+Mapping coverage implemented in this phase:
+
+- SQL types, max lengths, required vs optional fields.
+- Enum persistence for lifecycle statuses as `tinyint`.
+- Date/time precision for subscription dates.
+- Default values for request and assignment status columns.
+- Tenant-safe composite key references for cross-aggregate foreign keys.
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.
