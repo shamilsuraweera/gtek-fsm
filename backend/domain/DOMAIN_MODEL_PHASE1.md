@@ -326,6 +326,21 @@ Implementation characteristics:
 - Dedicated reference tenant (`REF-BASELINE`) for isolation.
 - Guarded inserts (`IF NOT EXISTS`) to prevent duplicate reference rows when rerun.
 
+## Seed Execution Idempotency (Phase 1.3.3)
+
+Seed pipeline execution is idempotent across repeated local startup runs.
+
+Runner implementation:
+
+- `database/scripts/dev-db-seed.sh` now executes ordered SQL scripts via `sqlcmd`.
+- Applied scripts are tracked in `dbo.__SeedHistory` by file name.
+- If a script was previously applied, it is skipped instead of re-executed.
+
+Safety model:
+
+- Script-level idempotency from `dbo.__SeedHistory` prevents repeated file execution.
+- Row-level idempotency remains enforced in seed SQL with `IF NOT EXISTS` patterns.
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.

@@ -1,8 +1,8 @@
-GTEK FSM - Local Database Development Workflow (Phase 0.7.3)
+GTEK FSM - Local Database Development Workflow (Phase 1.3.3)
 
 Scope
 - This workflow defines how developers initialize, reset, migrate, and seed local databases.
-- No business schema/table definitions are introduced in this phase.
+- Phase 1 schema and baseline reference seed scripts are active.
 
 Prerequisites
 - .NET SDK 10 installed
@@ -26,14 +26,14 @@ First-Time Setup
 2) Initialize database with migrations:
    ./database/scripts/dev-db-init.sh
 
-3) Prepare seed pipeline:
+3) Apply idempotent seed pipeline:
    ./database/scripts/dev-db-seed.sh
 
 Daily Development Flow
 1) Pull latest code.
 2) Apply any new migrations:
    ./database/scripts/dev-db-init.sh
-3) If needed, run seed preparation/execution:
+3) If needed, run seed execution:
    ./database/scripts/dev-db-seed.sh
 
 Creating a New Migration
@@ -63,7 +63,12 @@ Reset Workflow (Destructive - Development Only)
 Seed Data Workflow
 - Seed files are stored in database/seeds/.
 - Execution order is controlled by numeric prefixes (001, 002, ...).
-- In Phase 0.7.3, seed execution is placeholder-only because business tables are not present.
+- Seed execution is idempotent at both levels:
+  - Script level: each seed file is applied once and tracked in `dbo.__SeedHistory`.
+  - Data level: seed SQL uses guarded inserts (`IF NOT EXISTS`) for safe reruns.
+- Runner requirements:
+  - `sqlcmd` must be installed (mssql-tools18).
+  - Connection values are read from `.env` and can be overridden by exported environment variables.
 
 Team Sync Workflow
 1) Pull latest branch.
