@@ -206,6 +206,20 @@ Mapping coverage implemented in this phase:
 - Default values for request and assignment status columns.
 - Tenant-safe composite key references for cross-aggregate foreign keys.
 
+## Indexes and Uniqueness (Phase 1.2.3)
+
+Tenant-scoped indexes and uniqueness constraints are configured in:
+
+- `backend/infrastructure/Persistence/Configurations/TenantConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/UserConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/ServiceRequestConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/JobConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs`
+
+Design-level rationale and full index list are documented in:
+
+- `database/PHASE1_RELATIONAL_TABLE_DESIGN.md`
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.

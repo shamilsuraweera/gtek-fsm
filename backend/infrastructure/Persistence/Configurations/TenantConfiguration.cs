@@ -27,6 +27,13 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(x => x.ActiveSubscriptionId)
             .IsRequired(false);
 
+        builder.HasIndex(x => x.Code)
+            .IsUnique()
+            .HasDatabaseName("UQ_Tenants_Code");
+
+        builder.HasIndex(x => x.ActiveSubscriptionId)
+            .HasDatabaseName("IX_Tenants_ActiveSubscriptionId");
+
         builder.HasOne<Subscription>()
             .WithMany()
             .HasForeignKey(x => new { x.Id, x.ActiveSubscriptionId })

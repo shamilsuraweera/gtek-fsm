@@ -39,6 +39,17 @@ public sealed class ServiceRequestConfiguration : IEntityTypeConfiguration<Servi
         builder.Property(x => x.ActiveJobId)
             .IsRequired(false);
 
+        builder.HasIndex(x => new { x.TenantId, x.Status })
+            .HasDatabaseName("IX_ServiceRequests_TenantId_Status");
+
+        builder.HasIndex(x => new { x.TenantId, x.CustomerUserId })
+            .HasDatabaseName("IX_ServiceRequests_TenantId_CustomerUserId");
+
+        builder.HasIndex(x => new { x.TenantId, x.ActiveJobId })
+            .IsUnique()
+            .HasFilter("[ActiveJobId] IS NOT NULL")
+            .HasDatabaseName("UQ_ServiceRequests_TenantId_ActiveJobId");
+
         builder.HasOne<Tenant>()
             .WithMany()
             .HasForeignKey(x => x.TenantId)

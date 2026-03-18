@@ -34,6 +34,18 @@ public sealed class SubscriptionConfiguration : IEntityTypeConfiguration<Subscri
             .HasPrecision(3)
             .IsRequired(false);
 
+        builder.HasIndex(x => x.TenantId)
+            .HasDatabaseName("IX_Subscriptions_TenantId");
+
+        builder.HasIndex(x => new { x.TenantId, x.PlanCode })
+            .HasDatabaseName("IX_Subscriptions_TenantId_PlanCode");
+
+        builder.HasIndex(x => new { x.TenantId, x.StartsOnUtc })
+            .HasDatabaseName("IX_Subscriptions_TenantId_StartsOnUtc");
+
+        builder.HasIndex(x => new { x.TenantId, x.EndsOnUtc })
+            .HasDatabaseName("IX_Subscriptions_TenantId_EndsOnUtc");
+
         builder.HasOne<Tenant>()
             .WithMany()
             .HasForeignKey(x => x.TenantId)

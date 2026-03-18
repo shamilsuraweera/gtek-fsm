@@ -35,6 +35,15 @@ public sealed class JobConfiguration : IEntityTypeConfiguration<Job>
         builder.Property(x => x.AssignedWorkerUserId)
             .IsRequired(false);
 
+        builder.HasIndex(x => new { x.TenantId, x.ServiceRequestId })
+            .HasDatabaseName("IX_Jobs_TenantId_ServiceRequestId");
+
+        builder.HasIndex(x => new { x.TenantId, x.AssignmentStatus })
+            .HasDatabaseName("IX_Jobs_TenantId_AssignmentStatus");
+
+        builder.HasIndex(x => new { x.TenantId, x.AssignedWorkerUserId, x.AssignmentStatus })
+            .HasDatabaseName("IX_Jobs_TenantId_AssignedWorkerUserId_AssignmentStatus");
+
         builder.HasOne<Tenant>()
             .WithMany()
             .HasForeignKey(x => x.TenantId)

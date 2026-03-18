@@ -17,7 +17,6 @@ Scope of this task:
 Out of scope for this task:
 
 - EF Core fluent mappings (Phase `1.2.2`).
-- Index and uniqueness tuning (Phase `1.2.3`).
 - Audit and soft-delete columns (Phase `1.2.4`).
 
 ## Design Principles
@@ -132,6 +131,39 @@ This avoids accidental cross-tenant links even if application-level checks regre
 - `Jobs.AssignmentStatus` maps to `AssignmentStatus` (`tinyint`).
 
 `WorkerAvailabilityStatus` is a domain lifecycle enum not yet persisted in a Phase 1 aggregate table.
+
+## Indexes and Uniqueness (Phase 1.2.3)
+
+Required indexes and uniqueness constraints for high-frequency lookups and integrity:
+
+- `Tenants`
+	- `UQ_Tenants_Code` unique on (`Code`)
+	- `IX_Tenants_ActiveSubscriptionId` on (`ActiveSubscriptionId`)
+
+- `Users`
+	- `UQ_Users_TenantId_ExternalIdentity` unique on (`TenantId`, `ExternalIdentity`)
+	- `IX_Users_TenantId` on (`TenantId`)
+	- `IX_Users_TenantId_DisplayName` on (`TenantId`, `DisplayName`)
+
+- `ServiceRequests`
+	- `IX_ServiceRequests_TenantId_Status` on (`TenantId`, `Status`)
+	- `IX_ServiceRequests_TenantId_CustomerUserId` on (`TenantId`, `CustomerUserId`)
+	- `UQ_ServiceRequests_TenantId_ActiveJobId` unique on (`TenantId`, `ActiveJobId`) filtered where `ActiveJobId is not null`
+
+- `Jobs`
+	- `IX_Jobs_TenantId_ServiceRequestId` on (`TenantId`, `ServiceRequestId`)
+	- `IX_Jobs_TenantId_AssignmentStatus` on (`TenantId`, `AssignmentStatus`)
+	- `IX_Jobs_TenantId_AssignedWorkerUserId_AssignmentStatus` on (`TenantId`, `AssignedWorkerUserId`, `AssignmentStatus`)
+
+- `Subscriptions`
+	- `IX_Subscriptions_TenantId` on (`TenantId`)
+	- `IX_Subscriptions_TenantId_PlanCode` on (`TenantId`, `PlanCode`)
+	- `IX_Subscriptions_TenantId_StartsOnUtc` on (`TenantId`, `StartsOnUtc`)
+	- `IX_Subscriptions_TenantId_EndsOnUtc` on (`TenantId`, `EndsOnUtc`)
+
+These are implemented in EF Core configuration classes under:
+
+- `backend/infrastructure/Persistence/Configurations`
 
 ## Constraint Ordering Note
 

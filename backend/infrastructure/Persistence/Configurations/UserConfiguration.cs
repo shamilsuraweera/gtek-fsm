@@ -30,6 +30,16 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(120)
             .IsRequired();
 
+        builder.HasIndex(x => x.TenantId)
+            .HasDatabaseName("IX_Users_TenantId");
+
+        builder.HasIndex(x => new { x.TenantId, x.ExternalIdentity })
+            .IsUnique()
+            .HasDatabaseName("UQ_Users_TenantId_ExternalIdentity");
+
+        builder.HasIndex(x => new { x.TenantId, x.DisplayName })
+            .HasDatabaseName("IX_Users_TenantId_DisplayName");
+
         builder.HasOne<Tenant>()
             .WithMany()
             .HasForeignKey(x => x.TenantId)
