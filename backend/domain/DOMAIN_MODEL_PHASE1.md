@@ -306,6 +306,26 @@ Validation summary:
 - Migration applied successfully (`Applying migration '20260318161457_Phase1InitialSchema'. Done.`).
 - Verified resulting base tables: `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions` plus `__EFMigrationsHistory`.
 
+## Baseline Reference Seed Data (Phase 1.3.2)
+
+Baseline reference seed data is defined in:
+
+- `database/seeds/001_baseline_reference_data.sql`
+
+Seed scope for this phase:
+
+- Role placeholders: `Guest`, `Customer`, `Worker`, `Support`, `Manager`, `Admin`
+- Tier placeholders: `FREE`, `PROFESSIONAL`, `ENTERPRISE`
+- Status placeholders:
+  - Request stages mapped to `ServiceRequests.Status` (`New`, `Assigned`, `InProgress`, `OnHold`, `Completed`, `Cancelled`)
+  - Assignment states mapped to `Jobs.AssignmentStatus` (`Unassigned`, `PendingAcceptance`, `Accepted`, `Rejected`, `Completed`, `Cancelled`)
+
+Implementation characteristics:
+
+- Deterministic GUIDs for stable reference rows.
+- Dedicated reference tenant (`REF-BASELINE`) for isolation.
+- Guarded inserts (`IF NOT EXISTS`) to prevent duplicate reference rows when rerun.
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.

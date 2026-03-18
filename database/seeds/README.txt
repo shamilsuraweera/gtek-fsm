@@ -33,6 +33,15 @@ Execution Flow
 - Prepare/apply seeds:
   - ./database/scripts/dev-db-seed.sh
 
+Phase 1.3.2 Baseline Seed Activation
+- `001_baseline_reference_data.sql` is now active for Phase 1 schema.
+- Seed categories covered:
+  - Role placeholders: `Guest`, `Customer`, `Worker`, `Support`, `Manager`, `Admin`
+  - Tier placeholders: `FREE`, `PROFESSIONAL`, `ENTERPRISE`
+  - Status placeholders mapped to enum-backed columns in `ServiceRequests` and `Jobs`
+- Reference rows are isolated under tenant code `REF-BASELINE`.
+- Deterministic GUIDs are used for stable reference identity.
+
 Future (0.7.3+)
 - Activate actual SQL execution hook in dev-db-seed.sh once schema exists.
 - Add seed manifest or version tracking table if needed.
