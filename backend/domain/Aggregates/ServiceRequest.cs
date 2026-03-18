@@ -1,3 +1,6 @@
+using GTEK.FSM.Backend.Domain.Enums;
+using GTEK.FSM.Backend.Domain.Policies;
+
 namespace GTEK.FSM.Backend.Domain.Aggregates;
 
 /// <summary>
@@ -14,6 +17,7 @@ public sealed class ServiceRequest
             ? customerUserId
             : throw new ArgumentException("Customer user id cannot be empty.", nameof(customerUserId));
         this.Title = !string.IsNullOrWhiteSpace(title) ? title.Trim() : throw new ArgumentException("Request title is required.", nameof(title));
+        this.Status = ServiceRequestStatus.New;
     }
 
     public Guid Id { get; }
@@ -23,6 +27,8 @@ public sealed class ServiceRequest
     public Guid CustomerUserId { get; }
 
     public string Title { get; private set; }
+
+    public ServiceRequestStatus Status { get; private set; }
 
     public Guid? ActiveJobId { get; private set; }
 
@@ -34,6 +40,16 @@ public sealed class ServiceRequest
     public void LinkJob(Guid jobId)
     {
         this.ActiveJobId = jobId != Guid.Empty ? jobId : throw new ArgumentException("Job id cannot be empty.", nameof(jobId));
+    }
+
+    public void TransitionTo(ServiceRequestStatus nextStatus)
+    {
+        if (!ServiceRequestStateTransitions.CanTransition(this.Status, nextStatus))
+        {
+            throw new InvalidOperationException($"Invalid request transition: {this.Status} -> {nextStatus}.");
+        }
+
+        this.Status = nextStatus;
     }
 
     public void UnlinkJob()

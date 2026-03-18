@@ -87,7 +87,36 @@ The following immutable value objects are defined in `backend/domain/ValueObject
 - `SchedulingWindow`
   - Encapsulates UTC start/end timestamps and overlap logic for scheduling checks.
 
+## Lifecycle Enums and State Transitions (Phase 1.1.3)
+
+Lifecycle enums are defined in `backend/domain/Enums`:
+
+- `ServiceRequestStatus`
+  - `New`, `Assigned`, `InProgress`, `OnHold`, `Completed`, `Cancelled`
+- `AssignmentStatus`
+  - `Unassigned`, `PendingAcceptance`, `Accepted`, `Rejected`, `Completed`, `Cancelled`
+- `WorkerAvailabilityStatus`
+  - `Offline`, `Available`, `Busy`, `OnBreak`, `Unavailable`
+
+Transition policies are defined in `backend/domain/Policies`:
+
+- `ServiceRequestStateTransitions`
+  - Enforces allowed request lifecycle moves.
+- `AssignmentStateTransitions`
+  - Enforces allowed assignment lifecycle moves.
+- `WorkerAvailabilityTransitions`
+  - Enforces allowed worker availability moves.
+
+Aggregate integration:
+
+- `ServiceRequest`
+  - Starts as `New`.
+  - Uses `TransitionTo(ServiceRequestStatus)` with policy validation.
+- `Job`
+  - Starts as `Unassigned`.
+  - Uses guarded transitions through assignment methods (`AssignWorker`, `MarkAccepted`, `MarkRejected`, `MarkCompleted`, `MarkCancelled`).
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.
-- Lifecycle enums and domain events are introduced in 1.1.3 and 1.1.5.
+- Domain events are introduced in 1.1.5.
