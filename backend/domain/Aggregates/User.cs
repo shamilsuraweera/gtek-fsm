@@ -1,3 +1,5 @@
+using GTEK.FSM.Backend.Domain.Rules;
+
 namespace GTEK.FSM.Backend.Domain.Aggregates;
 
 /// <summary>
@@ -8,14 +10,10 @@ public sealed class User
 {
     public User(Guid id, Guid tenantId, string externalIdentity, string displayName)
     {
-        this.Id = id != Guid.Empty ? id : throw new ArgumentException("User id cannot be empty.", nameof(id));
-        this.TenantId = tenantId != Guid.Empty ? tenantId : throw new ArgumentException("User must belong to a tenant.", nameof(tenantId));
-        this.ExternalIdentity = !string.IsNullOrWhiteSpace(externalIdentity)
-            ? externalIdentity.Trim()
-            : throw new ArgumentException("External identity is required.", nameof(externalIdentity));
-        this.DisplayName = !string.IsNullOrWhiteSpace(displayName)
-            ? displayName.Trim()
-            : throw new ArgumentException("Display name is required.", nameof(displayName));
+        this.Id = DomainGuards.RequiredId(id, nameof(id), "User id cannot be empty.");
+        this.TenantId = DomainGuards.RequiredId(tenantId, nameof(tenantId), "User must belong to a tenant.");
+        this.ExternalIdentity = DomainGuards.RequiredText(externalIdentity, nameof(externalIdentity), "External identity is required.", 128);
+        this.DisplayName = DomainGuards.RequiredText(displayName, nameof(displayName), "Display name is required.", 120);
     }
 
     public Guid Id { get; }
@@ -28,8 +26,6 @@ public sealed class User
 
     public void Rename(string displayName)
     {
-        this.DisplayName = !string.IsNullOrWhiteSpace(displayName)
-            ? displayName.Trim()
-            : throw new ArgumentException("Display name is required.", nameof(displayName));
+        this.DisplayName = DomainGuards.RequiredText(displayName, nameof(displayName), "Display name is required.", 120);
     }
 }

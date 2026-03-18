@@ -116,7 +116,67 @@ Aggregate integration:
   - Starts as `Unassigned`.
   - Uses guarded transitions through assignment methods (`AssignWorker`, `MarkAccepted`, `MarkRejected`, `MarkCompleted`, `MarkCancelled`).
 
+## Domain Rules and Invariants (Phase 1.1.4)
+
+Explicit guard clauses are enforced directly in aggregate behavior methods (no infrastructure dependencies):
+
+- Shared guard helpers:
+  - `backend/domain/Rules/DomainGuards.cs`
+  - Centralizes required id/text and max-length validations.
+
+- `Tenant` invariants:
+  - `Code` and `Name` are required and length-constrained.
+  - Active subscription id must be non-empty when attached.
+
+- `User` invariants:
+  - `TenantId` is mandatory and immutable after creation.
+  - `ExternalIdentity` and `DisplayName` are required and length-constrained.
+
+- `ServiceRequest` invariants:
+  - `Title` is required/length-constrained and cannot be renamed in terminal states.
+  - Job linking is only allowed in `Assigned` state and only when no active job exists.
+  - Request cannot transition to `Completed` without an active linked job.
+  - Job cannot be unlinked while request is `InProgress`.
+
+- `Job` invariants:
+  - Worker assignment requires non-empty worker id and no pre-existing assignment.
+  - Assignment status transitions requiring worker context enforce assigned-worker presence.
+  - Unassign is blocked when already unassigned, accepted, or completed.
+
+- `Subscription` invariants:
+  - Plan code is required and length-constrained.
+  - End date must be after start date.
+  - End can only happen once.
+  - Plan cannot change after subscription has ended.
+
+## Minimal Domain Event Contract (Phase 1.1.5)
+
+Domain event primitives are defined in `backend/domain/Events`:
+
+- `IDomainEvent`
+  - Minimal contract: `OccurredOnUtc`, `EventName`.
+- `DomainEvent`
+  - Base record for immutable event payloads.
+
+Initial event types:
+
+- `ServiceRequestStatusChangedDomainEvent`
+- `JobAssignmentStatusChangedDomainEvent`
+- `TenantSubscriptionChangedDomainEvent`
+- `SubscriptionPlanChangedDomainEvent`
+
+Aggregate capture pattern:
+
+- Each aggregate maintains in-memory `DomainEvents` collection.
+- Key state-changing methods append domain events.
+- `ClearDomainEvents()` exists for application/infrastructure dispatch pipelines.
+
+Scope boundary:
+
+- Events are capture-only in Phase 1.
+- No transport, broker, SignalR, or async delivery is enabled here.
+
 ## Notes
 
 - This is the minimal phase-1 aggregate shape for schema and persistence work.
-- Domain events are introduced in 1.1.5.
+- Event publishing/integration is deferred to later phases.

@@ -1,3 +1,6 @@
+using GTEK.FSM.Backend.Domain.Events;
+using GTEK.FSM.Backend.Domain.Rules;
+
 namespace GTEK.FSM.Backend.Domain.Aggregates;
 
 /// <summary>
@@ -6,11 +9,13 @@ namespace GTEK.FSM.Backend.Domain.Aggregates;
 /// </summary>
 public sealed class Tenant
 {
+    private readonly List<IDomainEvent> domainEvents = new();
+
     public Tenant(Guid id, string code, string name, Guid? activeSubscriptionId = null)
     {
-        this.Id = id != Guid.Empty ? id : throw new ArgumentException("Tenant id cannot be empty.", nameof(id));
-        this.Code = !string.IsNullOrWhiteSpace(code) ? code.Trim() : throw new ArgumentException("Tenant code is required.", nameof(code));
-        this.Name = !string.IsNullOrWhiteSpace(name) ? name.Trim() : throw new ArgumentException("Tenant name is required.", nameof(name));
+        this.Id = DomainGuards.RequiredId(id, nameof(id), "Tenant id cannot be empty.");
+        this.Code = DomainGuards.RequiredText(code, nameof(code), "Tenant code is required.", 32);
+        this.Name = DomainGuards.RequiredText(name, nameof(name), "Tenant name is required.", 120);
         this.ActiveSubscriptionId = activeSubscriptionId;
     }
 
@@ -22,20 +27,34 @@ public sealed class Tenant
 
     public Guid? ActiveSubscriptionId { get; private set; }
 
+    public IReadOnlyCollection<IDomainEvent> DomainEvents => this.domainEvents;
+
     public void Rename(string newName)
     {
-        this.Name = !string.IsNullOrWhiteSpace(newName) ? newName.Trim() : throw new ArgumentException("Tenant name is required.", nameof(newName));
+        this.Name = DomainGuards.RequiredText(newName, nameof(newName), "Tenant name is required.", 120);
     }
 
     public void AttachSubscription(Guid subscriptionId)
     {
-        this.ActiveSubscriptionId = subscriptionId != Guid.Empty
-            ? subscriptionId
-            : throw new ArgumentException("Subscription id cannot be empty.", nameof(subscriptionId));
+        var previous = this.ActiveSubscriptionId;
+        this.ActiveSubscriptionId = DomainGuards.RequiredId(subscriptionId, nameof(subscriptionId), "Subscription id cannot be empty.");
+        this.AddDomainEvent(new TenantSubscriptionChangedDomainEvent(this.Id, previous, this.ActiveSubscriptionId));
     }
 
     public void DetachSubscription()
     {
+        var previous = this.ActiveSubscriptionId;
         this.ActiveSubscriptionId = null;
+        this.AddDomainEvent(new TenantSubscriptionChangedDomainEvent(this.Id, previous, this.ActiveSubscriptionId));
+    }
+
+    public void ClearDomainEvents()
+    {
+        this.domainEvents.Clear();
+    }
+
+    private void AddDomainEvent(IDomainEvent domainEvent)
+    {
+        this.domainEvents.Add(domainEvent);
     }
 }
