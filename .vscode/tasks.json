@@ -1,0 +1,163 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build: Solution (restore + build)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": ["build", "GTEK.FSM.slnx", "-c", "Debug"],
+			"problemMatcher": "$msCompile",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared",
+				"showReuseMessage": false
+			}
+		},
+		{
+			"label": "Build: API Only",
+			"type": "shell",
+			"command": "dotnet",
+			"args": ["build", "backend/api/GTEK.FSM.Backend.Api.csproj", "-c", "Debug"],
+			"problemMatcher": "$msCompile",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Build: Web Portal",
+			"type": "shell",
+			"command": "dotnet",
+			"args": ["build", "web-portal/GTEK.FSM.WebPortal.csproj", "-c", "Debug"],
+			"problemMatcher": "$msCompile",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Build: Mobile App (Android)",
+			"type": "shell",
+			"command": "dotnet",
+			"args": ["build", "mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj", "-f", "net10.0-android", "-c", "Debug"],
+			"problemMatcher": "$msCompile",
+			"group": "build",
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Run: API (Standalone - SQL Server in Docker)",
+			"type": "shell",
+			"command": "./deploy/scripts/run-api-standalone.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			},
+			"problemMatcher": "$msCompile"
+		},
+		{
+			"label": "Run: API + SQL Server (Docker Compose)",
+			"type": "shell",
+			"command": "./deploy/scripts/dev-up.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "Run: Web Portal (Watch + Dev Server)",
+			"type": "shell",
+			"command": "./deploy/scripts/run-web-portal.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "Run: Mobile App (Android - Debug)",
+			"type": "shell",
+			"command": "./deploy/scripts/run-mobile-app.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "Run: All (API + Portal + Mobile)",
+			"type": "shell",
+			"command": "./deploy/scripts/start-all.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "new",
+				"focus": true
+			}
+		},
+		{
+			"label": "Stop: All Services",
+			"type": "shell",
+			"command": "./deploy/scripts/dev-down.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "new"
+			}
+		},
+		{
+			"label": "Database: Init (Apply Migrations)",
+			"type": "shell",
+			"command": "./database/scripts/dev-db-init.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Database: Reset (Drop + Recreate)",
+			"type": "shell",
+			"command": "./database/scripts/dev-db-reset.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Database: Seed",
+			"type": "shell",
+			"command": "./database/scripts/dev-db-seed.sh",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "always",
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Clean: Build Artifacts",
+			"type": "shell",
+			"command": "find . -type d -name 'bin' -o -name 'obj' | xargs rm -rf",
+			"isBackground": false,
+			"presentation": {
+				"reveal": "silent",
+				"panel": "shared"
+			}
+		}
+	]
+}

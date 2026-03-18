@@ -1,0 +1,50 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": ".NET Core: API (Attach)",
+			"type": "coreclr",
+			"request": "attach",
+			"preLaunchTask": "Build: API Only",
+			"processId": "${command:pickProcess}",
+			"justMyCode": true
+		},
+		{
+			"name": ".NET Core: API (Launch - localhost:5000)",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "Build: API Only",
+			"program": "${workspaceFolder}/backend/api/bin/Debug/net10.0/GTEK.FSM.Backend.Api.dll",
+			"args": [],
+			"cwd": "${workspaceFolder}/backend/api",
+			"stopAtEntry": false,
+			"serverReadyAction": {
+				"pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+				"uriFormat": "{0}",
+				"action": "openExternally"
+			},
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development",
+				"ASPNETCORE_URLS": "http://localhost:5000"
+			}
+		},
+		{
+			"name": ".NET Core: Web Portal",
+			"type": "coreclr",
+			"request": "launch",
+			"preLaunchTask": "Build: Web Portal",
+			"program": "${workspaceFolder}/web-portal/bin/Debug/net10.0/GTEK.FSM.WebPortal.dll",
+			"args": [],
+			"cwd": "${workspaceFolder}/web-portal",
+			"stopAtEntry": false,
+			"serverReadyAction": {
+				"pattern": "\\bNow listening on:\\s+(https?://\\S+)",
+				"uriFormat": "{0}",
+				"action": "openExternally"
+			},
+			"env": {
+				"ASPNETCORE_ENVIRONMENT": "Development"
+			}
+		}
+	]
+}
