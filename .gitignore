@@ -5,6 +5,7 @@
 
 # dotenv files
 .env
+backend/api/.env.auth.local
 
 # User-specific files
 *.rsuser

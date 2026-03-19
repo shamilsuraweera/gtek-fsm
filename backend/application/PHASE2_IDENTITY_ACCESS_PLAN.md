@@ -179,3 +179,139 @@ Explicitly documented non-goals:
 - No externalized enterprise IAM policy orchestration rollout.
 - No tenant entitlement automation beyond the baseline role-permission matrix.
 - No broad identity lifecycle automation (self-service provisioning/account linking).
+
+### 2.2.1 - JWT Bearer Authentication Foundation
+
+Implemented artifacts:
+
+- `backend/api/Authentication/JwtAuthenticationOptions.cs`
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+- `backend/api/Program.cs`
+- `backend/api/appsettings.json`
+- `backend/api/appsettings.Development.json`
+- `backend/api/appsettings.Local.json`
+- `backend/api/appsettings.Production.json`
+- `backend/api/appsettings.Local.example.json`
+- `backend/api/appsettings.Production.example.json`
+
+Configuration model:
+
+- `Authentication:Jwt:Issuer`
+- `Authentication:Jwt:Audience`
+- `Authentication:Jwt:SigningKey`
+
+Strict validation defaults:
+
+- `ValidateIssuer = true`
+- `ValidateAudience = true`
+- `ValidateIssuerSigningKey = true`
+- `RequireSignedTokens = true`
+- `ValidateLifetime = true`
+- `RequireExpirationTime = true`
+- `ClockSkew = TimeSpan.Zero`
+
+Environment-aware behavior:
+
+- JWT settings are loaded through environment-specific appsettings plus environment variable overrides.
+- HTTPS metadata is required outside `Development` and `Local` environments.
+- Startup fails fast when issuer, audience, or signing key is missing/invalid.
+
+### 2.2.2 - Authenticated User Context Abstraction and Infrastructure Adapter
+
+Implemented artifacts:
+
+- `backend/infrastructure/Identity/HttpContextAuthenticatedPrincipalAccessor.cs`
+- `backend/infrastructure/DependencyInjection.cs`
+- `backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj`
+- `backend/infrastructure.tests/Identity/HttpContextAuthenticatedPrincipalAccessorTests.cs`
+
+Adapter behavior:
+
+- Infrastructure provides `IAuthenticatedPrincipalAccessor` implementation backed by `IHttpContextAccessor`.
+- Adapter reads request claims and validates required identity claims using `TokenClaimsValidator`.
+- On valid authenticated context, adapter returns `AuthenticatedPrincipal` (`UserId`, `TenantId`, role membership).
+- On unauthenticated or invalid/missing claim state, adapter returns `null` to keep use-case handling explicit.
+
+Dependency injection:
+
+- Registers `IHttpContextAccessor` and scoped `IAuthenticatedPrincipalAccessor` in Infrastructure composition.
+
+### 2.2.3 - Tenant Resolution Order and Explicit Reject Behavior
+
+Implemented artifacts:
+
+- `backend/application/Identity/TenantResolutionPolicy.cs`
+- `backend/application/Identity/TenantContextConstants.cs`
+- `backend/application/Identity/ITenantContextAccessor.cs`
+- `backend/api/Tenancy/TenantResolutionOptions.cs`
+- `backend/api/Middleware/TenantResolutionMiddleware.cs`
+- `backend/api/Middleware/MiddlewareExtensions.cs`
+- `backend/api/Program.cs`
+- `backend/infrastructure/Identity/HttpContextTenantContextAccessor.cs`
+- `backend/infrastructure/DependencyInjection.cs`
+- `backend/infrastructure.tests/Identity/TenantResolutionPolicyTests.cs`
+- `backend/infrastructure.tests/Identity/HttpContextTenantContextAccessorTests.cs`
+- `backend/api/appsettings.json`
+- `backend/api/appsettings.Development.json`
+- `backend/api/appsettings.Local.json`
+- `backend/api/appsettings.Production.json`
+- `backend/api/appsettings.Local.example.json`
+- `backend/api/appsettings.Production.example.json`
+
+Resolution behavior:
+
+- Middleware resolves tenant from authenticated request context in strict order:
+  1) `tenant_id` claim
+  2) configured header fallback (`X-Tenant-Id`) only for configured privileged roles (`Admin` by default)
+- Middleware explicitly rejects unresolved/invalid tenant context with deterministic API responses:
+  - malformed claim -> `401 MALFORMED_TENANT_CLAIM`
+  - unresolved tenant context -> `401 TENANT_CONTEXT_UNRESOLVED`
+  - unauthorized header fallback -> `403 TENANT_HEADER_FALLBACK_NOT_ALLOWED`
+  - malformed header value -> `400 MALFORMED_TENANT_HEADER`
+- On success, resolved tenant id is stored in `HttpContext.Items[ResolvedTenantId]` and exposed via `ITenantContextAccessor`.
+
+### 2.2.4 - Auth Pipeline Bootstrap Endpoints
+
+Implemented artifact:
+
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+
+Bootstrap routes (under `/api/v1/auth/bootstrap`):
+
+- `GET /authenticated`
+  - Returns `200` with principal snapshot (`UserId`, `TenantId`, `ResolvedTenantId`, `Roles`, `Scopes`) when authenticated context is valid.
+  - Returns `401 AUTH_UNAUTHORIZED` envelope when authentication context is missing/invalid.
+- `GET /forbidden`
+  - Returns `200` for admin role.
+  - Returns `403 AUTH_FORBIDDEN` envelope for authenticated principals without admin role.
+  - Returns `401 AUTH_UNAUTHORIZED` envelope for unauthenticated requests.
+- `GET /unauthorized`
+  - Deterministic `401 AUTH_UNAUTHORIZED` envelope for client and integration-path verification.
+
+Response standardization:
+
+- All probe endpoints return `ApiResponse<object>` envelopes with `TraceId` for request correlation.
+
+### 2.2.5 - Local/Dev Token Validation Templates and Scripts
+
+Implemented artifacts:
+
+- `backend/api/.env.auth.example`
+- `backend/api/scripts/dev-auth-token.sh`
+- `backend/api/scripts/dev-auth-bootstrap-check.sh`
+- `backend/api/appsettings.Local.example.json`
+- `backend/api/appsettings.Docker.example.json`
+- `.gitignore`
+- `README.md`
+
+Local/dev validation workflow:
+
+- Copy `backend/api/.env.auth.example` to `backend/api/.env.auth.local` (gitignored).
+- Set `Authentication__Jwt__Issuer`, `Authentication__Jwt__Audience`, and `Authentication__Jwt__SigningKey` in the local env file.
+- Generate local JWTs with configurable role/user/tenant claims via `dev-auth-token.sh`.
+- Run `dev-auth-bootstrap-check.sh` to verify expected `401`/`403`/`200` behavior against `/api/v1/auth/bootstrap/*` endpoints.
+
+Secret-safety guardrails:
+
+- Repository templates use explicit `CHANGE_ME` placeholders for signing key secrets.
+- Token script refuses to run with placeholder keys and enforces minimum key length.

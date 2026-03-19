@@ -41,3 +41,17 @@ Naming conventions are defined in `config/naming-conventions.json`.
 ## Roadmap
 
 See `roadmap.txt` for the phase-by-phase plan.
+
+## Local Auth Token Validation (Phase 2)
+
+- Copy `backend/api/.env.auth.example` to `backend/api/.env.auth.local` and set local values.
+- Start API with matching JWT env values (or local appsettings overrides).
+- Generate a token for local/dev checks:
+	- `./backend/api/scripts/dev-auth-token.sh`
+- Run bootstrap auth probe checks (`401`, `403`, `200` paths):
+	- `./backend/api/scripts/dev-auth-bootstrap-check.sh`
+
+Notes:
+
+- `backend/api/.env.auth.local` is gitignored.
+- Do not commit real signing keys to repository-tracked files.

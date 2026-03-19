@@ -1,3 +1,6 @@
+using System.Security.Claims;
+
+using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Shared.Contracts.Results;
 
 namespace GTEK.FSM.Backend.Api.Routing;
@@ -20,7 +23,75 @@ public static class V1RouteGroupExtensions
             throw new InvalidOperationException("Error test endpoint triggered.");
         });
 
+        // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
+        v1.MapGet("/auth/bootstrap/authenticated", (
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var payload = new
+            {
+                principal.UserId,
+                principal.TenantId,
+                ResolvedTenantId = tenantContextAccessor.GetCurrentTenantId(),
+                Roles = principal.Roles.OrderBy(x => x).ToArray(),
+                Scopes = principal.Scopes.OrderBy(x => x).ToArray(),
+            };
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: payload,
+                message: "Authenticated context is valid.",
+                traceId: context.TraceIdentifier));
+        });
+
+        v1.MapGet("/auth/bootstrap/forbidden", (HttpContext context) =>
+        {
+            if (context.User?.Identity?.IsAuthenticated != true)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            if (!HasAdminRole(context.User))
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "AUTH_FORBIDDEN", "Admin role is required.");
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: new { status = "allowed" },
+                message: "Admin authorization granted.",
+                traceId: context.TraceIdentifier));
+        });
+
+        v1.MapGet("/auth/bootstrap/unauthorized", (HttpContext context) =>
+            BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required."));
+
         // Operational endpoints (for example /health) remain outside versioned groups.
         return app;
+    }
+
+    private static IResult BuildFailure(HttpContext context, int statusCode, string errorCode, string message)
+    {
+        var payload = ApiResponse<object>.Fail(message: message, errorCode: errorCode, traceId: context.TraceIdentifier);
+        return Results.Json(payload, statusCode: statusCode);
+    }
+
+    private static bool HasAdminRole(ClaimsPrincipal principal)
+    {
+        if (principal.IsInRole("Admin"))
+        {
+            return true;
+        }
+
+        var roles = principal.Claims
+            .Where(x => x.Type is ClaimTypes.Role or TokenClaimNames.Role or TokenClaimNames.Roles)
+            .SelectMany(x => x.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
+
+        return roles.Contains("Admin", StringComparer.OrdinalIgnoreCase);
     }
 }
