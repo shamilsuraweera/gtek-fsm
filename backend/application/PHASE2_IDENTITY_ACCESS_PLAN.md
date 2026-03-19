@@ -315,3 +315,137 @@ Secret-safety guardrails:
 
 - Repository templates use explicit `CHANGE_ME` placeholders for signing key secrets.
 - Token script refuses to run with placeholder keys and enforces minimum key length.
+
+### 2.3.1 - Policy Names and Authorization Handlers for Role-Scoped Operations
+
+Implemented artifacts:
+
+- `backend/application/Identity/AuthorizationPolicyCatalog.cs`
+- `backend/application/Identity/RolePermissionAuthorizer.cs`
+- `backend/api/Authorization/PermissionRequirement.cs`
+- `backend/api/Authorization/PermissionAuthorizationHandler.cs`
+- `backend/api/Authorization/AuthorizationServiceCollectionExtensions.cs`
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+- `backend/infrastructure.tests/Identity/AuthorizationPolicyCatalogTests.cs`
+- `backend/infrastructure.tests/Identity/RolePermissionAuthorizerTests.cs`
+
+Policy baseline for role-scoped flows:
+
+- `policy.customer.flow` -> `service_requests.write`
+- `policy.worker.flow` -> `jobs.write`
+- `policy.support.flow` -> `service_requests.write`
+- `policy.management.flow` -> `users.write`
+- `policy.admin.flow` -> `tenants.write`
+- `policy.system.ping` -> `system.ping`
+
+Handler strategy:
+
+- Custom `PermissionRequirement` carries required permission.
+- `PermissionAuthorizationHandler` extracts role claims (`ClaimTypes.Role`, `role`, `roles`) and checks permission via `RolePermissionAuthorizer` + `RolePermissionMatrix`.
+- Policy registration is centralized through `AddApiAuthorizationPolicies()` and requires authenticated users by default.
+
+### 2.3.2 - Tenant Ownership Checks in Application Use-Case Boundaries
+
+Implemented artifacts:
+
+- `backend/application/Identity/ITenantOwnershipGuard.cs`
+- `backend/application/Identity/TenantOwnershipGuard.cs`
+- `backend/application/Identity/TenantOwnershipGuardResult.cs`
+- `backend/application/DependencyInjection.cs`
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+- `backend/infrastructure.tests/Identity/TenantOwnershipGuardTests.cs`
+
+Boundary enforcement behavior:
+
+- `ITenantOwnershipGuard` is registered in Application DI and acts as the canonical boundary check for tenant-scoped operations.
+- Guard enforces that requested tenant id must match:
+  - authenticated principal tenant (`AuthenticatedPrincipal.TenantId`), and
+  - resolved request tenant context (`ITenantContextAccessor`).
+- Reject mapping is explicit and deterministic:
+  - unauthenticated context -> `401 AUTH_UNAUTHORIZED`
+  - unresolved tenant context -> `401 TENANT_CONTEXT_UNRESOLVED`
+  - principal/request tenant mismatch -> `403 TENANT_OWNERSHIP_MISMATCH`
+  - resolved/request tenant mismatch -> `403 TENANT_CONTEXT_MISMATCH`
+
+Tenant-scoped read/write boundary probes:
+
+- `GET /api/v1/tenant/{tenantId}/ownership-check/read`
+- `POST /api/v1/tenant/{tenantId}/ownership-check/write`
+
+Both probe routes call `ITenantOwnershipGuard` before proceeding and return standardized API envelopes.
+
+### 2.3.3 - Privileged Management Guardrails for Cross-Tenant Operations with Audit Hooks
+
+Implemented artifacts:
+
+- `backend/application/Identity/AuthorizationDecisionAuditEvent.cs`
+- `backend/application/Identity/IAuthorizationDecisionAuditSink.cs`
+- `backend/application/Identity/PrivilegedTenantOperationContracts.cs`
+- `backend/application/Identity/IPrivilegedTenantOperationGuard.cs`
+- `backend/application/Identity/PrivilegedTenantOperationGuard.cs`
+- `backend/application/DependencyInjection.cs`
+- `backend/infrastructure/Identity/AuthorizationDecisionAuditLogger.cs`
+- `backend/infrastructure/DependencyInjection.cs`
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+- `backend/infrastructure.tests/Identity/PrivilegedTenantOperationGuardTests.cs`
+
+Guardrail behavior:
+
+- Explicit cross-tenant management requests are evaluated by `IPrivilegedTenantOperationGuard`.
+- Cross-tenant operations require privileged tenant-write capability (`tenants.write`, mapped to Admin baseline role).
+- Rejections are explicit (`401`/`403` with deterministic error codes) and all allow/deny decisions emit audit events.
+
+Mandatory audit hook implementation:
+
+- Application defines `IAuthorizationDecisionAuditSink` contract.
+- Infrastructure provides `AuthorizationDecisionAuditLogger` with structured fields:
+  - `Action`, `Outcome`, `Reason`, `UserId`, `SourceTenantId`, `TargetTenantId`, `OccurredAtUtc`.
+
+Cross-tenant guarded probe:
+
+- `POST /api/v1/management/cross-tenant/{tenantId}/guarded-probe`
+- Route invokes `IPrivilegedTenantOperationGuard` before operation success response.
+
+### 2.3.4 - Endpoint-Level Policy Integration and Centralized Registration
+
+Implemented artifacts:
+
+- `backend/api/Program.cs`
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+
+Composition root registration:
+
+- `AddApiAuthorizationPolicies()` is invoked in `Program.cs` as centralized policy registration in the API composition root.
+- `AddApiAuthentication()` now focuses on authentication setup only (JWT bearer).
+
+Endpoint-level policy enforcement:
+
+- `/api/v1/auth/bootstrap/authenticated` -> `policy.system.ping`
+- `/api/v1/auth/bootstrap/forbidden` -> `policy.admin.flow`
+- `/api/v1/tenant/{tenantId}/ownership-check/read` -> `policy.customer.flow`
+- `/api/v1/tenant/{tenantId}/ownership-check/write` -> `policy.worker.flow`
+- `/api/v1/management/cross-tenant/{tenantId}/guarded-probe` -> `policy.management.flow`
+
+This ensures route-level policy enforcement is explicit and consistent with the centralized policy catalog and permission handler pipeline.
+
+### 2.3.5 - Authorization Failure Mapping Standards and Payload Semantics
+
+Implemented artifact:
+
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+
+Failure mapping standard:
+
+- `401 AUTH_UNAUTHORIZED`
+  - Triggered by JWT challenge flow when authentication is missing/invalid.
+  - Message: `Authentication is required.`
+- `403 AUTH_FORBIDDEN`
+  - Triggered by JWT forbid flow when authenticated principal lacks required permissions/policy.
+  - Message: `You do not have permission to access this resource.`
+
+Payload semantics:
+
+- Both outcomes return standardized `ApiResponse<object>` envelope shape.
+- Response includes `TraceId` for correlation and consistent client-side error handling.
+- JWT event hooks (`OnChallenge`, `OnForbidden`) centrally enforce this behavior across policy-protected endpoints.

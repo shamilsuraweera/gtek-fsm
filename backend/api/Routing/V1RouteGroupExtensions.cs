@@ -1,5 +1,3 @@
-using System.Security.Claims;
-
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Shared.Contracts.Results;
 
@@ -48,28 +46,92 @@ public static class V1RouteGroupExtensions
                 data: payload,
                 message: "Authenticated context is valid.",
                 traceId: context.TraceIdentifier));
-        });
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
 
         v1.MapGet("/auth/bootstrap/forbidden", (HttpContext context) =>
         {
-            if (context.User?.Identity?.IsAuthenticated != true)
-            {
-                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
-            }
-
-            if (!HasAdminRole(context.User))
-            {
-                return BuildFailure(context, StatusCodes.Status403Forbidden, "AUTH_FORBIDDEN", "Admin role is required.");
-            }
-
             return Results.Ok(ApiResponse<object>.Ok(
                 data: new { status = "allowed" },
                 message: "Admin authorization granted.",
                 traceId: context.TraceIdentifier));
-        });
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.AdminFlow);
 
         v1.MapGet("/auth/bootstrap/unauthorized", (HttpContext context) =>
             BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required."));
+
+        v1.MapGet("/tenant/{tenantId:guid}/ownership-check/read", (
+            Guid tenantId,
+            HttpContext context,
+            ITenantOwnershipGuard tenantOwnershipGuard) =>
+        {
+            var ownership = tenantOwnershipGuard.EnsureTenantAccess(tenantId);
+            if (!ownership.IsAllowed)
+            {
+                return BuildFailure(
+                    context,
+                    ownership.StatusCode ?? StatusCodes.Status403Forbidden,
+                    ownership.ErrorCode ?? "TENANT_OWNERSHIP_MISMATCH",
+                    ownership.Message ?? "Tenant ownership validation failed.");
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: new { tenantId, operation = "read" },
+                message: "Tenant-scoped read boundary check passed.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.CustomerFlow);
+
+        v1.MapPost("/tenant/{tenantId:guid}/ownership-check/write", (
+            Guid tenantId,
+            HttpContext context,
+            ITenantOwnershipGuard tenantOwnershipGuard) =>
+        {
+            var ownership = tenantOwnershipGuard.EnsureTenantAccess(tenantId);
+            if (!ownership.IsAllowed)
+            {
+                return BuildFailure(
+                    context,
+                    ownership.StatusCode ?? StatusCodes.Status403Forbidden,
+                    ownership.ErrorCode ?? "TENANT_OWNERSHIP_MISMATCH",
+                    ownership.Message ?? "Tenant ownership validation failed.");
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: new { tenantId, operation = "write" },
+                message: "Tenant-scoped write boundary check passed.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.WorkerFlow);
+
+        v1.MapPost("/management/cross-tenant/{tenantId:guid}/guarded-probe", async (
+            Guid tenantId,
+            HttpContext context,
+            IPrivilegedTenantOperationGuard privilegedGuard,
+            CancellationToken cancellationToken) =>
+        {
+            var decision = await privilegedGuard.EvaluateAsync(
+                new PrivilegedTenantOperationRequest(
+                    TargetTenantId: tenantId,
+                    Action: "management.cross_tenant.guarded_probe"),
+                cancellationToken);
+
+            if (!decision.IsAllowed)
+            {
+                return BuildFailure(
+                    context,
+                    decision.StatusCode ?? StatusCodes.Status403Forbidden,
+                    decision.ErrorCode ?? "CROSS_TENANT_FORBIDDEN",
+                    decision.Message ?? "Cross-tenant management guard rejected operation.");
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: new { targetTenantId = tenantId, operation = "cross-tenant-managed-probe" },
+                message: "Privileged management guard passed.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
         // Operational endpoints (for example /health) remain outside versioned groups.
         return app;
@@ -81,17 +143,4 @@ public static class V1RouteGroupExtensions
         return Results.Json(payload, statusCode: statusCode);
     }
 
-    private static bool HasAdminRole(ClaimsPrincipal principal)
-    {
-        if (principal.IsInRole("Admin"))
-        {
-            return true;
-        }
-
-        var roles = principal.Claims
-            .Where(x => x.Type is ClaimTypes.Role or TokenClaimNames.Role or TokenClaimNames.Roles)
-            .SelectMany(x => x.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries));
-
-        return roles.Contains("Admin", StringComparer.OrdinalIgnoreCase);
-    }
 }

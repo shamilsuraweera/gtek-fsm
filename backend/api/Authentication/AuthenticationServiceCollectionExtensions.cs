@@ -1,4 +1,7 @@
 using System.Text;
+
+using GTEK.FSM.Shared.Contracts.Results;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -20,6 +23,47 @@ public static class AuthenticationServiceCollectionExtensions
                 options.SaveToken = false;
                 options.IncludeErrorDetails = environment.IsDevelopment() || environment.IsEnvironment("Local");
 
+                options.Events = new JwtBearerEvents
+                {
+                    OnChallenge = async context =>
+                    {
+                        // Prevent default plain-text challenge so clients receive standardized envelope payloads.
+                        context.HandleResponse();
+
+                        if (context.Response.HasStarted)
+                        {
+                            return;
+                        }
+
+                        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        context.Response.ContentType = "application/json";
+
+                        var response = ApiResponse<object>.Fail(
+                            message: "Authentication is required.",
+                            errorCode: "AUTH_UNAUTHORIZED",
+                            traceId: context.HttpContext.TraceIdentifier);
+
+                        await context.Response.WriteAsJsonAsync(response);
+                    },
+                    OnForbidden = async context =>
+                    {
+                        if (context.Response.HasStarted)
+                        {
+                            return;
+                        }
+
+                        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        context.Response.ContentType = "application/json";
+
+                        var response = ApiResponse<object>.Fail(
+                            message: "You do not have permission to access this resource.",
+                            errorCode: "AUTH_FORBIDDEN",
+                            traceId: context.HttpContext.TraceIdentifier);
+
+                        await context.Response.WriteAsJsonAsync(response);
+                    }
+                };
+
                 options.TokenValidationParameters = new TokenValidationParameters
                 {
                     ValidateIssuer = true,
@@ -34,8 +78,6 @@ public static class AuthenticationServiceCollectionExtensions
                     ClockSkew = TimeSpan.Zero,
                 };
             });
-
-        services.AddAuthorization();
 
         return services;
     }
