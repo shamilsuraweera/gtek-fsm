@@ -489,3 +489,25 @@ Assertion focus:
 
 - Claim tampering is denied before protected endpoint success paths.
 - Cross-tenant access is denied when requested tenant does not match authenticated tenant ownership.
+
+### 2.4.3 - Authenticated Query-Path Regression Tests for Tenant Filtering
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/AuthenticatedTenantQueryPathIntegrationTests.cs`
+
+Coverage summary:
+
+- In-memory integration host executes authenticated request pipeline (`UseAuthentication` + `UseTenantResolution` + `UseAuthorization`) and resolves principal context via `IAuthenticatedPrincipalAccessor`.
+- Test-only request endpoints query `IUserRepository` using authenticated principal tenant context to exercise real repository filtering logic under request execution.
+- `AuthenticatedListQuery_UsesPrincipalTenantAndBlocksCrossTenantLeakage`
+  - Seeds users in multiple tenants.
+  - Executes authenticated list query and verifies only principal tenant records are returned.
+- `AuthenticatedSpecificationQuery_RemainsTenantScopedUnderSearchFilter`
+  - Seeds same-display-name users across different tenants.
+  - Executes authenticated specification query with search text and verifies cross-tenant matches are excluded.
+
+Assertion focus:
+
+- Authenticated tenant context is correctly consumed in request handlers.
+- Repository query paths remain tenant-scoped even when query predicates match data in other tenants.
