@@ -215,3 +215,23 @@ Environment-aware behavior:
 - JWT settings are loaded through environment-specific appsettings plus environment variable overrides.
 - HTTPS metadata is required outside `Development` and `Local` environments.
 - Startup fails fast when issuer, audience, or signing key is missing/invalid.
+
+### 2.2.2 - Authenticated User Context Abstraction and Infrastructure Adapter
+
+Implemented artifacts:
+
+- `backend/infrastructure/Identity/HttpContextAuthenticatedPrincipalAccessor.cs`
+- `backend/infrastructure/DependencyInjection.cs`
+- `backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj`
+- `backend/infrastructure.tests/Identity/HttpContextAuthenticatedPrincipalAccessorTests.cs`
+
+Adapter behavior:
+
+- Infrastructure provides `IAuthenticatedPrincipalAccessor` implementation backed by `IHttpContextAccessor`.
+- Adapter reads request claims and validates required identity claims using `TokenClaimsValidator`.
+- On valid authenticated context, adapter returns `AuthenticatedPrincipal` (`UserId`, `TenantId`, role membership).
+- On unauthenticated or invalid/missing claim state, adapter returns `null` to keep use-case handling explicit.
+
+Dependency injection:
+
+- Registers `IHttpContextAccessor` and scoped `IAuthenticatedPrincipalAccessor` in Infrastructure composition.

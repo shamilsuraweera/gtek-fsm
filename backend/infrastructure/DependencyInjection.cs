@@ -1,7 +1,9 @@
 using GTEK.FSM.Backend.Infrastructure.Configuration;
+using GTEK.FSM.Backend.Infrastructure.Identity;
 using GTEK.FSM.Backend.Infrastructure.Persistence;
 using GTEK.FSM.Backend.Infrastructure.Persistence.Repositories;
 using GTEK.FSM.Backend.Infrastructure.Persistence.Transactions;
+using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Transactions;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<IJobRepository, JobRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddHttpContextAccessor();
+        services.AddScoped<IAuthenticatedPrincipalAccessor, HttpContextAuthenticatedPrincipalAccessor>();
 
         return services;
     }
