@@ -569,3 +569,37 @@ Behavior intent:
 - `IUnitOfWork.SaveChangesAsync()` defines persistence boundary.
 - `IUnitOfWork.BeginTransactionAsync()` defines transactional boundary for multi-entity operations that must commit atomically.
 
+## Data-Access Test Scaffolding and Discovery Wiring (Phase 1.4.5)
+
+Initial repository-level data-access test scaffolding is now in place for Infrastructure persistence verification.
+
+Test project:
+
+- `backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj`
+
+Project setup:
+
+- Targets `net10.0` and is marked as a test project.
+- References Application, Domain, and Infrastructure projects.
+- Uses `xUnit`, `Microsoft.NET.Test.Sdk`, and `coverlet.collector`.
+- Uses `Microsoft.EntityFrameworkCore.InMemory` for fast in-process repository verification.
+
+Initial test coverage added:
+
+- `Repositories/UserRepositoryTests.cs`
+  - Verifies tenant isolation plus baseline sort behavior through specification-based query path.
+- `Repositories/ServiceRequestRepositoryTests.cs`
+  - Verifies common filter path behavior (`TenantId`, `CustomerUserId`, `Status`) with paging and sorting.
+- `Transactions/EfUnitOfWorkTests.cs`
+  - Verifies staged repository updates are persisted through unit-of-work `SaveChangesAsync` boundary.
+
+Test utility:
+
+- `TestUtils/TestDbContextFactory.cs` creates isolated in-memory `GtekFsmDbContext` instances for deterministic test runs.
+
+Visibility and discovery wiring:
+
+- `backend/infrastructure/Properties/InternalsVisibleTo.cs` allows Infrastructure internals to be verified by the test assembly.
+- `GTEK.FSM.slnx` now includes `backend/infrastructure.tests` for solution-level build/test workflows.
+- Existing CI test discovery rules already match `*Tests.csproj`, so the new project is discovered automatically.
+
