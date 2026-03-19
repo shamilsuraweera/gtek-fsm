@@ -497,3 +497,40 @@ Read behavior notes:
 - Retrieval/list queries use `AsNoTracking()` by default for query efficiency in read paths.
 - Existing global soft-delete query filters in `GtekFsmDbContext` continue to apply to all repository queries.
 
+## Baseline Query Specifications (Phase 1.4.3)
+
+Baseline query specification contracts for paging, sorting, and common filter paths are now defined and wired into repository query execution.
+
+Specification location:
+
+- `backend/application/Persistence/Specifications/`
+
+Shared primitives:
+
+- `PageSpecification`
+  - Normalizes `PageNumber` and `PageSize`.
+  - Provides computed `Skip`/`Take` values.
+- `SortDirection`
+  - Supports `Ascending` and `Descending` query ordering.
+
+Aggregate query specifications:
+
+- `UserQuerySpecification`
+  - Filters: `TenantId`, `SearchText`, `ExternalIdentity`
+  - Sorting: `UserSortField` (`DisplayName`, `CreatedAtUtc`)
+- `ServiceRequestQuerySpecification`
+  - Filters: `TenantId`, `CustomerUserId`, `Status`, `SearchText`
+  - Sorting: `ServiceRequestSortField` (`CreatedAtUtc`, `Status`, `Title`)
+- `JobQuerySpecification`
+  - Filters: `TenantId`, `ServiceRequestId`, `AssignedWorkerUserId`, `AssignmentStatus`
+  - Sorting: `JobSortField` (`CreatedAtUtc`, `AssignmentStatus`)
+- `SubscriptionQuerySpecification`
+  - Filters: `TenantId`, `ActiveOnly`, `PlanCode`
+  - Sorting: `SubscriptionSortField` (`StartsOnUtc`, `EndsOnUtc`, `PlanCode`)
+
+Repository integration:
+
+- Added `QueryAsync(...)` methods on user, service request, job, and subscription repositories in Application contracts.
+- Implemented corresponding EF Core query execution in Infrastructure repositories.
+- Implementations apply tenant scoping first, then common filters, then deterministic sorting, then paging.
+

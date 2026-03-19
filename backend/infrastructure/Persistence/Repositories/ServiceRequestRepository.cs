@@ -1,4 +1,5 @@
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
+using GTEK.FSM.Backend.Application.Persistence.Specifications;
 using GTEK.FSM.Backend.Domain.Aggregates;
 using Microsoft.EntityFrameworkCore;
 
@@ -30,6 +31,51 @@ internal sealed class ServiceRequestRepository : EfRepository<ServiceRequest>, I
             .Where(x => x.CustomerUserId == customerUserId)
             .OrderByDescending(x => x.CreatedAtUtc)
             .ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<ServiceRequest>> QueryAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default)
+    {
+        var query = ApplyTenantFilter(this.Queryable().AsNoTracking(), specification.TenantId);
+
+        if (specification.CustomerUserId.HasValue)
+        {
+            query = query.Where(x => x.CustomerUserId == specification.CustomerUserId.Value);
+        }
+
+        if (specification.Status.HasValue)
+        {
+            query = query.Where(x => x.Status == specification.Status.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(specification.SearchText))
+        {
+            query = query.Where(x => x.Title.Contains(specification.SearchText));
+        }
+
+        query = ApplySorting(query, specification.SortBy, specification.SortDirection);
+
+        var page = specification.Page ?? new PageSpecification();
+
+        return await query
+            .Skip(page.Skip)
+            .Take(page.Take)
+            .ToListAsync(cancellationToken);
+    }
+
+    private static IQueryable<ServiceRequest> ApplySorting(
+        IQueryable<ServiceRequest> query,
+        ServiceRequestSortField sortBy,
+        SortDirection sortDirection)
+    {
+        return (sortBy, sortDirection) switch
+        {
+            (ServiceRequestSortField.Status, SortDirection.Ascending) => query.OrderBy(x => x.Status).ThenBy(x => x.Id),
+            (ServiceRequestSortField.Status, SortDirection.Descending) => query.OrderByDescending(x => x.Status).ThenByDescending(x => x.Id),
+            (ServiceRequestSortField.Title, SortDirection.Ascending) => query.OrderBy(x => x.Title).ThenBy(x => x.Id),
+            (ServiceRequestSortField.Title, SortDirection.Descending) => query.OrderByDescending(x => x.Title).ThenByDescending(x => x.Id),
+            (ServiceRequestSortField.CreatedAtUtc, SortDirection.Ascending) => query.OrderBy(x => x.CreatedAtUtc).ThenBy(x => x.Id),
+            _ => query.OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Id),
+        };
     }
 
     private static IQueryable<ServiceRequest> ApplyTenantFilter(IQueryable<ServiceRequest> query, Guid tenantId)
