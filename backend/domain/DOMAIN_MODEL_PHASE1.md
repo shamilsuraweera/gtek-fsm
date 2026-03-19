@@ -712,3 +712,44 @@ Outcome:
 
 - Phase 1 schema migration + baseline seed pipeline is rehearsal-validated end-to-end using the documented script workflow.
 
+## Phase 1 Completion Criteria and Phase 2 Handoff (Phase 1.5.5)
+
+This section defines the explicit completion gate for Phase 1 and the required prerequisites to begin Phase 2 implementation safely.
+
+Phase 1 completion criteria:
+
+- Domain model boundary is defined and documented for all Phase 1 aggregate roots (`Tenant`, `User`, `ServiceRequest`, `Job`, `Subscription`).
+- Value objects, lifecycle enums, and transition policies are implemented and validated by tests.
+- Domain invariants are implemented as guard clauses in aggregates and validated by focused invariant tests.
+- Initial EF Core schema migration is generated and validated from clean state.
+- Baseline seed data is present and idempotent.
+- Database operational scripts (`init`, `reset`, `seed`, `verify`, `refresh`) are implemented and documented.
+- Repository contracts and EF implementations exist with tenant-aware query filtering hooks.
+- Query specification primitives for paging, sorting, and common filters are implemented.
+- Unit-of-work and transaction boundaries are implemented and DI-registered.
+- Infrastructure data-access tests are scaffolded and discovered in solution-level test runs.
+- ERD and data dictionary are published (`database/PHASE1_ERD_DATA_DICTIONARY.md`).
+- Tenant-safety query path tests pass with no cross-tenant leakage in validated repository paths.
+- Final migration rehearsal from empty database to ready state passes using documented scripts only.
+
+Phase 2 handoff prerequisites (explicit):
+
+- Tenancy baseline confirmed:
+  - Tenant ownership is explicit on core aggregates and tenant-scoped repository paths are validated.
+- Identity integration boundaries confirmed:
+  - `User.ExternalIdentity` and `IdentityValue` are available for external identity provider mapping.
+- Authorization policy integration points confirmed:
+  - Cross-tenant and role-specific checks remain in policy/orchestration layer and are ready for Phase 2 access-control enforcement.
+- Database readiness confirmed:
+  - Migration and seed scripts are reliable and reproducible for local/dev provisioning.
+- Development workflow readiness confirmed:
+  - Test projects and CI discovery patterns already include domain and infrastructure verification paths.
+- Documentation baseline confirmed:
+  - Phase 1 domain/model/schema artifacts are current and provide a stable reference for Phase 2 implementation planning.
+
+Phase 2 entry decision:
+
+- Entry status: Ready.
+- Blocking issues: None identified at Phase 1 close.
+- Carry-forward note: Phase 2 should implement authentication and authorization end-to-end using existing tenant-safe repository patterns and identity value object contracts, without changing ownership boundaries established in Phase 1.
+
