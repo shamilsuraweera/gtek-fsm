@@ -405,3 +405,47 @@ Cross-tenant guarded probe:
 
 - `POST /api/v1/management/cross-tenant/{tenantId}/guarded-probe`
 - Route invokes `IPrivilegedTenantOperationGuard` before operation success response.
+
+### 2.3.4 - Endpoint-Level Policy Integration and Centralized Registration
+
+Implemented artifacts:
+
+- `backend/api/Program.cs`
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+
+Composition root registration:
+
+- `AddApiAuthorizationPolicies()` is invoked in `Program.cs` as centralized policy registration in the API composition root.
+- `AddApiAuthentication()` now focuses on authentication setup only (JWT bearer).
+
+Endpoint-level policy enforcement:
+
+- `/api/v1/auth/bootstrap/authenticated` -> `policy.system.ping`
+- `/api/v1/auth/bootstrap/forbidden` -> `policy.admin.flow`
+- `/api/v1/tenant/{tenantId}/ownership-check/read` -> `policy.customer.flow`
+- `/api/v1/tenant/{tenantId}/ownership-check/write` -> `policy.worker.flow`
+- `/api/v1/management/cross-tenant/{tenantId}/guarded-probe` -> `policy.management.flow`
+
+This ensures route-level policy enforcement is explicit and consistent with the centralized policy catalog and permission handler pipeline.
+
+### 2.3.5 - Authorization Failure Mapping Standards and Payload Semantics
+
+Implemented artifact:
+
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+
+Failure mapping standard:
+
+- `401 AUTH_UNAUTHORIZED`
+  - Triggered by JWT challenge flow when authentication is missing/invalid.
+  - Message: `Authentication is required.`
+- `403 AUTH_FORBIDDEN`
+  - Triggered by JWT forbid flow when authenticated principal lacks required permissions/policy.
+  - Message: `You do not have permission to access this resource.`
+
+Payload semantics:
+
+- Both outcomes return standardized `ApiResponse<object>` envelope shape.
+- Response includes `TraceId` for correlation and consistent client-side error handling.
+- JWT event hooks (`OnChallenge`, `OnForbidden`) centrally enforce this behavior across policy-protected endpoints.

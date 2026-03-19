@@ -1,5 +1,6 @@
 using GTEK.FSM.Backend.Application;
 using GTEK.FSM.Backend.Api.Authentication;
+using GTEK.FSM.Backend.Api.Authorization;
 using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Api.Tenancy;
@@ -24,6 +25,7 @@ builder.Configuration
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiAuthentication(builder.Configuration, builder.Environment);
+builder.Services.AddApiAuthorizationPolicies();
 builder.Services.Configure<TenantResolutionOptions>(builder.Configuration.GetSection(TenantResolutionOptions.SectionName));
 builder.Services
 	.AddHealthChecks()
