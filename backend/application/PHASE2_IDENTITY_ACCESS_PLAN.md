@@ -467,3 +467,25 @@ Assertion focus:
 
 - Tenant context is required for protected request paths.
 - Missing tenant context prevents request continuation and returns deterministic failure semantics.
+
+### 2.4.2 - Integration Tests for Claim Tampering and Tenant Mismatch Denial
+
+Implemented artifacts:
+
+- `backend/infrastructure.tests/Integration/AuthTenantIsolationIntegrationTests.cs`
+- `backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj` (`Microsoft.AspNetCore.TestHost` package)
+
+Coverage summary:
+
+- In-memory integration host (`UseTestServer`) executes full API middleware + authorization pipeline for tenant-isolation denial paths.
+- `TamperedTenantClaim_IsRejected_WithUnauthorizedResponse`
+  - Sends authenticated request with malformed `tenant_id` claim value.
+  - Asserts `401` and deterministic `MALFORMED_TENANT_CLAIM` response semantics.
+- `TenantMismatch_IsRejected_WithForbiddenResponse`
+  - Sends authenticated tenant-scoped request where route tenant differs from principal tenant.
+  - Asserts `403` and deterministic `TENANT_OWNERSHIP_MISMATCH` response semantics.
+
+Assertion focus:
+
+- Claim tampering is denied before protected endpoint success paths.
+- Cross-tenant access is denied when requested tenant does not match authenticated tenant ownership.
