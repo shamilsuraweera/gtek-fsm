@@ -43,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddHttpContextAccessor();
         services.AddScoped<IAuthenticatedPrincipalAccessor, HttpContextAuthenticatedPrincipalAccessor>();
+        services.AddScoped<ITenantContextAccessor, HttpContextTenantContextAccessor>();
 
         return services;
     }

@@ -235,3 +235,37 @@ Adapter behavior:
 Dependency injection:
 
 - Registers `IHttpContextAccessor` and scoped `IAuthenticatedPrincipalAccessor` in Infrastructure composition.
+
+### 2.2.3 - Tenant Resolution Order and Explicit Reject Behavior
+
+Implemented artifacts:
+
+- `backend/application/Identity/TenantResolutionPolicy.cs`
+- `backend/application/Identity/TenantContextConstants.cs`
+- `backend/application/Identity/ITenantContextAccessor.cs`
+- `backend/api/Tenancy/TenantResolutionOptions.cs`
+- `backend/api/Middleware/TenantResolutionMiddleware.cs`
+- `backend/api/Middleware/MiddlewareExtensions.cs`
+- `backend/api/Program.cs`
+- `backend/infrastructure/Identity/HttpContextTenantContextAccessor.cs`
+- `backend/infrastructure/DependencyInjection.cs`
+- `backend/infrastructure.tests/Identity/TenantResolutionPolicyTests.cs`
+- `backend/infrastructure.tests/Identity/HttpContextTenantContextAccessorTests.cs`
+- `backend/api/appsettings.json`
+- `backend/api/appsettings.Development.json`
+- `backend/api/appsettings.Local.json`
+- `backend/api/appsettings.Production.json`
+- `backend/api/appsettings.Local.example.json`
+- `backend/api/appsettings.Production.example.json`
+
+Resolution behavior:
+
+- Middleware resolves tenant from authenticated request context in strict order:
+  1) `tenant_id` claim
+  2) configured header fallback (`X-Tenant-Id`) only for configured privileged roles (`Admin` by default)
+- Middleware explicitly rejects unresolved/invalid tenant context with deterministic API responses:
+  - malformed claim -> `401 MALFORMED_TENANT_CLAIM`
+  - unresolved tenant context -> `401 TENANT_CONTEXT_UNRESOLVED`
+  - unauthorized header fallback -> `403 TENANT_HEADER_FALLBACK_NOT_ALLOWED`
+  - malformed header value -> `400 MALFORMED_TENANT_HEADER`
+- On success, resolved tenant id is stored in `HttpContext.Items[ResolvedTenantId]` and exposed via `ITenantContextAccessor`.

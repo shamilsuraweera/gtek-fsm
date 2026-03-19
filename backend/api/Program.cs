@@ -2,6 +2,7 @@ using GTEK.FSM.Backend.Application;
 using GTEK.FSM.Backend.Api.Authentication;
 using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
+using GTEK.FSM.Backend.Api.Tenancy;
 using GTEK.FSM.Backend.Infrastructure;
 using GTEK.FSM.Shared.Contracts.Results;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -23,6 +24,7 @@ builder.Configuration
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiAuthentication(builder.Configuration, builder.Environment);
+builder.Services.Configure<TenantResolutionOptions>(builder.Configuration.GetSection(TenantResolutionOptions.SectionName));
 builder.Services
 	.AddHealthChecks()
 	.AddCheck("self", () => HealthCheckResult.Healthy(), tags: new[] { "ready" });
@@ -32,6 +34,7 @@ var app = builder.Build();
 app.UseGlobalExceptionHandling();
 app.UseHttpsRedirection();
 app.UseAuthentication();
+app.UseTenantResolution();
 app.UseAuthorization();
 
 // Health endpoint for deployment validation.
