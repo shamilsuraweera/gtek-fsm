@@ -179,3 +179,39 @@ Explicitly documented non-goals:
 - No externalized enterprise IAM policy orchestration rollout.
 - No tenant entitlement automation beyond the baseline role-permission matrix.
 - No broad identity lifecycle automation (self-service provisioning/account linking).
+
+### 2.2.1 - JWT Bearer Authentication Foundation
+
+Implemented artifacts:
+
+- `backend/api/Authentication/JwtAuthenticationOptions.cs`
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+- `backend/api/Program.cs`
+- `backend/api/appsettings.json`
+- `backend/api/appsettings.Development.json`
+- `backend/api/appsettings.Local.json`
+- `backend/api/appsettings.Production.json`
+- `backend/api/appsettings.Local.example.json`
+- `backend/api/appsettings.Production.example.json`
+
+Configuration model:
+
+- `Authentication:Jwt:Issuer`
+- `Authentication:Jwt:Audience`
+- `Authentication:Jwt:SigningKey`
+
+Strict validation defaults:
+
+- `ValidateIssuer = true`
+- `ValidateAudience = true`
+- `ValidateIssuerSigningKey = true`
+- `RequireSignedTokens = true`
+- `ValidateLifetime = true`
+- `RequireExpirationTime = true`
+- `ClockSkew = TimeSpan.Zero`
+
+Environment-aware behavior:
+
+- JWT settings are loaded through environment-specific appsettings plus environment variable overrides.
+- HTTPS metadata is required outside `Development` and `Local` environments.
+- Startup fails fast when issuer, audience, or signing key is missing/invalid.
