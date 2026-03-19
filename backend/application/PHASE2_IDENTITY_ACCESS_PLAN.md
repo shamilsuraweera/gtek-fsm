@@ -269,3 +269,25 @@ Resolution behavior:
   - unauthorized header fallback -> `403 TENANT_HEADER_FALLBACK_NOT_ALLOWED`
   - malformed header value -> `400 MALFORMED_TENANT_HEADER`
 - On success, resolved tenant id is stored in `HttpContext.Items[ResolvedTenantId]` and exposed via `ITenantContextAccessor`.
+
+### 2.2.4 - Auth Pipeline Bootstrap Endpoints
+
+Implemented artifact:
+
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+
+Bootstrap routes (under `/api/v1/auth/bootstrap`):
+
+- `GET /authenticated`
+  - Returns `200` with principal snapshot (`UserId`, `TenantId`, `ResolvedTenantId`, `Roles`, `Scopes`) when authenticated context is valid.
+  - Returns `401 AUTH_UNAUTHORIZED` envelope when authentication context is missing/invalid.
+- `GET /forbidden`
+  - Returns `200` for admin role.
+  - Returns `403 AUTH_FORBIDDEN` envelope for authenticated principals without admin role.
+  - Returns `401 AUTH_UNAUTHORIZED` envelope for unauthenticated requests.
+- `GET /unauthorized`
+  - Deterministic `401 AUTH_UNAUTHORIZED` envelope for client and integration-path verification.
+
+Response standardization:
+
+- All probe endpoints return `ApiResponse<object>` envelopes with `TraceId` for request correlation.
