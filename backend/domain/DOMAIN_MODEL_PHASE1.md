@@ -176,7 +176,257 @@ Scope boundary:
 - Events are capture-only in Phase 1.
 - No transport, broker, SignalR, or async delivery is enabled here.
 
-## Notes
+## Relational Table Design (Phase 1.2.1)
 
-- This is the minimal phase-1 aggregate shape for schema and persistence work.
-- Event publishing/integration is deferred to later phases.
+Relational table design for Phase 1 aggregate roots is defined in:
+
+- `database/PHASE1_RELATIONAL_TABLE_DESIGN.md`
+
+That artifact specifies table columns, SQL types, nullability, and explicit tenant-safe foreign key relationships.
+
+## EF Core Entity Mapping (Phase 1.2.2)
+
+Infrastructure mappings are defined in:
+
+- `backend/infrastructure/Persistence/Configurations/TenantConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/UserConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/ServiceRequestConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/JobConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs`
+
+DbContext registration and model wiring:
+
+- `backend/infrastructure/Persistence/GtekFsmDbContext.cs`
+
+Mapping coverage implemented in this phase:
+
+- SQL types, max lengths, required vs optional fields.
+- Enum persistence for lifecycle statuses as `tinyint`.
+- Date/time precision for subscription dates.
+- Default values for request and assignment status columns.
+- Tenant-safe composite key references for cross-aggregate foreign keys.
+
+## Indexes and Uniqueness (Phase 1.2.3)
+
+Tenant-scoped indexes and uniqueness constraints are configured in:
+
+- `backend/infrastructure/Persistence/Configurations/TenantConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/UserConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/ServiceRequestConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/JobConfiguration.cs`
+- `backend/infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs`
+
+Design-level rationale and full index list are documented in:
+
+- `database/PHASE1_RELATIONAL_TABLE_DESIGN.md`
+
+## Auditing Columns and Soft-Delete Strategy (Phase 1.2.4)
+
+All Phase 1 aggregate roots include auditing and soft-delete capability:
+
+### Domain Model Changes
+
+All five aggregates (`Tenant`, `User`, `ServiceRequest`, `Job`, `Subscription`) now include three internal-settable properties:
+
+- `CreatedAtUtc` (`DateTime`): Timestamp when record was first persisted.
+- `UpdatedAtUtc` (`DateTime`): Timestamp of the most recent modification.
+- `IsDeleted` (`bool`): Soft-delete flag; `false` by default, set to `true` instead of physically removing records.
+
+### EF Core Configuration
+
+Auditing mappings are added to all five configuration classes:
+
+- `CreatedAtUtc` and `UpdatedAtUtc` are mapped to `datetime2(3)` with SQL Server `GETUTCDATE()` defaults.
+- `ValueGeneratedOnAdd()` ensures `CreatedAtUtc` is set exactly once at insertion.
+- `ValueGeneratedOnAddOrUpdate()` ensures `UpdatedAtUtc` is refreshed on each modification.
+- `IsDeleted` is mapped to `bit` with default `false` (0).
+
+### Global Query Filters
+
+EF Core query filters (`.HasQueryFilter()`) are applied in `GtekFsmDbContext.OnModelCreating()` to automatically exclude soft-deleted records:
+
+```csharp
+modelBuilder.Entity<Tenant>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<User>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<ServiceRequest>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<Job>().HasQueryFilter(x => !x.IsDeleted);
+modelBuilder.Entity<Subscription>().HasQueryFilter(x => !x.IsDeleted);
+```
+
+This ensures all queries exclude soft-deleted records by default while still retaining recovery and audit trail capability.
+
+### Soft-Delete Behavior
+
+- **No physical deletes**: Records are marked deleted, not removed from the database.
+- **Query transparency**: Application code queries behave as if soft-deleted records do not exist.
+- **Audit trail**: Soft-deleted records remain in the database for compliance and recovery.
+- **Tenant isolation**: Soft-deleted records remain within their tenant scope even if visible via `.IgnoreQueryFilters()`.
+
+### Full Documentation
+
+Detailed rationale, schema design, and implementation notes are captured in:
+
+- `database/PHASE1_RELATIONAL_TABLE_DESIGN.md` - "Auditing and Soft-Delete Strategy (Phase 1.2.4)" section
+
+## Naming Conventions Validation (Phase 1.2.5)
+
+Naming conventions were validated against:
+
+- `config/naming-conventions.json`
+
+Validated scopes:
+
+- Table names
+- Column names
+- Key names (`PK_`, `AK_`)
+- Foreign key names (`FK_`)
+- Index and uniqueness names (`IX_`, `UQ_`)
+- Migration identifier naming standard for upcoming EF migrations
+
+Outcome:
+
+- Current Phase 1.2 schema and EF naming are consistent.
+- No schema object renames were required.
+- Migration naming standard is documented in:
+  - `database/PHASE1_RELATIONAL_TABLE_DESIGN.md` under "Naming Convention Validation (Phase 1.2.5)".
+
+## Initial Migration Baseline (Phase 1.3.1)
+
+The first production-shaped EF Core migration has been generated and validated.
+
+Migration artifacts:
+
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.cs`
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.Designer.cs`
+- `backend/infrastructure/Persistence/Migrations/GtekFsmDbContextModelSnapshot.cs`
+
+Validation summary:
+
+- Applied from clean database state to `GTEK_FSM_Phase1_Validation`.
+- Migration applied successfully (`Applying migration '20260318161457_Phase1InitialSchema'. Done.`).
+- Verified resulting base tables: `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions` plus `__EFMigrationsHistory`.
+
+## Baseline Reference Seed Data (Phase 1.3.2)
+
+Baseline reference seed data is defined in:
+
+- `database/seeds/001_baseline_reference_data.sql`
+
+Seed scope for this phase:
+
+- Role placeholders: `Guest`, `Customer`, `Worker`, `Support`, `Manager`, `Admin`
+- Tier placeholders: `FREE`, `PROFESSIONAL`, `ENTERPRISE`
+- Status placeholders:
+  - Request stages mapped to `ServiceRequests.Status` (`New`, `Assigned`, `InProgress`, `OnHold`, `Completed`, `Cancelled`)
+  - Assignment states mapped to `Jobs.AssignmentStatus` (`Unassigned`, `PendingAcceptance`, `Accepted`, `Rejected`, `Completed`, `Cancelled`)
+
+Implementation characteristics:
+
+- Deterministic GUIDs for stable reference rows.
+- Dedicated reference tenant (`REF-BASELINE`) for isolation.
+- Guarded inserts (`IF NOT EXISTS`) to prevent duplicate reference rows when rerun.
+
+## Seed Execution Idempotency (Phase 1.3.3)
+
+Seed pipeline execution is idempotent across repeated local startup runs.
+
+Runner implementation:
+
+- `database/scripts/dev-db-seed.sh` now executes ordered SQL scripts via `sqlcmd`.
+- Applied scripts are tracked in `dbo.__SeedHistory` by file name.
+- If a script was previously applied, it is skipped instead of re-executed.
+
+Safety model:
+
+- Script-level idempotency from `dbo.__SeedHistory` prevents repeated file execution.
+- Row-level idempotency remains enforced in seed SQL with `IF NOT EXISTS` patterns.
+
+## Database Reset, Reapply, and Verification (Phase 1.3.4)
+
+Comprehensive scripts and tasks automate the entire local database workflow.
+
+Scripts:
+
+- `database/scripts/dev-db-init.sh`
+  - Applies pending migrations using `dotnet ef database update`.
+  - Uses Infrastructure project as both `--project` and `--startup-project` for reliable EF tooling.
+
+- `database/scripts/dev-db-reset.sh`
+  - Drops the local database and reapplies all migrations from scratch.
+  - Ensures a clean schema baseline for validation.
+  - Uses Infrastructure project for startup to avoid EF tooling dependency issues.
+
+- `database/scripts/dev-db-seed.sh`
+  - Executes seed SQL scripts in numeric order with idempotent history tracking.
+  - Skips already-applied scripts on repeated runs.
+  - Loads connection settings from `.env` or environment variables.
+
+- `database/scripts/dev-db-verify.sh`
+  - Validates schema: confirms all Phase 1 tables exist.
+  - Validates seed data: checks that baseline reference counts match expected values.
+  - Returns success (exit 0) if all checks pass, failure (exit 1) otherwise.
+  - Gracefully skips if `sqlcmd` is unavailable.
+
+- `database/scripts/dev-db-refresh.sh`
+  - Orchestrates a complete end-to-end workflow:
+    1. Reset database (drop + recreate)
+    2. Verify schema was created
+    3. Apply seed data
+    4. Verify seed data populations
+  - Suitable for establishing a known-good state before development sessions.
+
+VS Code Tasks:
+
+- `Database: Init (Apply Migrations)` → runs dev-db-init.sh
+- `Database: Reset (Drop + Recreate)` → runs dev-db-reset.sh
+- `Database: Seed` → runs dev-db-seed.sh
+- `Database: Refresh (Reset + Init + Seed + Verify)` → runs dev-db-refresh.sh
+- `Database: Verify Schema & Data` → runs dev-db-verify.sh
+
+Verification coverage:
+
+- Schema validation checks:
+  - `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`
+  - `__EFMigrationsHistory` (EF migration tracking table)
+- Seed data validation checks:
+  - Reference tenant count: 1 (REF-BASELINE)
+  - User count: 6 (role placeholders)
+  - Subscription tier count: 3 (FREE, PROFESSIONAL, ENTERPRISE)
+  - ServiceRequest status count: 6 (stage placeholders)
+  - Job assignment status count: 6 (status placeholders)
+
+## Migration and Seed Validation Across Local and Docker Workflows (Phase 1.3.5)
+
+Migration and seed behavior has been validated in both required execution modes.
+
+Validation mode A: Direct local SQL Server endpoint (non-compose)
+
+- SQL Server started as a standalone local container mapped to `localhost:12433`.
+- Database refresh workflow executed:
+  - `./database/scripts/dev-db-refresh.sh`
+  - Confirmed migration apply from clean state.
+  - Confirmed schema tables exist (`Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`, `__EFMigrationsHistory`).
+  - Confirmed baseline seed counts after refresh (1 tenant, 6 users, 3 subscriptions, 6 service requests, 6 jobs).
+- Seed idempotency re-validation executed:
+  - `./database/scripts/dev-db-seed.sh`
+  - `./database/scripts/dev-db-verify.sh`
+  - Confirmed rerun behavior skips already applied seed file and preserves expected counts.
+
+Validation mode B: Docker Compose SQL Server workflow
+
+- SQL Server started through compose service:
+  - `docker compose up -d sqlserver`
+- Database refresh and verification executed using the same scripts:
+  - `./database/scripts/dev-db-refresh.sh`
+  - `./database/scripts/dev-db-seed.sh`
+  - `./database/scripts/dev-db-verify.sh`
+- Confirmed the same successful outcomes as direct-local flow:
+  - Migration from clean state succeeded.
+  - Seed execution succeeded.
+  - Seed rerun remained idempotent (`Skipping (already applied): 001_baseline_reference_data.sql`).
+  - Final verification passed with expected baseline counts.
+
+Outcome:
+
+- Phase 1.3 migration and seed pipeline is verified for both direct local and Docker-based development workflows.
+

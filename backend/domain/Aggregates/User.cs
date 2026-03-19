@@ -24,6 +24,12 @@ public sealed class User
 
     public string DisplayName { get; private set; }
 
+    public DateTime CreatedAtUtc { get; internal set; }
+
+    public DateTime UpdatedAtUtc { get; internal set; }
+
+    public bool IsDeleted { get; internal set; }
+
     public void Rename(string displayName)
     {
         this.DisplayName = DomainGuards.RequiredText(displayName, nameof(displayName), "Display name is required.", 120);
