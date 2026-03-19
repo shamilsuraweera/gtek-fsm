@@ -315,3 +315,31 @@ Secret-safety guardrails:
 
 - Repository templates use explicit `CHANGE_ME` placeholders for signing key secrets.
 - Token script refuses to run with placeholder keys and enforces minimum key length.
+
+### 2.3.1 - Policy Names and Authorization Handlers for Role-Scoped Operations
+
+Implemented artifacts:
+
+- `backend/application/Identity/AuthorizationPolicyCatalog.cs`
+- `backend/application/Identity/RolePermissionAuthorizer.cs`
+- `backend/api/Authorization/PermissionRequirement.cs`
+- `backend/api/Authorization/PermissionAuthorizationHandler.cs`
+- `backend/api/Authorization/AuthorizationServiceCollectionExtensions.cs`
+- `backend/api/Authentication/AuthenticationServiceCollectionExtensions.cs`
+- `backend/infrastructure.tests/Identity/AuthorizationPolicyCatalogTests.cs`
+- `backend/infrastructure.tests/Identity/RolePermissionAuthorizerTests.cs`
+
+Policy baseline for role-scoped flows:
+
+- `policy.customer.flow` -> `service_requests.write`
+- `policy.worker.flow` -> `jobs.write`
+- `policy.support.flow` -> `service_requests.write`
+- `policy.management.flow` -> `users.write`
+- `policy.admin.flow` -> `tenants.write`
+- `policy.system.ping` -> `system.ping`
+
+Handler strategy:
+
+- Custom `PermissionRequirement` carries required permission.
+- `PermissionAuthorizationHandler` extracts role claims (`ClaimTypes.Role`, `role`, `roles`) and checks permission via `RolePermissionAuthorizer` + `RolePermissionMatrix`.
+- Policy registration is centralized through `AddApiAuthorizationPolicies()` and requires authenticated users by default.

@@ -1,4 +1,7 @@
 using System.Text;
+
+using GTEK.FSM.Backend.Api.Authorization;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -35,7 +38,7 @@ public static class AuthenticationServiceCollectionExtensions
                 };
             });
 
-        services.AddAuthorization();
+        services.AddApiAuthorizationPolicies();
 
         return services;
     }
