@@ -534,3 +534,38 @@ Repository integration:
 - Implemented corresponding EF Core query execution in Infrastructure repositories.
 - Implementations apply tenant scoping first, then common filters, then deterministic sorting, then paging.
 
+## Transaction Boundaries and Unit of Work (Phase 1.4.4)
+
+Transaction boundary and unit-of-work contracts are now defined in Application and implemented in Infrastructure for multi-entity update scenarios.
+
+Application contracts:
+
+- `backend/application/Persistence/Transactions/IUnitOfWork.cs`
+  - `BeginTransactionAsync(...)`
+  - `SaveChangesAsync(...)`
+- `backend/application/Persistence/Transactions/IUnitOfWorkTransaction.cs`
+  - `TransactionId`
+  - `CommitAsync(...)`
+  - `RollbackAsync(...)`
+  - `IAsyncDisposable`
+
+Infrastructure implementation:
+
+- `backend/infrastructure/Persistence/Transactions/EfUnitOfWork.cs`
+  - Uses `GtekFsmDbContext` to coordinate save and transaction scope.
+  - Prevents nested active transaction creation within the same unit of work.
+- `backend/infrastructure/Persistence/Transactions/EfUnitOfWorkTransaction.cs`
+  - Wraps EF Core `IDbContextTransaction`.
+  - Ensures explicit commit/rollback behavior.
+  - Automatically rolls back on dispose when not explicitly completed.
+
+Dependency injection:
+
+- `IUnitOfWork` is registered as scoped service in `backend/infrastructure/DependencyInjection.cs`.
+
+Behavior intent:
+
+- Repository `Add/Update/Remove` methods stage aggregate changes.
+- `IUnitOfWork.SaveChangesAsync()` defines persistence boundary.
+- `IUnitOfWork.BeginTransactionAsync()` defines transactional boundary for multi-entity operations that must commit atomically.
+
