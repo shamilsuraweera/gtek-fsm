@@ -131,3 +131,35 @@ Matrix baseline:
 Implementation note:
 
 - Matrix returns case-insensitive permission sets and provides `HasPermission(role, permission)` for policy wiring in upcoming Phase 2 tasks.
+
+### 2.1.4 - Token Claim Requirements and Validation Rules
+
+Implemented artifacts:
+
+- `backend/application/Identity/TokenClaimNames.cs`
+- `backend/application/Identity/TokenClaimsValidationModels.cs`
+- `backend/application/Identity/TokenClaimsValidator.cs`
+- `backend/infrastructure.tests/Identity/TokenClaimsValidatorTests.cs`
+
+Required claim baseline:
+
+- `sub` (`TokenClaimNames.Subject`) - required user identifier claim.
+- `tenant_id` (`TokenClaimNames.TenantId`) - required tenant identifier claim.
+- role claims: `role` or `roles` - at least one required role source.
+- `ver` (`TokenClaimNames.TokenVersion`) - required token version claim.
+
+Explicit validation rules:
+
+- Missing `sub` => `missing_subject`.
+- Malformed `sub` (not GUID) => `malformed_subject`.
+- Missing `tenant_id` => `missing_tenant`.
+- Malformed `tenant_id` (not GUID) => `malformed_tenant`.
+- Missing role claim inputs (`role` and `roles`) => `missing_roles`.
+- Malformed role claim inputs (no non-empty role values after normalization) => `malformed_roles`.
+- Missing `ver` => `missing_token_version`.
+- Malformed `ver` (non-positive integer) => `malformed_token_version`.
+
+Validation output semantics:
+
+- On success, validator returns `TokenClaimsPayload` (`UserId`, `TenantId`, `Roles`, `TokenVersion`).
+- On failure, validator returns structured issues list with `Claim`, `Code`, and `Message` for deterministic API/auth pipeline handling.
