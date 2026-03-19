@@ -23,6 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../api/GTEK.FSM.Backend.Api.csproj" />
     <ProjectReference Include="../application/GTEK.FSM.Backend.Application.csproj" />
     <ProjectReference Include="../domain/GTEK.FSM.Backend.Domain.csproj" />
     <ProjectReference Include="../infrastructure/GTEK.FSM.Backend.Infrastructure.csproj" />

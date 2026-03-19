@@ -449,3 +449,21 @@ Payload semantics:
 - Both outcomes return standardized `ApiResponse<object>` envelope shape.
 - Response includes `TraceId` for correlation and consistent client-side error handling.
 - JWT event hooks (`OnChallenge`, `OnForbidden`) centrally enforce this behavior across policy-protected endpoints.
+
+### 2.4.1 - Architecture/Runtime Tests for Required Tenant Context
+
+Implemented artifacts:
+
+- `backend/infrastructure.tests/Architecture/ProtectedEndpointPolicyMetadataTests.cs`
+- `backend/infrastructure.tests/Runtime/TenantContextRequiredRuntimeTests.cs`
+- `backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj` (API project reference)
+
+Coverage summary:
+
+- Architecture test validates that critical protected endpoints are mapped with explicit authorization policies in endpoint metadata.
+- Runtime test validates that authenticated requests without tenant context are blocked by `TenantResolutionMiddleware` before endpoint execution (`401 TENANT_CONTEXT_UNRESOLVED`).
+
+Assertion focus:
+
+- Tenant context is required for protected request paths.
+- Missing tenant context prevents request continuation and returns deterministic failure semantics.
