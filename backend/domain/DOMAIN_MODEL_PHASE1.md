@@ -430,3 +430,33 @@ Outcome:
 
 - Phase 1.3 migration and seed pipeline is verified for both direct local and Docker-based development workflows.
 
+## Repository Interface Contracts (Phase 1.4.1)
+
+Application-layer repository interfaces are now defined to standardize aggregate persistence and retrieval patterns before Infrastructure implementations.
+
+Contract location:
+
+- `backend/application/Persistence/Repositories/`
+
+Defined interfaces:
+
+- `IRepository<TAggregate>`
+  - Base write contract shared by aggregate repositories.
+  - Methods: `AddAsync`, `Update`, `Remove`.
+- `ITenantRepository`
+  - Tenant retrieval by id and code plus uniqueness probe (`ExistsByCodeAsync`).
+- `IUserRepository`
+  - Tenant-scoped user retrieval by id and external identity plus `ListByTenantAsync`.
+- `IServiceRequestRepository`
+  - Tenant-scoped request retrieval by id plus list-by-tenant and list-by-customer queries.
+- `IJobRepository`
+  - Tenant-scoped job retrieval by id plus list-by-request and list-by-worker queries.
+- `ISubscriptionRepository`
+  - Tenant-scoped subscription retrieval by id plus active-subscription lookup and list-by-tenant query.
+
+Design intent:
+
+- Contracts are defined in Application to preserve clean architecture boundaries.
+- Aggregate retrieval methods are tenant-aware where applicable to support safe multi-tenant query paths.
+- Query contracts are intentionally minimal and use async/cancellation primitives to align with future EF Core implementations in Phase 1.4.2.
+
