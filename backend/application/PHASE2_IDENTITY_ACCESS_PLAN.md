@@ -291,3 +291,27 @@ Bootstrap routes (under `/api/v1/auth/bootstrap`):
 Response standardization:
 
 - All probe endpoints return `ApiResponse<object>` envelopes with `TraceId` for request correlation.
+
+### 2.2.5 - Local/Dev Token Validation Templates and Scripts
+
+Implemented artifacts:
+
+- `backend/api/.env.auth.example`
+- `backend/api/scripts/dev-auth-token.sh`
+- `backend/api/scripts/dev-auth-bootstrap-check.sh`
+- `backend/api/appsettings.Local.example.json`
+- `backend/api/appsettings.Docker.example.json`
+- `.gitignore`
+- `README.md`
+
+Local/dev validation workflow:
+
+- Copy `backend/api/.env.auth.example` to `backend/api/.env.auth.local` (gitignored).
+- Set `Authentication__Jwt__Issuer`, `Authentication__Jwt__Audience`, and `Authentication__Jwt__SigningKey` in the local env file.
+- Generate local JWTs with configurable role/user/tenant claims via `dev-auth-token.sh`.
+- Run `dev-auth-bootstrap-check.sh` to verify expected `401`/`403`/`200` behavior against `/api/v1/auth/bootstrap/*` endpoints.
+
+Secret-safety guardrails:
+
+- Repository templates use explicit `CHANGE_ME` placeholders for signing key secrets.
+- Token script refuses to run with placeholder keys and enforces minimum key length.
