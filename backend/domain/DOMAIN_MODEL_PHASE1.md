@@ -430,3 +430,176 @@ Outcome:
 
 - Phase 1.3 migration and seed pipeline is verified for both direct local and Docker-based development workflows.
 
+## Repository Interface Contracts (Phase 1.4.1)
+
+Application-layer repository interfaces are now defined to standardize aggregate persistence and retrieval patterns before Infrastructure implementations.
+
+Contract location:
+
+- `backend/application/Persistence/Repositories/`
+
+Defined interfaces:
+
+- `IRepository<TAggregate>`
+  - Base write contract shared by aggregate repositories.
+  - Methods: `AddAsync`, `Update`, `Remove`.
+- `ITenantRepository`
+  - Tenant retrieval by id and code plus uniqueness probe (`ExistsByCodeAsync`).
+- `IUserRepository`
+  - Tenant-scoped user retrieval by id and external identity plus `ListByTenantAsync`.
+- `IServiceRequestRepository`
+  - Tenant-scoped request retrieval by id plus list-by-tenant and list-by-customer queries.
+- `IJobRepository`
+  - Tenant-scoped job retrieval by id plus list-by-request and list-by-worker queries.
+- `ISubscriptionRepository`
+  - Tenant-scoped subscription retrieval by id plus active-subscription lookup and list-by-tenant query.
+
+Design intent:
+
+- Contracts are defined in Application to preserve clean architecture boundaries.
+- Aggregate retrieval methods are tenant-aware where applicable to support safe multi-tenant query paths.
+- Query contracts are intentionally minimal and use async/cancellation primitives to align with future EF Core implementations in Phase 1.4.2.
+
+## EF Core Repository Implementations (Phase 1.4.2)
+
+Infrastructure implementations for the Phase 1.4.1 repository contracts are now in place.
+
+Implementation location:
+
+- `backend/infrastructure/Persistence/Repositories/`
+
+Implemented classes:
+
+- `EfRepository<TAggregate>`
+  - Shared EF Core base for write operations (`AddAsync`, `Update`, `Remove`).
+- `TenantRepository`
+  - Implements `ITenantRepository`.
+- `UserRepository`
+  - Implements `IUserRepository`.
+- `ServiceRequestRepository`
+  - Implements `IServiceRequestRepository`.
+- `JobRepository`
+  - Implements `IJobRepository`.
+- `SubscriptionRepository`
+  - Implements `ISubscriptionRepository`.
+
+Tenant-aware filtering hooks:
+
+- Tenant-owned repository implementations apply tenant scoping through internal query hook methods (`ApplyTenantFilter`) before executing retrieval/list queries.
+- This centralizes tenant filtering per aggregate repository and prevents accidental cross-tenant reads in baseline query paths.
+
+Dependency injection wiring:
+
+- Repository interfaces are registered in `backend/infrastructure/DependencyInjection.cs` as scoped services.
+
+Read behavior notes:
+
+- Retrieval/list queries use `AsNoTracking()` by default for query efficiency in read paths.
+- Existing global soft-delete query filters in `GtekFsmDbContext` continue to apply to all repository queries.
+
+## Baseline Query Specifications (Phase 1.4.3)
+
+Baseline query specification contracts for paging, sorting, and common filter paths are now defined and wired into repository query execution.
+
+Specification location:
+
+- `backend/application/Persistence/Specifications/`
+
+Shared primitives:
+
+- `PageSpecification`
+  - Normalizes `PageNumber` and `PageSize`.
+  - Provides computed `Skip`/`Take` values.
+- `SortDirection`
+  - Supports `Ascending` and `Descending` query ordering.
+
+Aggregate query specifications:
+
+- `UserQuerySpecification`
+  - Filters: `TenantId`, `SearchText`, `ExternalIdentity`
+  - Sorting: `UserSortField` (`DisplayName`, `CreatedAtUtc`)
+- `ServiceRequestQuerySpecification`
+  - Filters: `TenantId`, `CustomerUserId`, `Status`, `SearchText`
+  - Sorting: `ServiceRequestSortField` (`CreatedAtUtc`, `Status`, `Title`)
+- `JobQuerySpecification`
+  - Filters: `TenantId`, `ServiceRequestId`, `AssignedWorkerUserId`, `AssignmentStatus`
+  - Sorting: `JobSortField` (`CreatedAtUtc`, `AssignmentStatus`)
+- `SubscriptionQuerySpecification`
+  - Filters: `TenantId`, `ActiveOnly`, `PlanCode`
+  - Sorting: `SubscriptionSortField` (`StartsOnUtc`, `EndsOnUtc`, `PlanCode`)
+
+Repository integration:
+
+- Added `QueryAsync(...)` methods on user, service request, job, and subscription repositories in Application contracts.
+- Implemented corresponding EF Core query execution in Infrastructure repositories.
+- Implementations apply tenant scoping first, then common filters, then deterministic sorting, then paging.
+
+## Transaction Boundaries and Unit of Work (Phase 1.4.4)
+
+Transaction boundary and unit-of-work contracts are now defined in Application and implemented in Infrastructure for multi-entity update scenarios.
+
+Application contracts:
+
+- `backend/application/Persistence/Transactions/IUnitOfWork.cs`
+  - `BeginTransactionAsync(...)`
+  - `SaveChangesAsync(...)`
+- `backend/application/Persistence/Transactions/IUnitOfWorkTransaction.cs`
+  - `TransactionId`
+  - `CommitAsync(...)`
+  - `RollbackAsync(...)`
+  - `IAsyncDisposable`
+
+Infrastructure implementation:
+
+- `backend/infrastructure/Persistence/Transactions/EfUnitOfWork.cs`
+  - Uses `GtekFsmDbContext` to coordinate save and transaction scope.
+  - Prevents nested active transaction creation within the same unit of work.
+- `backend/infrastructure/Persistence/Transactions/EfUnitOfWorkTransaction.cs`
+  - Wraps EF Core `IDbContextTransaction`.
+  - Ensures explicit commit/rollback behavior.
+  - Automatically rolls back on dispose when not explicitly completed.
+
+Dependency injection:
+
+- `IUnitOfWork` is registered as scoped service in `backend/infrastructure/DependencyInjection.cs`.
+
+Behavior intent:
+
+- Repository `Add/Update/Remove` methods stage aggregate changes.
+- `IUnitOfWork.SaveChangesAsync()` defines persistence boundary.
+- `IUnitOfWork.BeginTransactionAsync()` defines transactional boundary for multi-entity operations that must commit atomically.
+
+## Data-Access Test Scaffolding and Discovery Wiring (Phase 1.4.5)
+
+Initial repository-level data-access test scaffolding is now in place for Infrastructure persistence verification.
+
+Test project:
+
+- `backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj`
+
+Project setup:
+
+- Targets `net10.0` and is marked as a test project.
+- References Application, Domain, and Infrastructure projects.
+- Uses `xUnit`, `Microsoft.NET.Test.Sdk`, and `coverlet.collector`.
+- Uses `Microsoft.EntityFrameworkCore.InMemory` for fast in-process repository verification.
+
+Initial test coverage added:
+
+- `Repositories/UserRepositoryTests.cs`
+  - Verifies tenant isolation plus baseline sort behavior through specification-based query path.
+- `Repositories/ServiceRequestRepositoryTests.cs`
+  - Verifies common filter path behavior (`TenantId`, `CustomerUserId`, `Status`) with paging and sorting.
+- `Transactions/EfUnitOfWorkTests.cs`
+  - Verifies staged repository updates are persisted through unit-of-work `SaveChangesAsync` boundary.
+
+Test utility:
+
+- `TestUtils/TestDbContextFactory.cs` creates isolated in-memory `GtekFsmDbContext` instances for deterministic test runs.
+
+Visibility and discovery wiring:
+
+- `backend/infrastructure/Properties/InternalsVisibleTo.cs` allows Infrastructure internals to be verified by the test assembly.
+- `GTEK.FSM.slnx` now includes `backend/infrastructure.tests` for solution-level build/test workflows.
+- Existing CI test discovery rules already match `*Tests.csproj`, so the new project is discovered automatically.
+

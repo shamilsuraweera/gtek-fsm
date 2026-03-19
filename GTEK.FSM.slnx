@@ -15,6 +15,9 @@
   <Folder Name="/backend/infrastructure/">
     <Project Path="backend/infrastructure/GTEK.FSM.Backend.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/backend/infrastructure.tests/">
+    <Project Path="backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj" />
+  </Folder>
   <Folder Name="/mobile-app/" />
   <Folder Name="/mobile-app/customer-worker/">
     <Project Path="mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj" />
