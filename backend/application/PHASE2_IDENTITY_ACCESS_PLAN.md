@@ -90,3 +90,19 @@ Mapping semantics:
 - Mapper converts from boundary contract to domain `IdentityValue` and persisted external identity string.
 - Mapper also converts persisted `User.ExternalIdentity` back to boundary contract with caller-supplied `Issuer` context.
 - Legacy external identity values without a `:` separator are preserved as subject-only and mapped with provider `legacy` for backward compatibility with existing data.
+
+### 2.1.2 - Authenticated Principal Model
+
+Implemented artifacts:
+
+- `backend/application/Identity/AuthenticatedPrincipal.cs`
+- `backend/application/Identity/IAuthenticatedPrincipalAccessor.cs`
+- `backend/infrastructure.tests/Identity/AuthenticatedPrincipalTests.cs`
+
+Model semantics:
+
+- `AuthenticatedPrincipal` contains application-level identity context only: `UserId`, `TenantId`, `Roles`, `Scopes`.
+- Model is transport-agnostic and has no dependency on HTTP, JWT claims APIs, or framework-specific principal types.
+- `Roles` and `Scopes` are normalized into case-insensitive sets, trimming whitespace and deduplicating entries.
+- Helper methods `IsInRole(...)` and `HasScope(...)` provide consistent authorization checks in application use cases.
+- `IAuthenticatedPrincipalAccessor` defines a single application abstraction (`GetCurrent`) for retrieving the current principal from any transport adapter.
