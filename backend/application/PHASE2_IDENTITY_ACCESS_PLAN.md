@@ -137,7 +137,9 @@ Implementation note:
 Implemented artifacts:
 
 - `backend/application/Identity/TokenClaimNames.cs`
-- `backend/application/Identity/TokenClaimsValidationModels.cs`
+- `backend/application/Identity/TokenClaimsPayload.cs`
+- `backend/application/Identity/TokenClaimsValidationIssue.cs`
+- `backend/application/Identity/TokenClaimsValidationResult.cs`
 - `backend/application/Identity/TokenClaimsValidator.cs`
 - `backend/infrastructure.tests/Identity/TokenClaimsValidatorTests.cs`
 
@@ -163,3 +165,17 @@ Validation output semantics:
 
 - On success, validator returns `TokenClaimsPayload` (`UserId`, `TenantId`, `Roles`, `TokenVersion`).
 - On failure, validator returns structured issues list with `Claim`, `Code`, and `Message` for deterministic API/auth pipeline handling.
+
+### 2.1.5 - Identity and Authorization Non-Goals
+
+Implemented artifact:
+
+- `backend/application/PHASE2_IDENTITY_AUTH_NON_GOALS.md`
+
+Explicitly documented non-goals:
+
+- No cross-tenant self-service switching in Phase 2 user flows.
+- No advanced policy automation (rule engines, dynamic policy authoring, adaptive policies).
+- No externalized enterprise IAM policy orchestration rollout.
+- No tenant entitlement automation beyond the baseline role-permission matrix.
+- No broad identity lifecycle automation (self-service provisioning/account linking).
