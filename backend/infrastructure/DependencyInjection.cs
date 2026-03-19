@@ -1,5 +1,7 @@
 using GTEK.FSM.Backend.Infrastructure.Configuration;
 using GTEK.FSM.Backend.Infrastructure.Persistence;
+using GTEK.FSM.Backend.Infrastructure.Persistence.Repositories;
+using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +30,12 @@ public static class DependencyInjection
                 sql.MigrationsAssembly(typeof(GtekFsmDbContext).Assembly.FullName);
                 sql.MigrationsHistoryTable("__EFMigrationsHistory", "dbo");
             }));
+
+        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<IServiceRequestRepository, ServiceRequestRepository>();
+        services.AddScoped<IJobRepository, JobRepository>();
+        services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
 
         return services;
     }

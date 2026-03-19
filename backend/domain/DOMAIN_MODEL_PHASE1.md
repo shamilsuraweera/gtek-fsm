@@ -460,3 +460,40 @@ Design intent:
 - Aggregate retrieval methods are tenant-aware where applicable to support safe multi-tenant query paths.
 - Query contracts are intentionally minimal and use async/cancellation primitives to align with future EF Core implementations in Phase 1.4.2.
 
+## EF Core Repository Implementations (Phase 1.4.2)
+
+Infrastructure implementations for the Phase 1.4.1 repository contracts are now in place.
+
+Implementation location:
+
+- `backend/infrastructure/Persistence/Repositories/`
+
+Implemented classes:
+
+- `EfRepository<TAggregate>`
+  - Shared EF Core base for write operations (`AddAsync`, `Update`, `Remove`).
+- `TenantRepository`
+  - Implements `ITenantRepository`.
+- `UserRepository`
+  - Implements `IUserRepository`.
+- `ServiceRequestRepository`
+  - Implements `IServiceRequestRepository`.
+- `JobRepository`
+  - Implements `IJobRepository`.
+- `SubscriptionRepository`
+  - Implements `ISubscriptionRepository`.
+
+Tenant-aware filtering hooks:
+
+- Tenant-owned repository implementations apply tenant scoping through internal query hook methods (`ApplyTenantFilter`) before executing retrieval/list queries.
+- This centralizes tenant filtering per aggregate repository and prevents accidental cross-tenant reads in baseline query paths.
+
+Dependency injection wiring:
+
+- Repository interfaces are registered in `backend/infrastructure/DependencyInjection.cs` as scoped services.
+
+Read behavior notes:
+
+- Retrieval/list queries use `AsNoTracking()` by default for query efficiency in read paths.
+- Existing global soft-delete query filters in `GtekFsmDbContext` continue to apply to all repository queries.
+
