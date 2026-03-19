@@ -679,3 +679,36 @@ Outcome:
 
 - Tenant filter assumptions in current repository query paths are validated and consistent with Phase 1 tenancy safety expectations.
 
+## Final Migration Rehearsal from Empty to Ready (Phase 1.5.4)
+
+Final migration rehearsal was executed using documented scripts only, from empty database state to verified ready state.
+
+Execution sequence:
+
+- Reset from empty baseline (drop + reapply migrations):
+  - `ASPNETCORE_ENVIRONMENT=DirectTest Database__ConnectionString='Server=localhost,12433;Database=GTEK_FSM_Direct_Test;User Id=sa;Password=LocalTest1234!;Encrypt=true;TrustServerCertificate=true;' ./database/scripts/dev-db-reset.sh`
+  - Result: database dropped (or confirmed absent), migration `20260318161457_Phase1InitialSchema` applied successfully.
+- Seed baseline data:
+  - `./database/scripts/dev-db-seed.sh`
+  - Result: `001_baseline_reference_data.sql` applied successfully.
+- Verify schema and seed readiness:
+  - `./database/scripts/dev-db-verify.sh`
+  - Result: all required tables present and baseline counts matched expectations.
+
+Verification evidence:
+
+- Schema checks passed:
+  - `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`, `__EFMigrationsHistory`
+- Seed checks passed:
+  - `Tenants: 1`
+  - `Users: 6`
+  - `Subscriptions: 3`
+  - `ServiceRequests: 6`
+  - `Jobs: 6`
+- Final status:
+  - `[dev-db-verify] ✓ All verifications passed`
+
+Outcome:
+
+- Phase 1 schema migration + baseline seed pipeline is rehearsal-validated end-to-end using the documented script workflow.
+
