@@ -395,3 +395,38 @@ Verification coverage:
   - ServiceRequest status count: 6 (stage placeholders)
   - Job assignment status count: 6 (status placeholders)
 
+## Migration and Seed Validation Across Local and Docker Workflows (Phase 1.3.5)
+
+Migration and seed behavior has been validated in both required execution modes.
+
+Validation mode A: Direct local SQL Server endpoint (non-compose)
+
+- SQL Server started as a standalone local container mapped to `localhost:12433`.
+- Database refresh workflow executed:
+  - `./database/scripts/dev-db-refresh.sh`
+  - Confirmed migration apply from clean state.
+  - Confirmed schema tables exist (`Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`, `__EFMigrationsHistory`).
+  - Confirmed baseline seed counts after refresh (1 tenant, 6 users, 3 subscriptions, 6 service requests, 6 jobs).
+- Seed idempotency re-validation executed:
+  - `./database/scripts/dev-db-seed.sh`
+  - `./database/scripts/dev-db-verify.sh`
+  - Confirmed rerun behavior skips already applied seed file and preserves expected counts.
+
+Validation mode B: Docker Compose SQL Server workflow
+
+- SQL Server started through compose service:
+  - `docker compose up -d sqlserver`
+- Database refresh and verification executed using the same scripts:
+  - `./database/scripts/dev-db-refresh.sh`
+  - `./database/scripts/dev-db-seed.sh`
+  - `./database/scripts/dev-db-verify.sh`
+- Confirmed the same successful outcomes as direct-local flow:
+  - Migration from clean state succeeded.
+  - Seed execution succeeded.
+  - Seed rerun remained idempotent (`Skipping (already applied): 001_baseline_reference_data.sql`).
+  - Final verification passed with expected baseline counts.
+
+Outcome:
+
+- Phase 1.3 migration and seed pipeline is verified for both direct local and Docker-based development workflows.
+
