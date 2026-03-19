@@ -603,3 +603,79 @@ Visibility and discovery wiring:
 - `GTEK.FSM.slnx` now includes `backend/infrastructure.tests` for solution-level build/test workflows.
 - Existing CI test discovery rules already match `*Tests.csproj`, so the new project is discovered automatically.
 
+## ERD and Data Dictionary (Phase 1.5.1)
+
+Phase 1 ERD and data dictionary artifact has been produced and baselined:
+
+- `database/PHASE1_ERD_DATA_DICTIONARY.md`
+
+Coverage includes:
+
+- Complete ERD for all Phase 1 business entities (`Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`).
+- Relationship map for direct and composite-tenant foreign keys.
+- Per-table data dictionary with each field's type, required/nullability, key/constraint role, and business meaning.
+- Enum value dictionary for persisted lifecycle columns:
+  - `ServiceRequests.Status` (`ServiceRequestStatus`)
+  - `Jobs.AssignmentStatus` (`AssignmentStatus`)
+
+This artifact is aligned to the current migration baseline in:
+
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.cs`
+
+## Domain Invariant Validation (Phase 1.5.2)
+
+Focused tests were added to validate critical lifecycle transition invariants beyond baseline constructor and simple flow checks.
+
+Test files added:
+
+- `backend/domain.tests/Aggregates/CriticalLifecycleInvariantTests.cs`
+- `backend/domain.tests/Policies/CriticalTransitionPolicyTests.cs`
+
+Critical scenarios covered:
+
+- Service request terminal-state guard:
+  - rename blocked after completion.
+- Service request active execution guard:
+  - unlink job blocked while request is `InProgress`.
+- Job assignment lifecycle guards:
+  - unassign blocked after `Accepted`.
+  - invalid reassignment path blocked when already accepted.
+- Subscription lifecycle guard:
+  - duplicate `End(...)` invocation blocked.
+- Policy-level transition assertions:
+  - focused allow/deny cases for `ServiceRequestStateTransitions`.
+  - focused allow/deny cases for `AssignmentStateTransitions`.
+
+Validation status:
+
+- Domain test suite execution passed with the new focused lifecycle tests included.
+
+## Tenant-Safety Query Path Validation (Phase 1.5.3)
+
+Tenant-safety assumptions were validated across repository query paths to ensure no cross-tenant data leakage before Phase 2 identity/authorization work.
+
+Test artifact:
+
+- `backend/infrastructure.tests/Repositories/TenantSafetyQueryPathTests.cs`
+
+Validated repository query surfaces:
+
+- `UserRepository`
+  - `GetByIdAsync`, `GetByExternalIdentityAsync`, `ListByTenantAsync`, `QueryAsync`.
+- `ServiceRequestRepository`
+  - `GetByIdAsync`, `ListByTenantAsync`, `ListByCustomerAsync`, `QueryAsync`.
+- `JobRepository`
+  - `GetByIdAsync`, `ListByServiceRequestAsync`, `ListByWorkerAsync`, `QueryAsync`.
+- `SubscriptionRepository`
+  - `GetByIdAsync`, `GetActiveByTenantAsync`, `ListByTenantAsync`, `QueryAsync`.
+
+Validation approach:
+
+- Seeded mixed data across two distinct tenant ids in the same in-memory database instance.
+- Queried each repository using tenant A context while targeting tenant B identifiers/filters.
+- Asserted tenant-scoped methods return no tenant B records and only tenant A-owned rows where expected.
+
+Outcome:
+
+- Tenant filter assumptions in current repository query paths are validated and consistent with Phase 1 tenancy safety expectations.
+
