@@ -373,3 +373,35 @@ Tenant-scoped read/write boundary probes:
 - `POST /api/v1/tenant/{tenantId}/ownership-check/write`
 
 Both probe routes call `ITenantOwnershipGuard` before proceeding and return standardized API envelopes.
+
+### 2.3.3 - Privileged Management Guardrails for Cross-Tenant Operations with Audit Hooks
+
+Implemented artifacts:
+
+- `backend/application/Identity/AuthorizationDecisionAuditEvent.cs`
+- `backend/application/Identity/IAuthorizationDecisionAuditSink.cs`
+- `backend/application/Identity/PrivilegedTenantOperationContracts.cs`
+- `backend/application/Identity/IPrivilegedTenantOperationGuard.cs`
+- `backend/application/Identity/PrivilegedTenantOperationGuard.cs`
+- `backend/application/DependencyInjection.cs`
+- `backend/infrastructure/Identity/AuthorizationDecisionAuditLogger.cs`
+- `backend/infrastructure/DependencyInjection.cs`
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+- `backend/infrastructure.tests/Identity/PrivilegedTenantOperationGuardTests.cs`
+
+Guardrail behavior:
+
+- Explicit cross-tenant management requests are evaluated by `IPrivilegedTenantOperationGuard`.
+- Cross-tenant operations require privileged tenant-write capability (`tenants.write`, mapped to Admin baseline role).
+- Rejections are explicit (`401`/`403` with deterministic error codes) and all allow/deny decisions emit audit events.
+
+Mandatory audit hook implementation:
+
+- Application defines `IAuthorizationDecisionAuditSink` contract.
+- Infrastructure provides `AuthorizationDecisionAuditLogger` with structured fields:
+  - `Action`, `Outcome`, `Reason`, `UserId`, `SourceTenantId`, `TargetTenantId`, `OccurredAtUtc`.
+
+Cross-tenant guarded probe:
+
+- `POST /api/v1/management/cross-tenant/{tenantId}/guarded-probe`
+- Route invokes `IPrivilegedTenantOperationGuard` before operation success response.

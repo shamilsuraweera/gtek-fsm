@@ -113,6 +113,33 @@ public static class V1RouteGroupExtensions
                 traceId: context.TraceIdentifier));
         });
 
+        v1.MapPost("/management/cross-tenant/{tenantId:guid}/guarded-probe", async (
+            Guid tenantId,
+            HttpContext context,
+            IPrivilegedTenantOperationGuard privilegedGuard,
+            CancellationToken cancellationToken) =>
+        {
+            var decision = await privilegedGuard.EvaluateAsync(
+                new PrivilegedTenantOperationRequest(
+                    TargetTenantId: tenantId,
+                    Action: "management.cross_tenant.guarded_probe"),
+                cancellationToken);
+
+            if (!decision.IsAllowed)
+            {
+                return BuildFailure(
+                    context,
+                    decision.StatusCode ?? StatusCodes.Status403Forbidden,
+                    decision.ErrorCode ?? "CROSS_TENANT_FORBIDDEN",
+                    decision.Message ?? "Cross-tenant management guard rejected operation.");
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: new { targetTenantId = tenantId, operation = "cross-tenant-managed-probe" },
+                message: "Privileged management guard passed.",
+                traceId: context.TraceIdentifier));
+        });
+
         // Operational endpoints (for example /health) remain outside versioned groups.
         return app;
     }
