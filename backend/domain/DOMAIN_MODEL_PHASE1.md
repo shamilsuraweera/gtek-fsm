@@ -603,3 +603,153 @@ Visibility and discovery wiring:
 - `GTEK.FSM.slnx` now includes `backend/infrastructure.tests` for solution-level build/test workflows.
 - Existing CI test discovery rules already match `*Tests.csproj`, so the new project is discovered automatically.
 
+## ERD and Data Dictionary (Phase 1.5.1)
+
+Phase 1 ERD and data dictionary artifact has been produced and baselined:
+
+- `database/PHASE1_ERD_DATA_DICTIONARY.md`
+
+Coverage includes:
+
+- Complete ERD for all Phase 1 business entities (`Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`).
+- Relationship map for direct and composite-tenant foreign keys.
+- Per-table data dictionary with each field's type, required/nullability, key/constraint role, and business meaning.
+- Enum value dictionary for persisted lifecycle columns:
+  - `ServiceRequests.Status` (`ServiceRequestStatus`)
+  - `Jobs.AssignmentStatus` (`AssignmentStatus`)
+
+This artifact is aligned to the current migration baseline in:
+
+- `backend/infrastructure/Persistence/Migrations/20260318161457_Phase1InitialSchema.cs`
+
+## Domain Invariant Validation (Phase 1.5.2)
+
+Focused tests were added to validate critical lifecycle transition invariants beyond baseline constructor and simple flow checks.
+
+Test files added:
+
+- `backend/domain.tests/Aggregates/CriticalLifecycleInvariantTests.cs`
+- `backend/domain.tests/Policies/CriticalTransitionPolicyTests.cs`
+
+Critical scenarios covered:
+
+- Service request terminal-state guard:
+  - rename blocked after completion.
+- Service request active execution guard:
+  - unlink job blocked while request is `InProgress`.
+- Job assignment lifecycle guards:
+  - unassign blocked after `Accepted`.
+  - invalid reassignment path blocked when already accepted.
+- Subscription lifecycle guard:
+  - duplicate `End(...)` invocation blocked.
+- Policy-level transition assertions:
+  - focused allow/deny cases for `ServiceRequestStateTransitions`.
+  - focused allow/deny cases for `AssignmentStateTransitions`.
+
+Validation status:
+
+- Domain test suite execution passed with the new focused lifecycle tests included.
+
+## Tenant-Safety Query Path Validation (Phase 1.5.3)
+
+Tenant-safety assumptions were validated across repository query paths to ensure no cross-tenant data leakage before Phase 2 identity/authorization work.
+
+Test artifact:
+
+- `backend/infrastructure.tests/Repositories/TenantSafetyQueryPathTests.cs`
+
+Validated repository query surfaces:
+
+- `UserRepository`
+  - `GetByIdAsync`, `GetByExternalIdentityAsync`, `ListByTenantAsync`, `QueryAsync`.
+- `ServiceRequestRepository`
+  - `GetByIdAsync`, `ListByTenantAsync`, `ListByCustomerAsync`, `QueryAsync`.
+- `JobRepository`
+  - `GetByIdAsync`, `ListByServiceRequestAsync`, `ListByWorkerAsync`, `QueryAsync`.
+- `SubscriptionRepository`
+  - `GetByIdAsync`, `GetActiveByTenantAsync`, `ListByTenantAsync`, `QueryAsync`.
+
+Validation approach:
+
+- Seeded mixed data across two distinct tenant ids in the same in-memory database instance.
+- Queried each repository using tenant A context while targeting tenant B identifiers/filters.
+- Asserted tenant-scoped methods return no tenant B records and only tenant A-owned rows where expected.
+
+Outcome:
+
+- Tenant filter assumptions in current repository query paths are validated and consistent with Phase 1 tenancy safety expectations.
+
+## Final Migration Rehearsal from Empty to Ready (Phase 1.5.4)
+
+Final migration rehearsal was executed using documented scripts only, from empty database state to verified ready state.
+
+Execution sequence:
+
+- Reset from empty baseline (drop + reapply migrations):
+  - `ASPNETCORE_ENVIRONMENT=DirectTest Database__ConnectionString='Server=localhost,12433;Database=GTEK_FSM_Direct_Test;User Id=sa;Password=LocalTest1234!;Encrypt=true;TrustServerCertificate=true;' ./database/scripts/dev-db-reset.sh`
+  - Result: database dropped (or confirmed absent), migration `20260318161457_Phase1InitialSchema` applied successfully.
+- Seed baseline data:
+  - `./database/scripts/dev-db-seed.sh`
+  - Result: `001_baseline_reference_data.sql` applied successfully.
+- Verify schema and seed readiness:
+  - `./database/scripts/dev-db-verify.sh`
+  - Result: all required tables present and baseline counts matched expectations.
+
+Verification evidence:
+
+- Schema checks passed:
+  - `Tenants`, `Users`, `ServiceRequests`, `Jobs`, `Subscriptions`, `__EFMigrationsHistory`
+- Seed checks passed:
+  - `Tenants: 1`
+  - `Users: 6`
+  - `Subscriptions: 3`
+  - `ServiceRequests: 6`
+  - `Jobs: 6`
+- Final status:
+  - `[dev-db-verify] ✓ All verifications passed`
+
+Outcome:
+
+- Phase 1 schema migration + baseline seed pipeline is rehearsal-validated end-to-end using the documented script workflow.
+
+## Phase 1 Completion Criteria and Phase 2 Handoff (Phase 1.5.5)
+
+This section defines the explicit completion gate for Phase 1 and the required prerequisites to begin Phase 2 implementation safely.
+
+Phase 1 completion criteria:
+
+- Domain model boundary is defined and documented for all Phase 1 aggregate roots (`Tenant`, `User`, `ServiceRequest`, `Job`, `Subscription`).
+- Value objects, lifecycle enums, and transition policies are implemented and validated by tests.
+- Domain invariants are implemented as guard clauses in aggregates and validated by focused invariant tests.
+- Initial EF Core schema migration is generated and validated from clean state.
+- Baseline seed data is present and idempotent.
+- Database operational scripts (`init`, `reset`, `seed`, `verify`, `refresh`) are implemented and documented.
+- Repository contracts and EF implementations exist with tenant-aware query filtering hooks.
+- Query specification primitives for paging, sorting, and common filters are implemented.
+- Unit-of-work and transaction boundaries are implemented and DI-registered.
+- Infrastructure data-access tests are scaffolded and discovered in solution-level test runs.
+- ERD and data dictionary are published (`database/PHASE1_ERD_DATA_DICTIONARY.md`).
+- Tenant-safety query path tests pass with no cross-tenant leakage in validated repository paths.
+- Final migration rehearsal from empty database to ready state passes using documented scripts only.
+
+Phase 2 handoff prerequisites (explicit):
+
+- Tenancy baseline confirmed:
+  - Tenant ownership is explicit on core aggregates and tenant-scoped repository paths are validated.
+- Identity integration boundaries confirmed:
+  - `User.ExternalIdentity` and `IdentityValue` are available for external identity provider mapping.
+- Authorization policy integration points confirmed:
+  - Cross-tenant and role-specific checks remain in policy/orchestration layer and are ready for Phase 2 access-control enforcement.
+- Database readiness confirmed:
+  - Migration and seed scripts are reliable and reproducible for local/dev provisioning.
+- Development workflow readiness confirmed:
+  - Test projects and CI discovery patterns already include domain and infrastructure verification paths.
+- Documentation baseline confirmed:
+  - Phase 1 domain/model/schema artifacts are current and provide a stable reference for Phase 2 implementation planning.
+
+Phase 2 entry decision:
+
+- Entry status: Ready.
+- Blocking issues: None identified at Phase 1 close.
+- Carry-forward note: Phase 2 should implement authentication and authorization end-to-end using existing tenant-safe repository patterns and identity value object contracts, without changing ownership boundaries established in Phase 1.
+
