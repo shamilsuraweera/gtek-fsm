@@ -343,3 +343,33 @@ Handler strategy:
 - Custom `PermissionRequirement` carries required permission.
 - `PermissionAuthorizationHandler` extracts role claims (`ClaimTypes.Role`, `role`, `roles`) and checks permission via `RolePermissionAuthorizer` + `RolePermissionMatrix`.
 - Policy registration is centralized through `AddApiAuthorizationPolicies()` and requires authenticated users by default.
+
+### 2.3.2 - Tenant Ownership Checks in Application Use-Case Boundaries
+
+Implemented artifacts:
+
+- `backend/application/Identity/ITenantOwnershipGuard.cs`
+- `backend/application/Identity/TenantOwnershipGuard.cs`
+- `backend/application/Identity/TenantOwnershipGuardResult.cs`
+- `backend/application/DependencyInjection.cs`
+- `backend/api/Routing/V1RouteGroupExtensions.cs`
+- `backend/infrastructure.tests/Identity/TenantOwnershipGuardTests.cs`
+
+Boundary enforcement behavior:
+
+- `ITenantOwnershipGuard` is registered in Application DI and acts as the canonical boundary check for tenant-scoped operations.
+- Guard enforces that requested tenant id must match:
+  - authenticated principal tenant (`AuthenticatedPrincipal.TenantId`), and
+  - resolved request tenant context (`ITenantContextAccessor`).
+- Reject mapping is explicit and deterministic:
+  - unauthenticated context -> `401 AUTH_UNAUTHORIZED`
+  - unresolved tenant context -> `401 TENANT_CONTEXT_UNRESOLVED`
+  - principal/request tenant mismatch -> `403 TENANT_OWNERSHIP_MISMATCH`
+  - resolved/request tenant mismatch -> `403 TENANT_CONTEXT_MISMATCH`
+
+Tenant-scoped read/write boundary probes:
+
+- `GET /api/v1/tenant/{tenantId}/ownership-check/read`
+- `POST /api/v1/tenant/{tenantId}/ownership-check/write`
+
+Both probe routes call `ITenantOwnershipGuard` before proceeding and return standardized API envelopes.

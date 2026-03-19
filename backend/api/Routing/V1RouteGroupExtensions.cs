@@ -71,6 +71,48 @@ public static class V1RouteGroupExtensions
         v1.MapGet("/auth/bootstrap/unauthorized", (HttpContext context) =>
             BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required."));
 
+        v1.MapGet("/tenant/{tenantId:guid}/ownership-check/read", (
+            Guid tenantId,
+            HttpContext context,
+            ITenantOwnershipGuard tenantOwnershipGuard) =>
+        {
+            var ownership = tenantOwnershipGuard.EnsureTenantAccess(tenantId);
+            if (!ownership.IsAllowed)
+            {
+                return BuildFailure(
+                    context,
+                    ownership.StatusCode ?? StatusCodes.Status403Forbidden,
+                    ownership.ErrorCode ?? "TENANT_OWNERSHIP_MISMATCH",
+                    ownership.Message ?? "Tenant ownership validation failed.");
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: new { tenantId, operation = "read" },
+                message: "Tenant-scoped read boundary check passed.",
+                traceId: context.TraceIdentifier));
+        });
+
+        v1.MapPost("/tenant/{tenantId:guid}/ownership-check/write", (
+            Guid tenantId,
+            HttpContext context,
+            ITenantOwnershipGuard tenantOwnershipGuard) =>
+        {
+            var ownership = tenantOwnershipGuard.EnsureTenantAccess(tenantId);
+            if (!ownership.IsAllowed)
+            {
+                return BuildFailure(
+                    context,
+                    ownership.StatusCode ?? StatusCodes.Status403Forbidden,
+                    ownership.ErrorCode ?? "TENANT_OWNERSHIP_MISMATCH",
+                    ownership.Message ?? "Tenant ownership validation failed.");
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(
+                data: new { tenantId, operation = "write" },
+                message: "Tenant-scoped write boundary check passed.",
+                traceId: context.TraceIdentifier));
+        });
+
         // Operational endpoints (for example /health) remain outside versioned groups.
         return app;
     }
