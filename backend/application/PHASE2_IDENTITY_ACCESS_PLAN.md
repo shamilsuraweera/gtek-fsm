@@ -106,3 +106,28 @@ Model semantics:
 - `Roles` and `Scopes` are normalized into case-insensitive sets, trimming whitespace and deduplicating entries.
 - Helper methods `IsInRole(...)` and `HasScope(...)` provide consistent authorization checks in application use cases.
 - `IAuthenticatedPrincipalAccessor` defines a single application abstraction (`GetCurrent`) for retrieving the current principal from any transport adapter.
+
+### 2.1.3 - Role and Permission Matrix
+
+Implemented artifacts:
+
+- `backend/application/Identity/Permissions.cs`
+- `backend/application/Identity/RolePermissionMatrix.cs`
+- `backend/infrastructure.tests/Identity/RolePermissionMatrixTests.cs`
+
+Matrix baseline:
+
+- All roles include `system.ping` to support the current API reachability surface.
+- Permission catalog covers current domain use-case surfaces prepared in Phase 1/2:
+  - tenants, users, service requests, jobs, subscriptions.
+- Role differentiation is explicit:
+  - `Guest`: ping-only.
+  - `Customer`: service request read/write + job read.
+  - `Worker`: service request read + job read/write.
+  - `Support`: operational read/write for requests/jobs with read-only tenant/user/subscription visibility.
+  - `Manager`: support capabilities plus user and subscription write permissions.
+  - `Admin`: full baseline permissions including tenant write.
+
+Implementation note:
+
+- Matrix returns case-insensitive permission sets and provides `HasPermission(role, permission)` for policy wiring in upcoming Phase 2 tasks.
