@@ -537,3 +537,33 @@ Assertion focus:
 - All identity and authorization decision points log structured audit trail with user, tenant, action, and outcome context.
 - Audit fields support compliance investigation, security monitoring, and operational troubleshooting.
 - Structured fields enable filtering and correlation in log aggregation systems.
+
+### 2.4.5 - Security-Focused Developer Runbook
+
+Implemented artifact:
+
+- `backend/SECURITY_DEVELOPER_RUNBOOK.md`
+
+Coverage summary:
+
+- Comprehensive troubleshooting guide for developers diagnosing local identity/access failures.
+- Quick diagnosis checklist maps error codes (`401`, `403`, cross-tenant leak) to likely root causes.
+- **Part 1**: Quick diagnosis checklist for immediate problem categorization.
+- **Part 2**: Detailed troubleshooting sections:
+  - JWT token validation (configuration, generation, format validation, claim extraction)
+  - Middleware configuration (ordering, registration, dependency verification)
+  - Role & permission validation (token claims, permission matrix, endpoint policies, role/permission testing)
+  - Tenant resolution (token claims, resolution policy, context availability, scenario testing)
+  - Tenant context propagation (principal availability, repository filtering, async context lifetime)
+- **Part 3**: Audit logging for diagnostics (log level configuration, audit event pattern matching, example logs).
+- **Part 4**: Integration test procedures (how to run Phase 2 test suites and interpret results).
+- **Part 5**: Quick reference (token structure template, request headers, common error messages).
+- **Part 6**: Escalation procedures (when to contact security/platform team).
+
+Assertion focus:
+
+- Developers can self-service 80% of common identity/access issues without platform/security team involvement.
+- Runbook provides concrete, reproducible steps with bash commands and code examples.
+- Structures troubleshooting around error codes and symptoms with clear navigation.
+- Audit logging section enables log-based investigation for complex failure scenarios.
+
