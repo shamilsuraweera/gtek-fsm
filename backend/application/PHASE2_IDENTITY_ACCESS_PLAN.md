@@ -630,3 +630,31 @@ Assertion focus:
 - Unauthorized role elevation attempts are blocked with `403` across protected route categories.
 - Policy wiring and role-permission mapping remain aligned under integration execution.
 
+### 2.5.3 - Cross-Tenant Access Denial Validation
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/CrossTenantAccessDenialIntegrationTests.cs`
+
+Coverage summary:
+
+- Added focused integration tests that explicitly validate cross-tenant forbidden behavior and privileged-flow exceptions.
+- Tenant ownership boundary denial coverage:
+  - `Customer` cross-tenant read (`GET /api/v1/tenant/{tenantId}/ownership-check/read`) returns `403` with `TENANT_OWNERSHIP_MISMATCH`.
+  - `Worker` cross-tenant write (`POST /api/v1/tenant/{tenantId}/ownership-check/write`) returns `403` with `TENANT_OWNERSHIP_MISMATCH`.
+- Privileged management guard denial/exception coverage:
+  - `Manager` cross-tenant guarded operation (`POST /api/v1/management/cross-tenant/{tenantId}/guarded-probe`) returns `403` with `CROSS_TENANT_FORBIDDEN`.
+  - `Admin` cross-tenant guarded operation succeeds (`200`) as privileged-flow exception (tenant-write permission).
+  - `Manager` same-tenant guarded operation succeeds (`200`) to prove denial is specific to cross-tenant path.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~CrossTenantAccessDenialIntegrationTests"`
+- Passed: `5` / `5`, Failed: `0`.
+
+Assertion focus:
+
+- Cross-tenant access attempts are deterministically rejected with explicit forbidden outcomes and error semantics.
+- Privileged exception behavior is constrained to authorized roles (`Admin`) and does not broaden non-privileged cross-tenant access.
+- Same-tenant management flows remain functional while cross-tenant boundaries stay enforced.
+
