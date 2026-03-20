@@ -658,3 +658,29 @@ Assertion focus:
 - Privileged exception behavior is constrained to authorized roles (`Admin`) and does not broaden non-privileged cross-tenant access.
 - Same-tenant management flows remain functional while cross-tenant boundaries stay enforced.
 
+### 2.5.4 - Final Local/Dev Security Rehearsal
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/SecurityRehearsalIntegrationTests.cs`
+
+Coverage summary:
+
+- Added final rehearsal integration tests that execute the core local/dev security validation paths in one suite:
+  - Unauthenticated request path: `GET /api/v1/auth/bootstrap/authenticated` returns `401`.
+  - Wrong-tenant request path: authenticated `Customer` cross-tenant read returns `403` with `TENANT_OWNERSHIP_MISMATCH`.
+  - Wrong-role request path: authenticated non-admin (`Support`) request to admin-protected bootstrap route returns `403`.
+  - Valid-role request path: authenticated `Admin` request to admin-protected bootstrap route returns `200`.
+- Rehearsal suite validates the expected security envelope from middleware + policy + tenant boundary behavior under TestServer local execution.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~SecurityRehearsalIntegrationTests"`
+- Passed: `4` / `4`, Failed: `0`.
+
+Assertion focus:
+
+- Local/dev security posture can be rehearsed with deterministic outcomes across the four critical failure/success paths.
+- `401`/`403` semantics remain consistent for authentication, authorization, and tenant-boundary failure modes.
+- Valid privileged path remains functional while invalid role/tenant paths are blocked.
+
