@@ -567,3 +567,36 @@ Assertion focus:
 - Structures troubleshooting around error codes and symptoms with clear navigation.
 - Audit logging section enables log-based investigation for complex failure scenarios.
 
+### 2.5.1 - End-to-End Authenticated Flow Validation
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/EndToEndAuthenticatedRequestFlowTests.cs`
+
+Coverage summary:
+
+- Added full integration test coverage for authenticated request execution from token intake through tenant-scoped query behavior.
+- Test host pipeline validates middleware ordering and execution path:
+  - `UseAuthentication()`
+  - `UseTenantResolution()`
+  - `UseAuthorization()`
+- Added endpoint-level assertions for each critical stage in the flow:
+  - Authentication token presence handling (`401` when missing).
+  - Claim extraction of `sub`, `tenant_id`, and role claims.
+  - Tenant resolution success and failure behavior (`401` when unresolved).
+  - Authorization allow/deny behavior for role-protected endpoint (`200` vs `403`).
+  - Tenant-scoped repository query behavior under multi-tenant seeded data.
+- Added cross-context verification that different authenticated tenants each receive only their own data slice.
+- Added full end-to-end scenario test proving successful authenticated request path from inbound token headers to repository output.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~EndToEndAuthenticatedRequestFlowTests" --no-build`
+- Passed: `10` / `10`, Failed: `0`.
+
+Assertion focus:
+
+- Authenticated context is consistently propagated from authentication through repository access.
+- Tenant boundary is enforced at query execution level, preventing cross-tenant data leakage.
+- Role-based policy checks enforce expected allow/deny behavior for protected endpoints.
+
