@@ -600,3 +600,33 @@ Assertion focus:
 - Tenant boundary is enforced at query execution level, preventing cross-tenant data leakage.
 - Role-based policy checks enforce expected allow/deny behavior for protected endpoints.
 
+### 2.5.2 - Role-Based Access Matrix Validation
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/RoleAccessMatrixIntegrationTests.cs`
+
+Coverage summary:
+
+- Added focused integration coverage for role-based allow/deny behavior on critical Phase 2 endpoints wired in `MapV1Endpoints`.
+- Matrix validates expected authorization behavior for the following route families:
+  - `GET /api/v1/auth/bootstrap/authenticated` (`SystemPing` policy)
+  - `GET /api/v1/auth/bootstrap/forbidden` (`AdminFlow` policy)
+  - `GET /api/v1/tenant/{tenantId}/ownership-check/read` (`CustomerFlow` policy)
+  - `POST /api/v1/tenant/{tenantId}/ownership-check/write` (`WorkerFlow` policy)
+  - `POST /api/v1/management/cross-tenant/{tenantId}/guarded-probe` (`ManagementFlow` policy)
+- Allow matrix cases assert `200 OK` for roles expected to satisfy each policy.
+- Deny matrix cases assert `403 Forbidden` for roles that must be blocked.
+- Tests execute with same-tenant request context for boundary endpoints so authorization results isolate role/permission behavior instead of tenant-mismatch outcomes.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~RoleAccessMatrixIntegrationTests"`
+- Passed: `30` / `30`, Failed: `0`.
+
+Assertion focus:
+
+- Critical Phase 2 route policies enforce a deterministic role matrix for allow/deny outcomes.
+- Unauthorized role elevation attempts are blocked with `403` across protected route categories.
+- Policy wiring and role-permission mapping remain aligned under integration execution.
+
