@@ -511,3 +511,29 @@ Assertion focus:
 
 - Authenticated tenant context is correctly consumed in request handlers.
 - Repository query paths remain tenant-scoped even when query predicates match data in other tenants.
+
+### 2.4.4 - Structured Audit Logging Fields for Identity and Authorization Decisions
+
+Implemented artifacts:
+
+- Enhanced `PermissionAuthorizationHandler` to log authorization decisions via `IAuthorizationDecisionAuditSink`.
+- New unit tests in `backend/infrastructure.tests/Identity/StructuredAuditFieldsTests.cs` validating structured field capture.
+
+Coverage summary:
+
+- `AuthorizationDecisionAuditEvent` already includes all required structured fields: `UserId`, `SourceTenantId`, `TargetTenantId`, `Action`, `Outcome`, `Reason`, `OccurredAtUtc`.
+- Role-based permission checks in `PermissionAuthorizationHandler` now log audit events with:
+  - `UserId` from authenticated principal context (null for unauthenticated requests).
+  - `SourceTenantId` from tenant context accessor.
+  - `TargetTenantId` for cross-tenant operation tracking.
+  - `Action` formatted as `"permission_check:{PermissionName}"` for allow/deny decisions.
+  - `Outcome` set to `"allowed"` or `"denied"` based on authorization result.
+  - `Reason` set to `"permission_granted"` or `"permission_insufficient"`.
+- Existing `PrivilegedTenantOperationGuard` already logs cross-tenant operation decisions with `SourceTenantId`/`TargetTenantId` distinction for audit trail.
+- Unit tests verify structured fields are properly stored and support null `UserId` for unauthenticated scenarios, cross-tenant operations, and multiple outcome types.
+
+Assertion focus:
+
+- All identity and authorization decision points log structured audit trail with user, tenant, action, and outcome context.
+- Audit fields support compliance investigation, security monitoring, and operational troubleshooting.
+- Structured fields enable filtering and correlation in log aggregation systems.
