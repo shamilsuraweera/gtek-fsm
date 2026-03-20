@@ -155,7 +155,7 @@ public sealed class StructuredAuditFieldsTests
 
         // Assert - timestamp is within expected range
         Assert.InRange(auditEvent.OccurredAtUtc, beforeCreate.AddSeconds(-1), afterCreate.AddSeconds(1));
-        Assert.Equal(DateTimeKind.Utc, auditEvent.OccurredAtUtc.Kind);
+        Assert.Equal(TimeSpan.Zero, auditEvent.OccurredAtUtc.Offset);
     }
 
     [Theory]
