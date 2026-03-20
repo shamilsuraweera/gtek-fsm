@@ -684,3 +684,24 @@ Assertion focus:
 - `401`/`403` semantics remain consistent for authentication, authorization, and tenant-boundary failure modes.
 - Valid privileged path remains functional while invalid role/tenant paths are blocked.
 
+### 2.5.5 - Phase 2 Completion Criteria and Phase 3 Handoff
+
+Implemented artifact:
+
+- `backend/application/PHASE2_COMPLETION_HANDOFF.md`
+
+Coverage summary:
+
+- Published explicit Phase 2 completion criteria covering tracker closure, identity/claim baseline, authentication + tenant resolution guarantees, authorization policy enforcement, tenant boundary guarantees, and observability requirements.
+- Published explicit Phase 3 handoff prerequisites for service workflow implementation, including:
+  - Security invariants that must not regress (`principal`/`tenant` context requirements, cross-tenant guardrails, deterministic `401`/`403`).
+  - Application design constraints for new workflow handlers and route policy mapping.
+  - Phase 3 entry testing requirements for allow/deny and tenant-mismatch coverage.
+  - Operational prerequisites to keep runbook and local/dev auth diagnostics aligned.
+- Consolidated readiness-gate evidence references to `2.5.1` through `2.5.4` test suites.
+
+Assertion focus:
+
+- Phase 2 closure is now objective and auditable rather than implied by tracker status alone.
+- Phase 3 starts with explicit security guardrails, reducing risk of workflow-layer authorization or tenant-isolation regression.
+
