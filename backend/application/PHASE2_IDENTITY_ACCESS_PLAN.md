@@ -449,3 +449,91 @@ Payload semantics:
 - Both outcomes return standardized `ApiResponse<object>` envelope shape.
 - Response includes `TraceId` for correlation and consistent client-side error handling.
 - JWT event hooks (`OnChallenge`, `OnForbidden`) centrally enforce this behavior across policy-protected endpoints.
+
+### 2.4.1 - Architecture/Runtime Tests for Required Tenant Context
+
+Implemented artifacts:
+
+- `backend/infrastructure.tests/Architecture/ProtectedEndpointPolicyMetadataTests.cs`
+- `backend/infrastructure.tests/Runtime/TenantContextRequiredRuntimeTests.cs`
+- `backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj` (API project reference)
+
+Coverage summary:
+
+- Architecture test validates that critical protected endpoints are mapped with explicit authorization policies in endpoint metadata.
+- Runtime test validates that authenticated requests without tenant context are blocked by `TenantResolutionMiddleware` before endpoint execution (`401 TENANT_CONTEXT_UNRESOLVED`).
+
+Assertion focus:
+
+- Tenant context is required for protected request paths.
+- Missing tenant context prevents request continuation and returns deterministic failure semantics.
+
+### 2.4.2 - Integration Tests for Claim Tampering and Tenant Mismatch Denial
+
+Implemented artifacts:
+
+- `backend/infrastructure.tests/Integration/AuthTenantIsolationIntegrationTests.cs`
+- `backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj` (`Microsoft.AspNetCore.TestHost` package)
+
+Coverage summary:
+
+- In-memory integration host (`UseTestServer`) executes full API middleware + authorization pipeline for tenant-isolation denial paths.
+- `TamperedTenantClaim_IsRejected_WithUnauthorizedResponse`
+  - Sends authenticated request with malformed `tenant_id` claim value.
+  - Asserts `401` and deterministic `MALFORMED_TENANT_CLAIM` response semantics.
+- `TenantMismatch_IsRejected_WithForbiddenResponse`
+  - Sends authenticated tenant-scoped request where route tenant differs from principal tenant.
+  - Asserts `403` and deterministic `TENANT_OWNERSHIP_MISMATCH` response semantics.
+
+Assertion focus:
+
+- Claim tampering is denied before protected endpoint success paths.
+- Cross-tenant access is denied when requested tenant does not match authenticated tenant ownership.
+
+### 2.4.3 - Authenticated Query-Path Regression Tests for Tenant Filtering
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/AuthenticatedTenantQueryPathIntegrationTests.cs`
+
+Coverage summary:
+
+- In-memory integration host executes authenticated request pipeline (`UseAuthentication` + `UseTenantResolution` + `UseAuthorization`) and resolves principal context via `IAuthenticatedPrincipalAccessor`.
+- Test-only request endpoints query `IUserRepository` using authenticated principal tenant context to exercise real repository filtering logic under request execution.
+- `AuthenticatedListQuery_UsesPrincipalTenantAndBlocksCrossTenantLeakage`
+  - Seeds users in multiple tenants.
+  - Executes authenticated list query and verifies only principal tenant records are returned.
+- `AuthenticatedSpecificationQuery_RemainsTenantScopedUnderSearchFilter`
+  - Seeds same-display-name users across different tenants.
+  - Executes authenticated specification query with search text and verifies cross-tenant matches are excluded.
+
+Assertion focus:
+
+- Authenticated tenant context is correctly consumed in request handlers.
+- Repository query paths remain tenant-scoped even when query predicates match data in other tenants.
+
+### 2.4.4 - Structured Audit Logging Fields for Identity and Authorization Decisions
+
+Implemented artifacts:
+
+- Enhanced `PermissionAuthorizationHandler` to log authorization decisions via `IAuthorizationDecisionAuditSink`.
+- New unit tests in `backend/infrastructure.tests/Identity/StructuredAuditFieldsTests.cs` validating structured field capture.
+
+Coverage summary:
+
+- `AuthorizationDecisionAuditEvent` already includes all required structured fields: `UserId`, `SourceTenantId`, `TargetTenantId`, `Action`, `Outcome`, `Reason`, `OccurredAtUtc`.
+- Role-based permission checks in `PermissionAuthorizationHandler` now log audit events with:
+  - `UserId` from authenticated principal context (null for unauthenticated requests).
+  - `SourceTenantId` from tenant context accessor.
+  - `TargetTenantId` for cross-tenant operation tracking.
+  - `Action` formatted as `"permission_check:{PermissionName}"` for allow/deny decisions.
+  - `Outcome` set to `"allowed"` or `"denied"` based on authorization result.
+  - `Reason` set to `"permission_granted"` or `"permission_insufficient"`.
+- Existing `PrivilegedTenantOperationGuard` already logs cross-tenant operation decisions with `SourceTenantId`/`TargetTenantId` distinction for audit trail.
+- Unit tests verify structured fields are properly stored and support null `UserId` for unauthenticated scenarios, cross-tenant operations, and multiple outcome types.
+
+Assertion focus:
+
+- All identity and authorization decision points log structured audit trail with user, tenant, action, and outcome context.
+- Audit fields support compliance investigation, security monitoring, and operational troubleshooting.
+- Structured fields enable filtering and correlation in log aggregation systems.

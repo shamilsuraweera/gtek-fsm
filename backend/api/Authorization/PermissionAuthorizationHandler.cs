@@ -8,11 +8,11 @@ namespace GTEK.FSM.Backend.Api.Authorization;
 
 public sealed class PermissionAuthorizationHandler : AuthorizationHandler<PermissionRequirement>
 {
-    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
+    protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, PermissionRequirement requirement)
     {
         if (context.User?.Identity?.IsAuthenticated != true)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         var roles = context.User.Claims
@@ -20,11 +20,36 @@ public sealed class PermissionAuthorizationHandler : AuthorizationHandler<Permis
             .SelectMany(c => c.Value.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
-        if (RolePermissionAuthorizer.IsAuthorizedForPermission(roles, requirement.Permission))
+        var isAuthorized = RolePermissionAuthorizer.IsAuthorizedForPermission(roles, requirement.Permission);
+        
+        // Extract audit context from HttpContext if available
+        if (context.Resource is HttpContext httpContext)
+        {
+            var auditSink = httpContext.RequestServices.GetService(typeof(IAuthorizationDecisionAuditSink)) as IAuthorizationDecisionAuditSink;
+            var principalAccessor = httpContext.RequestServices.GetService(typeof(IAuthenticatedPrincipalAccessor)) as IAuthenticatedPrincipalAccessor;
+            var tenantAccessor = httpContext.RequestServices.GetService(typeof(ITenantContextAccessor)) as ITenantContextAccessor;
+            
+            if (auditSink is not null)
+            {
+                var principal = principalAccessor?.GetCurrent();
+                var tenantId = tenantAccessor?.GetCurrentTenantId();
+                
+                await auditSink.WriteAsync(
+                    new AuthorizationDecisionAuditEvent(
+                        UserId: principal?.UserId,
+                        SourceTenantId: tenantId,
+                        TargetTenantId: tenantId,
+                        Action: $"permission_check:{requirement.Permission}",
+                        Outcome: isAuthorized ? "allowed" : "denied",
+                        Reason: isAuthorized ? "permission_granted" : "permission_insufficient",
+                        OccurredAtUtc: DateTimeOffset.UtcNow),
+                    CancellationToken.None);
+            }
+        }
+
+        if (isAuthorized)
         {
             context.Succeed(requirement);
         }
-
-        return Task.CompletedTask;
     }
 }
