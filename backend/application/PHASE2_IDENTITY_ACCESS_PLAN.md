@@ -567,3 +567,141 @@ Assertion focus:
 - Structures troubleshooting around error codes and symptoms with clear navigation.
 - Audit logging section enables log-based investigation for complex failure scenarios.
 
+### 2.5.1 - End-to-End Authenticated Flow Validation
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/EndToEndAuthenticatedRequestFlowTests.cs`
+
+Coverage summary:
+
+- Added full integration test coverage for authenticated request execution from token intake through tenant-scoped query behavior.
+- Test host pipeline validates middleware ordering and execution path:
+  - `UseAuthentication()`
+  - `UseTenantResolution()`
+  - `UseAuthorization()`
+- Added endpoint-level assertions for each critical stage in the flow:
+  - Authentication token presence handling (`401` when missing).
+  - Claim extraction of `sub`, `tenant_id`, and role claims.
+  - Tenant resolution success and failure behavior (`401` when unresolved).
+  - Authorization allow/deny behavior for role-protected endpoint (`200` vs `403`).
+  - Tenant-scoped repository query behavior under multi-tenant seeded data.
+- Added cross-context verification that different authenticated tenants each receive only their own data slice.
+- Added full end-to-end scenario test proving successful authenticated request path from inbound token headers to repository output.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~EndToEndAuthenticatedRequestFlowTests" --no-build`
+- Passed: `10` / `10`, Failed: `0`.
+
+Assertion focus:
+
+- Authenticated context is consistently propagated from authentication through repository access.
+- Tenant boundary is enforced at query execution level, preventing cross-tenant data leakage.
+- Role-based policy checks enforce expected allow/deny behavior for protected endpoints.
+
+### 2.5.2 - Role-Based Access Matrix Validation
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/RoleAccessMatrixIntegrationTests.cs`
+
+Coverage summary:
+
+- Added focused integration coverage for role-based allow/deny behavior on critical Phase 2 endpoints wired in `MapV1Endpoints`.
+- Matrix validates expected authorization behavior for the following route families:
+  - `GET /api/v1/auth/bootstrap/authenticated` (`SystemPing` policy)
+  - `GET /api/v1/auth/bootstrap/forbidden` (`AdminFlow` policy)
+  - `GET /api/v1/tenant/{tenantId}/ownership-check/read` (`CustomerFlow` policy)
+  - `POST /api/v1/tenant/{tenantId}/ownership-check/write` (`WorkerFlow` policy)
+  - `POST /api/v1/management/cross-tenant/{tenantId}/guarded-probe` (`ManagementFlow` policy)
+- Allow matrix cases assert `200 OK` for roles expected to satisfy each policy.
+- Deny matrix cases assert `403 Forbidden` for roles that must be blocked.
+- Tests execute with same-tenant request context for boundary endpoints so authorization results isolate role/permission behavior instead of tenant-mismatch outcomes.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~RoleAccessMatrixIntegrationTests"`
+- Passed: `30` / `30`, Failed: `0`.
+
+Assertion focus:
+
+- Critical Phase 2 route policies enforce a deterministic role matrix for allow/deny outcomes.
+- Unauthorized role elevation attempts are blocked with `403` across protected route categories.
+- Policy wiring and role-permission mapping remain aligned under integration execution.
+
+### 2.5.3 - Cross-Tenant Access Denial Validation
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/CrossTenantAccessDenialIntegrationTests.cs`
+
+Coverage summary:
+
+- Added focused integration tests that explicitly validate cross-tenant forbidden behavior and privileged-flow exceptions.
+- Tenant ownership boundary denial coverage:
+  - `Customer` cross-tenant read (`GET /api/v1/tenant/{tenantId}/ownership-check/read`) returns `403` with `TENANT_OWNERSHIP_MISMATCH`.
+  - `Worker` cross-tenant write (`POST /api/v1/tenant/{tenantId}/ownership-check/write`) returns `403` with `TENANT_OWNERSHIP_MISMATCH`.
+- Privileged management guard denial/exception coverage:
+  - `Manager` cross-tenant guarded operation (`POST /api/v1/management/cross-tenant/{tenantId}/guarded-probe`) returns `403` with `CROSS_TENANT_FORBIDDEN`.
+  - `Admin` cross-tenant guarded operation succeeds (`200`) as privileged-flow exception (tenant-write permission).
+  - `Manager` same-tenant guarded operation succeeds (`200`) to prove denial is specific to cross-tenant path.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~CrossTenantAccessDenialIntegrationTests"`
+- Passed: `5` / `5`, Failed: `0`.
+
+Assertion focus:
+
+- Cross-tenant access attempts are deterministically rejected with explicit forbidden outcomes and error semantics.
+- Privileged exception behavior is constrained to authorized roles (`Admin`) and does not broaden non-privileged cross-tenant access.
+- Same-tenant management flows remain functional while cross-tenant boundaries stay enforced.
+
+### 2.5.4 - Final Local/Dev Security Rehearsal
+
+Implemented artifact:
+
+- `backend/infrastructure.tests/Integration/SecurityRehearsalIntegrationTests.cs`
+
+Coverage summary:
+
+- Added final rehearsal integration tests that execute the core local/dev security validation paths in one suite:
+  - Unauthenticated request path: `GET /api/v1/auth/bootstrap/authenticated` returns `401`.
+  - Wrong-tenant request path: authenticated `Customer` cross-tenant read returns `403` with `TENANT_OWNERSHIP_MISMATCH`.
+  - Wrong-role request path: authenticated non-admin (`Support`) request to admin-protected bootstrap route returns `403`.
+  - Valid-role request path: authenticated `Admin` request to admin-protected bootstrap route returns `200`.
+- Rehearsal suite validates the expected security envelope from middleware + policy + tenant boundary behavior under TestServer local execution.
+
+Execution result:
+
+- `dotnet test backend/infrastructure.tests --filter "FullyQualifiedName~SecurityRehearsalIntegrationTests"`
+- Passed: `4` / `4`, Failed: `0`.
+
+Assertion focus:
+
+- Local/dev security posture can be rehearsed with deterministic outcomes across the four critical failure/success paths.
+- `401`/`403` semantics remain consistent for authentication, authorization, and tenant-boundary failure modes.
+- Valid privileged path remains functional while invalid role/tenant paths are blocked.
+
+### 2.5.5 - Phase 2 Completion Criteria and Phase 3 Handoff
+
+Implemented artifact:
+
+- `backend/application/PHASE2_COMPLETION_HANDOFF.md`
+
+Coverage summary:
+
+- Published explicit Phase 2 completion criteria covering tracker closure, identity/claim baseline, authentication + tenant resolution guarantees, authorization policy enforcement, tenant boundary guarantees, and observability requirements.
+- Published explicit Phase 3 handoff prerequisites for service workflow implementation, including:
+  - Security invariants that must not regress (`principal`/`tenant` context requirements, cross-tenant guardrails, deterministic `401`/`403`).
+  - Application design constraints for new workflow handlers and route policy mapping.
+  - Phase 3 entry testing requirements for allow/deny and tenant-mismatch coverage.
+  - Operational prerequisites to keep runbook and local/dev auth diagnostics aligned.
+- Consolidated readiness-gate evidence references to `2.5.1` through `2.5.4` test suites.
+
+Assertion focus:
+
+- Phase 2 closure is now objective and auditable rather than implied by tracker status alone.
+- Phase 3 starts with explicit security guardrails, reducing risk of workflow-layer authorization or tenant-isolation regression.
+
