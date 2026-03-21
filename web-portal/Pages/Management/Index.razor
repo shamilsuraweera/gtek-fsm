@@ -1,6 +1,162 @@
 @page "/management"
 
+@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services
+
+@inject NavigationManager Navigation
+@inject ResilientDataFetcher Fetcher
+
 <PageTitle>Management</PageTitle>
 
 <h1>Management</h1>
-<p>Role landing placeholder for management and administration workflows.</p>
+
+<ResilienceErrorBoundary @ref="errorBoundary">
+	<DataFetchStateDisplay
+		State="@fetchState.State"
+		LoadingMessage="Loading management overview..."
+		ErrorMessage="@fetchState.ErrorMessage"
+		StaleMessage="Overview is using cached data; refresh may be needed."
+		PartialMessage="Overview loaded with partial metrics."
+		RetryingMessage="@($"Retrying overview load... Attempt {fetchState.RetryAttempts}")"
+		AllowStaleRender="true"
+		OnRetry="@HandleRetry"
+		OnDismiss="@HandleDismiss">
+
+		@if (Overview is not null)
+		{
+			<section class="mgmt-overview-shell">
+				<section class="mgmt-kpi-grid">
+					@foreach (var kpi in Overview.Kpis)
+					{
+						<article class="mgmt-kpi-card" @key="kpi.Title">
+							<p class="mgmt-kpi-title">@kpi.Title</p>
+							<p class="mgmt-kpi-value">@kpi.Value</p>
+							<p class="mgmt-kpi-delta @(kpi.Delta >= 0 ? "positive" : "negative")">
+								@(kpi.Delta >= 0 ? "+" : string.Empty)@kpi.Delta.ToString("0.0")% vs previous window
+							</p>
+						</article>
+					}
+				</section>
+
+				<section class="mgmt-trend-grid">
+					@foreach (var trend in Overview.Trends)
+					{
+						<article class="mgmt-trend-card" @key="trend.Title">
+							<h2 class="mgmt-trend-title">@trend.Title</h2>
+							<div class="mgmt-sparkline" role="img" aria-label="@trend.Title trend snapshot">
+								@foreach (var point in trend.Points)
+								{
+									<span class="mgmt-sparkline-bar" style="height: @NormalizeHeight(trend.Points, point)%"></span>
+								}
+							</div>
+							<div class="mgmt-trend-meta">
+								<span>Current: @trend.Points[^1]</span>
+								<span>Peak: @trend.Points.Max()</span>
+							</div>
+						</article>
+					}
+				</section>
+
+				<section class="mgmt-drill-grid">
+					@foreach (var entry in Overview.DrillIns)
+					{
+						<button class="mgmt-drill-card" @onclick="() => OpenDrillIn(entry.Route)" @key="entry.Title">
+							<span class="mgmt-drill-title">@entry.Title</span>
+							<span class="mgmt-drill-caption">@entry.Caption</span>
+						</button>
+					}
+				</section>
+			</section>
+		}
+	</DataFetchStateDisplay>
+</ResilienceErrorBoundary>
+
+@code {
+	private ResilienceErrorBoundary? errorBoundary;
+	private FetchResult<ManagementOverviewModel> fetchState = new();
+
+	private ManagementOverviewModel? Overview => fetchState.Data;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadOverview();
+	}
+
+	private async Task LoadOverview()
+	{
+		try
+		{
+			fetchState = await Fetcher.FetchAsync(
+				async () =>
+				{
+					await Task.Delay(220);
+					return BuildOverviewModel();
+				},
+				fetchState,
+				maxRetries: 2,
+				staleThresholdSeconds: 90);
+		}
+		catch (Exception ex)
+		{
+			errorBoundary?.HandleError(ex, "Failed to load management overview.");
+		}
+	}
+
+	private async Task HandleRetry()
+	{
+		await LoadOverview();
+	}
+
+	private void HandleDismiss()
+	{
+		fetchState.State = FetchState.Idle;
+	}
+
+	private void OpenDrillIn(string route)
+	{
+		Navigation.NavigateTo(route);
+	}
+
+	private static int NormalizeHeight(IReadOnlyList<int> points, int point)
+	{
+		var max = points.Max();
+		if (max == 0)
+		{
+			return 12;
+		}
+
+		return Math.Max(12, (point * 100) / max);
+	}
+
+	private static ManagementOverviewModel BuildOverviewModel()
+	{
+		return new ManagementOverviewModel(
+			[
+				new KpiCard("Open Requests", "184", 7.4),
+				new KpiCard("SLA Breach Risk", "23", -2.1),
+				new KpiCard("Worker Utilization", "78%", 4.6),
+				new KpiCard("Escalations Today", "11", 1.8),
+			],
+			[
+				new TrendSnapshot("Requests Intake (7d)", [36, 41, 39, 44, 47, 45, 49]),
+				new TrendSnapshot("Assignments Completed (7d)", [28, 33, 31, 36, 37, 40, 42]),
+				new TrendSnapshot("Escalation Volume (7d)", [9, 8, 10, 12, 11, 13, 11]),
+			],
+			[
+				new DrillInEntry("Worker Capacity", "Inspect workforce allocation and availability.", "/management/workers"),
+				new DrillInEntry("Service Categories", "Review category load and routing patterns.", "/management/categories"),
+				new DrillInEntry("Subscription Health", "Check tier usage and entitlement pressure.", "/management/subscriptions"),
+				new DrillInEntry("Operations Reports", "Open trend reports and performance breakdowns.", "/management/reports"),
+				new DrillInEntry("Governance Settings", "Adjust control-plane and policy settings.", "/management/settings"),
+			]);
+	}
+
+	private sealed record KpiCard(string Title, string Value, double Delta);
+	private sealed record TrendSnapshot(string Title, IReadOnlyList<int> Points);
+	private sealed record DrillInEntry(string Title, string Caption, string Route);
+	private sealed record ManagementOverviewModel(
+		IReadOnlyList<KpiCard> Kpis,
+		IReadOnlyList<TrendSnapshot> Trends,
+		IReadOnlyList<DrillInEntry> DrillIns);
+}

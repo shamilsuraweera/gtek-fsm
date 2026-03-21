@@ -591,6 +591,122 @@ code {
     color: #92400e;
 }
 
+.mgmt-overview-shell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.mgmt-kpi-grid,
+.mgmt-trend-grid,
+.mgmt-drill-grid {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.mgmt-kpi-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mgmt-trend-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mgmt-drill-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mgmt-kpi-card,
+.mgmt-trend-card,
+.mgmt-drill-card {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elevation-1);
+    padding: var(--space-3);
+}
+
+.mgmt-kpi-title {
+    margin: 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.mgmt-kpi-value {
+    margin: var(--space-2) 0 var(--space-1);
+    font-size: 1.8rem;
+    line-height: 1.1;
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.mgmt-kpi-delta {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.mgmt-kpi-delta.positive {
+    color: #166534;
+}
+
+.mgmt-kpi-delta.negative {
+    color: #991b1b;
+}
+
+.mgmt-trend-title {
+    margin: 0 0 var(--space-2);
+    font-size: var(--font-size-md);
+}
+
+.mgmt-sparkline {
+    display: grid;
+    grid-auto-flow: column;
+    gap: 0.35rem;
+    align-items: end;
+    height: 4.5rem;
+    padding: var(--space-1) 0;
+}
+
+.mgmt-sparkline-bar {
+    width: 100%;
+    border-radius: 0.25rem;
+    background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+}
+
+.mgmt-trend-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.mgmt-drill-card {
+    border: 1px solid var(--color-border-default);
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+}
+
+.mgmt-drill-card:hover {
+    border-color: #0f6abd;
+    box-shadow: 0 0 0 1px #0f6abd;
+}
+
+.mgmt-drill-title {
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
+}
+
+.mgmt-drill-caption {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+}
+
 .request-workspace-shell {
     display: flex;
     flex-direction: column;
@@ -698,6 +814,12 @@ code {
     }
 
     .assignment-shell__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .mgmt-kpi-grid,
+    .mgmt-trend-grid,
+    .mgmt-drill-grid {
         grid-template-columns: 1fr;
     }
 
