@@ -1,0 +1,139 @@
+@namespace GTEK.FSM.WebPortal.Components
+
+@using GTEK.FSM.WebPortal.Models
+
+<div class="status-signal">
+	<div class="status-badge" title="Request Status">
+		<span class="status-icon">
+			@switch (Status)
+			{
+				case RequestStatus.New:
+					<span>📋</span>
+					break;
+				case RequestStatus.Assessing:
+					<span>🔍</span>
+					break;
+				case RequestStatus.Assigned:
+					<span>👤</span>
+					break;
+				case RequestStatus.Active:
+					<span>🔧</span>
+					break;
+				case RequestStatus.Waiting:
+					<span>⏳</span>
+					break;
+				case RequestStatus.OnHold:
+					<span>⏸️</span>
+					break;
+				case RequestStatus.Escalated:
+					<span>⚠️</span>
+					break;
+				case RequestStatus.Completed:
+					<span>✅</span>
+					break;
+				case RequestStatus.Cancelled:
+					<span>❌</span>
+					break;
+			}
+		</span>
+		<span class="status-label status-@Status.ToString().ToLowerInvariant()">
+			@GetStatusLabel(Status)
+		</span>
+	</div>
+
+	@if (IsEscalated)
+	{
+		<div class="escalation-badge" title="Escalated to priority handling">
+			🚨
+		</div>
+	}
+
+	@if (IsSLABreach)
+	{
+		<div class="sla-breach-badge" title="SLA time exceeded">
+			⏰ SLA Breach
+		</div>
+	}
+
+	@if (AgeMinutes > 0)
+	{
+		<div class="age-badge" title="Time since request creation">
+			@FormatAge(AgeMinutes)
+		</div>
+	}
+
+	@if (UrgencyLevel != UrgencyLevel.Normal)
+	{
+		<div class="urgency-badge urgency-@UrgencyLevel.ToString().ToLowerInvariant()">
+			@GetUrgencyLabel(UrgencyLevel) · @GetUrgencyIcon(UrgencyLevel)
+		</div>
+	}
+
+	@if (!string.IsNullOrWhiteSpace(AssignedWorker))
+	{
+		<div class="assigned-badge" title="Currently assigned to">
+			Assigned: @AssignedWorker
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter]
+	public RequestStatus Status { get; set; } = RequestStatus.New;
+
+	[Parameter]
+	public UrgencyLevel UrgencyLevel { get; set; } = UrgencyLevel.Normal;
+
+	[Parameter]
+	public int AgeMinutes { get; set; } = 0;
+
+	[Parameter]
+	public bool IsEscalated { get; set; } = false;
+
+	[Parameter]
+	public bool IsSLABreach { get; set; } = false;
+
+	[Parameter]
+	public string? AssignedWorker { get; set; }
+
+	private string GetStatusLabel(RequestStatus status) => status switch
+	{
+		RequestStatus.New => "New",
+		RequestStatus.Assessing => "Assessing",
+		RequestStatus.Assigned => "Assigned",
+		RequestStatus.Active => "Active",
+		RequestStatus.Waiting => "Waiting",
+		RequestStatus.OnHold => "On Hold",
+		RequestStatus.Escalated => "Escalated",
+		RequestStatus.Completed => "Completed",
+		RequestStatus.Cancelled => "Cancelled",
+		_ => "Unknown",
+	};
+
+	private string GetUrgencyLabel(UrgencyLevel level) => level switch
+	{
+		UrgencyLevel.Moderate => "Moderate",
+		UrgencyLevel.High => "High Priority",
+		UrgencyLevel.Critical => "Critical",
+		_ => "Normal",
+	};
+
+	private string GetUrgencyIcon(UrgencyLevel level) => level switch
+	{
+		UrgencyLevel.Moderate => "↑",
+		UrgencyLevel.High => "⬆️",
+		UrgencyLevel.Critical => "🔴",
+		_ => "",
+	};
+
+	private string FormatAge(int minutes)
+	{
+		var hours = minutes / 60;
+		var mins = minutes % 60;
+
+		if (hours > 0)
+			return $"{hours}h {mins}m";
+
+		return $"{mins}m";
+	}
+}
