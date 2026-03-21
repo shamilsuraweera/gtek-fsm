@@ -1,8 +1,10 @@
 @page "/customer-care/requests"
 
 @using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Components.Operations
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@inject NavigationManager Navigation
 
 @inject ResilientDataFetcher Fetcher
 
@@ -21,25 +23,22 @@
 		AllowStaleRender="true"
 		OnRetry="@HandleRetry"
 		OnDismiss="@HandleDismiss">
-		<HighDensityQueueList
-			Title="Request Queue"
-			StickyContext="Virtualized high-density list for queue-heavy operations"
-			Items="@(fetchState.Data ?? [])" />
+		<OperationalQueueListWithControls
+			Title="Customer Care Request Queue"
+			StickyContext="Live queue with triage controls, status signals, and workload prioritization"
+			Items="@(fetchState.Data ?? [])"
+			OnActionTriggered="@HandleTriageAction" />
+
+		<OperationsBoard
+			Title="Dispatch Board"
+			Subtitle="Stage-based dispatch shell for quick operational coordination"
+			Columns="@DispatchBoardColumns" />
 	</DataFetchStateDisplay>
 </ResilienceErrorBoundary>
 
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
-	private FetchResult<List<QueueListItem>> fetchState = new();
-	private readonly IReadOnlyList<QueueListItem> sampleQueueItems = Enumerable.Range(1, 180)
-		.Select(index => new QueueListItem(
-			$"REQ-{1000 + index}",
-			$"Customer {index:000}",
-			ResolveStage(index),
-			ResolvePriority(index),
-			$"Operational ticket {index:000} requires follow-up and assignment.",
-			DateTime.UtcNow.AddMinutes(-index * 3)))
-		.ToList();
+	private FetchResult<List<OperationalQueueItem>> fetchState = new();
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -50,16 +49,12 @@
 	{
 		try
 		{
-			// Simulate a fetch operation. In production, this would call a real API endpoint.
-			// Uncommenting the line below adds a 10% chance of temporary failure for demo purposes.
-			// if (Random.Shared.Next(100) < 10) throw new Exception("Simulated network error");
-
 			fetchState = await Fetcher.FetchAsync(
 				async () =>
 				{
 					// Simulate network delay
 					await Task.Delay(300);
-					return sampleQueueItems.ToList();
+					return GenerateSampleQueueItems().ToList();
 				},
 				fetchState,
 				maxRetries: 2,
@@ -81,27 +76,113 @@
 		fetchState.State = FetchState.Idle;
 	}
 
-	private static string ResolveStage(int index)
+	private async Task HandleTriageAction((OperationalQueueItem item, TriageAction action) args)
 	{
-		var stageIndex = index - ((index / 4) * 4);
-		return stageIndex switch
+		var (item, action) = args;
+
+		if (action == TriageAction.ViewDetails)
 		{
-			0 => "Intake",
-			1 => "Assessment",
-			2 => "Dispatch",
-			_ => "In Progress",
-		};
+			Navigation.NavigateTo($"/customer-care/requests/workspace/{item.Reference}");
+			return;
+		}
+
+		try
+		{
+			// Simulate action processing
+			await Task.Delay(200);
+
+			// Update the item status based on action
+			item.Status = action switch
+			{
+				TriageAction.Assign => RequestStatus.Assigned,
+				TriageAction.Complete => RequestStatus.Completed,
+				TriageAction.Escalate => RequestStatus.Escalated,
+				TriageAction.Hold => RequestStatus.OnHold,
+				TriageAction.Reopen => RequestStatus.Assessing,
+				_ => item.Status,
+			};
+
+			StateHasChanged();
+		}
+		catch (Exception ex)
+		{
+			errorBoundary?.HandleError(ex, $"Failed to execute {action} action. Please try again.");
+		}
 	}
 
-	private static string ResolvePriority(int index)
+	private IReadOnlyList<OperationsBoardColumn> DispatchBoardColumns => BuildDispatchBoardColumns(fetchState.Data ?? []);
+
+	private static IReadOnlyList<OperationsBoardColumn> BuildDispatchBoardColumns(IReadOnlyList<OperationalQueueItem> items)
 	{
-		var priorityIndex = index - ((index / 5) * 5);
-		return priorityIndex switch
+		return
+		[
+			new OperationsBoardColumn("Intake", ToCards(items.Where(x => x.Status is RequestStatus.New or RequestStatus.Assessing).ToList())),
+			new OperationsBoardColumn("Assigned", ToCards(items.Where(x => x.Status == RequestStatus.Assigned).ToList())),
+			new OperationsBoardColumn("Active", ToCards(items.Where(x => x.Status == RequestStatus.Active).ToList())),
+			new OperationsBoardColumn("Escalated", ToCards(items.Where(x => x.Status == RequestStatus.Escalated).ToList())),
+		];
+	}
+
+	private static IReadOnlyList<OperationsBoardCard> ToCards(IReadOnlyList<OperationalQueueItem> items)
+	{
+		return items
+			.Select(item => new OperationsBoardCard(
+				item.Reference,
+				item.Summary,
+				item.Priority,
+				item.AssignedWorker ?? "Unassigned",
+				item.UpdatedAtUtc))
+			.ToList();
+	}
+
+	private List<OperationalQueueItem> GenerateSampleQueueItems()
+	{
+		var items = new List<OperationalQueueItem>();
+		var stages = new[] { "Intake", "Assessment", "Dispatch", "In Progress" };
+		var priorities = new[] { "Critical", "High", "Medium", "Low" };
+		var statuses = new[] { RequestStatus.New, RequestStatus.Assessing, RequestStatus.Assigned, RequestStatus.Active };
+		var urgencies = new[] { UrgencyLevel.Critical, UrgencyLevel.High, UrgencyLevel.Moderate, UrgencyLevel.Normal };
+		var workers = new[] { "Alice Chen", "Bob Silva", "Carol López", "David Patel", null };
+
+		for (int i = 1; i <= 120; i++)
 		{
-			0 => "Critical",
-			1 => "High",
-			2 => "Medium",
-			_ => "Low",
+			var ageMinutes = i * 3;
+			var urgencyLevel = urgencies[i % urgencies.Length];
+			var isEscalated = i % 7 == 0;
+			var isSLABreach = ageMinutes > 240 && urgencyLevel >= UrgencyLevel.High;
+
+			items.Add(new OperationalQueueItem
+			{
+				Reference = $"REQ-{1000 + i}",
+				Customer = $"Customer {i:000}",
+				Stage = stages[i % stages.Length],
+				Priority = priorities[i % priorities.Length],
+				Summary = $"Operational request {i:000}: System maintenance, troubleshooting, and follow-up actions.",
+				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-ageMinutes),
+				Status = statuses[i % statuses.Length],
+				UrgencyLevel = urgencyLevel,
+				AgeMinutes = ageMinutes,
+				IsEscalated = isEscalated,
+				IsSLABreach = isSLABreach,
+				AssignedWorker = workers[i % workers.Length],
+				EstimatedMinutes = Random.Shared.Next(30, 240),
+				WorkloadHint = GetWorkloadHint(urgencyLevel, isEscalated, isSLABreach),
+			});
+		}
+
+		return items;
+	}
+
+	private string GetWorkloadHint(UrgencyLevel urgency, bool escalated, bool slaBreach)
+	{
+		if (slaBreach) return "SLA breached—immediate action required";
+		if (escalated) return "Escalated—requires priority handling";
+		return urgency switch
+		{
+			UrgencyLevel.Critical => "Critical priority—attention needed",
+			UrgencyLevel.High => "High priority—queue for next available worker",
+			UrgencyLevel.Moderate => "Moderate priority—standard processing",
+			_ => "Normal—standard queue",
 		};
 	}
 }

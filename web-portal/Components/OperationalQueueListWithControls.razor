@@ -1,0 +1,204 @@
+@namespace GTEK.FSM.WebPortal.Components
+
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using GTEK.FSM.WebPortal.Models
+
+<section class="ops-queue-enhanced">
+	<div class="ops-queue__sticky">
+		<div class="ops-queue__head-row">
+			<div>
+				<h2 class="ops-queue__title">@Title</h2>
+				<p class="ops-queue__subtitle">@StickyContext</p>
+			</div>
+
+			<div class="ops-queue__controls">
+				<input class="ops-filter-input"
+					   placeholder="Filter reference, customer, summary"
+					   @bind="searchText"
+					   @bind:event="oninput" />
+
+				<select class="ops-filter-select" @bind="stageFilter">
+					@foreach (var option in StageOptions)
+					{
+						<option value="@option">@option</option>
+					}
+				</select>
+
+				<select class="ops-filter-select" @bind="statusFilter">
+					<option value="">All Status</option>
+					<option value="New">New</option>
+					<option value="Assigned">Assigned</option>
+					<option value="Active">Active</option>
+					<option value="Escalated">Escalated</option>
+					<option value="Waiting">Waiting</option>
+				</select>
+
+				<select class="ops-filter-select" @bind="urgencyFilter">
+					<option value="">All Urgency</option>
+					<option value="Critical">Critical Only</option>
+					<option value="High">High+</option>
+				</select>
+			</div>
+		</div>
+
+		<div class="ops-queue__columns-enhanced">
+			<span class="col-ref">Ref</span>
+			<span class="col-customer">Customer</span>
+			<span class="col-status">Status</span>
+			<span class="col-priority">Priority</span>
+			<span class="col-signals">Signals</span>
+			<span class="col-summary">Summary</span>
+			<span class="col-actions">Actions</span>
+		</div>
+	</div>
+
+	<div class="ops-queue__body-enhanced">
+		<Virtualize TItem="OperationalQueueItem" Items="@FilteredItems" Context="item" ItemSize="@ItemSize">
+			<article class="ops-queue__item-enhanced" @key="item.Reference">
+				<span class="col-ref mono">@item.Reference</span>
+				<span class="col-customer">@item.Customer</span>
+				<span class="col-status">
+					<span class="status-quick status-@item.Status.ToString().ToLowerInvariant()">
+						@FormatStatus(item.Status)
+					</span>
+				</span>
+				<span class="col-priority">
+					<span class="priority-chip priority-@item.Priority.ToLowerInvariant()">
+						@item.Priority
+					</span>
+				</span>
+				<span class="col-signals">
+					<div class="signal-row">
+						@if (item.IsEscalated)
+						{
+							<span class="signal-escalated">🚨</span>
+						}
+						@if (item.IsSLABreach)
+						{
+							<span class="signal-sla-breach">⏰</span>
+						}
+						@if (item.AgeMinutes >= 60)
+						{
+							<span class="signal-aging">⏱️@FormatAgeShort(item.AgeMinutes)</span>
+						}
+						@if (item.UrgencyLevel != UrgencyLevel.Normal)
+						{
+							<span class="urgency-dot urgency-@item.UrgencyLevel.ToString().ToLowerInvariant()"></span>
+						}
+					</div>
+				</span>
+				<span class="col-summary" title="@item.Summary">@TruncateSummary(item.Summary, 40)</span>
+				<span class="col-actions">
+					<button class="btn-quick-action" @onclick="@(() => HandleQuickAction(item, TriageAction.ViewDetails))" title="View details">
+						👁️
+					</button>
+					@if (item.AvailableActions.Count > 0)
+					{
+						var primaryAction = item.AvailableActions.FirstOrDefault();
+						if (primaryAction == TriageAction.Assign)
+						{
+							<button class="btn-quick-action btn-primary" @onclick="@(() => HandleQuickAction(item, TriageAction.Assign))" title="Assign">
+								➕
+							</button>
+						}
+						else if (primaryAction == TriageAction.Complete)
+						{
+							<button class="btn-quick-action btn-primary" @onclick="@(() => HandleQuickAction(item, TriageAction.Complete))" title="Complete">
+								✅
+							</button>
+						}
+						else if (primaryAction == TriageAction.Escalate)
+						{
+							<button class="btn-quick-action btn-warning" @onclick="@(() => HandleQuickAction(item, TriageAction.Escalate))" title="Escalate">
+								⚠️
+							</button>
+						}
+					}
+				</span>
+			</article>
+		</Virtualize>
+	</div>
+</section>
+
+@code {
+	private string searchText = string.Empty;
+	private string stageFilter = "All";
+	private string statusFilter = string.Empty;
+	private string urgencyFilter = string.Empty;
+
+	[Parameter]
+	public string Title { get; set; } = "Operations Queue";
+
+	[Parameter]
+	public string StickyContext { get; set; } = "High-density queue with live triage controls";
+
+	[Parameter]
+	public int ItemSize { get; set; } = 64;
+
+	[Parameter]
+	public List<OperationalQueueItem> Items { get; set; } = [];
+
+	[Parameter]
+	public EventCallback<(OperationalQueueItem item, TriageAction action)> OnActionTriggered { get; set; }
+
+	private IReadOnlyList<string> StageOptions =>
+		["All", .. Items.Select(x => x.Stage).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)];
+
+	private List<OperationalQueueItem> FilteredItems =>
+		Items
+			.Where(x => stageFilter == "All" || string.Equals(x.Stage, stageFilter, StringComparison.OrdinalIgnoreCase))
+			.Where(x => string.IsNullOrWhiteSpace(statusFilter) || string.Equals(x.Status.ToString(), statusFilter, StringComparison.OrdinalIgnoreCase))
+			.Where(x =>
+			{
+				return urgencyFilter switch
+				{
+					"Critical" => x.UrgencyLevel == UrgencyLevel.Critical,
+					"High" => x.UrgencyLevel == UrgencyLevel.High || x.UrgencyLevel == UrgencyLevel.Critical,
+					_ => true,
+				};
+			})
+			.Where(x => string.IsNullOrWhiteSpace(searchText)
+				|| x.Reference.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+				|| x.Customer.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+				|| x.Summary.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+			.OrderByDescending(x => x.IsEscalated)
+			.ThenByDescending(x => x.UrgencyLevel)
+			.ThenByDescending(x => x.IsSLABreach)
+			.ThenByDescending(x => x.UpdatedAtUtc)
+			.ToList();
+
+	private async Task HandleQuickAction(OperationalQueueItem item, TriageAction action)
+	{
+		if (OnActionTriggered.HasDelegate)
+		{
+			await OnActionTriggered.InvokeAsync((item, action));
+		}
+	}
+
+	private string FormatStatus(RequestStatus status) => status switch
+	{
+		RequestStatus.New => "📋",
+		RequestStatus.Assessing => "🔍",
+		RequestStatus.Assigned => "👤",
+		RequestStatus.Active => "🔧",
+		RequestStatus.Waiting => "⏳",
+		RequestStatus.OnHold => "⏸️",
+		RequestStatus.Escalated => "⚠️",
+		RequestStatus.Completed => "✅",
+		RequestStatus.Cancelled => "❌",
+		_ => "?",
+	};
+
+	private string FormatAgeShort(int minutes)
+	{
+		var hours = minutes / 60;
+		return hours > 0 ? $"{hours}h" : $"{minutes}m";
+	}
+
+	private string TruncateSummary(string summary, int maxLength)
+	{
+		return summary.Length > maxLength
+			? summary.Substring(0, maxLength) + "..."
+			: summary;
+	}
+}

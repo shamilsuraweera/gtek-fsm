@@ -1,0 +1,219 @@
+@page "/customer-care/requests/workspace"
+@page "/customer-care/requests/workspace/{Reference}"
+
+@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services
+
+@inject NavigationManager Navigation
+@inject ResilientDataFetcher Fetcher
+
+<PageTitle>Customer Care Request Workspace</PageTitle>
+
+<h1>Customer Care Request Workspace</h1>
+
+<ResilienceErrorBoundary @ref="errorBoundary">
+    <DataFetchStateDisplay
+        State="@fetchState.State"
+        LoadingMessage="Opening request workspace..."
+        ErrorMessage="@fetchState.ErrorMessage"
+        StaleMessage="Workspace is showing cached request context."
+        PartialMessage="Workspace loaded with partial context."
+        RetryingMessage="@($"Retrying workspace load... Attempt {fetchState.RetryAttempts}")"
+        AllowStaleRender="true"
+        OnRetry="@HandleRetry"
+        OnDismiss="@HandleDismiss">
+
+        @if (ActiveItem is not null)
+        {
+            <section class="request-workspace-shell">
+                <header class="workspace-header">
+                    <div>
+                        <p class="workspace-ref mono">@ActiveItem.Reference</p>
+                        <h2 class="workspace-title">@ActiveItem.Summary</h2>
+                        <p class="workspace-subtitle">Customer @ActiveItem.Customer · Stage @ActiveItem.Stage</p>
+                    </div>
+                    <div class="workspace-header-actions">
+                        <button class="btn-quick-action" @onclick="GoBackToQueue">Back to queue</button>
+                        <button class="btn-quick-action btn-primary" @onclick="RunRapidAction">Rapid resolve</button>
+                    </div>
+                </header>
+
+                <section class="workspace-panel">
+                    <h3>Status Signals</h3>
+                    <StatusSignalDisplay
+                        Status="@ActiveItem.Status"
+                        UrgencyLevel="@ActiveItem.UrgencyLevel"
+                        AgeMinutes="@ActiveItem.AgeMinutes"
+                        IsEscalated="@ActiveItem.IsEscalated"
+                        IsSLABreach="@ActiveItem.IsSLABreach"
+                        AssignedWorker="@ActiveItem.AssignedWorker" />
+                </section>
+
+                <section class="workspace-grid">
+                    <section class="workspace-panel">
+                        <h3>Lifecycle Controls</h3>
+                        <p class="workspace-hint">Use lifecycle actions to progress, hold, reassign, or escalate this request.</p>
+                        <TriageControlsPanel
+                            AvailableActions="@ActiveItem.AvailableActions"
+                            OnAction="@HandleLifecycleAction"
+                            ShowMoreMenu="true" />
+                    </section>
+
+                    <section class="workspace-panel">
+                        <h3>Rapid Action Pathways</h3>
+                        <div class="rapid-actions-row">
+                            <button class="btn-quick-action" @onclick='@(() => AddTimelineEvent("Outbound customer update sent."))'>Send update</button>
+                            <button class="btn-quick-action" @onclick='@(() => AddTimelineEvent("Worker ping issued for ETA confirmation."))'>Ping worker</button>
+                            <button class="btn-quick-action btn-warning" @onclick='@(() => AddTimelineEvent("Escalation huddle requested by operator."))'>Escalation huddle</button>
+                        </div>
+                        <p class="workspace-hint">Rapid actions are optimized for common coordination paths and can be executed without leaving the workspace.</p>
+                    </section>
+                </section>
+
+                <section class="workspace-panel">
+                    <h3>Timeline Context</h3>
+                    <ol class="workspace-timeline">
+                        @foreach (var timeline in TimelineEntries)
+                        {
+                            <li class="workspace-timeline-item" @key="timeline.Id">
+                                <span class="workspace-timeline-time mono">@timeline.Timestamp.ToLocalTime().ToString("MM-dd HH:mm")</span>
+                                <span>@timeline.Message</span>
+                            </li>
+                        }
+                    </ol>
+                </section>
+            </section>
+        }
+    </DataFetchStateDisplay>
+</ResilienceErrorBoundary>
+
+@code {
+    [Parameter]
+    public string? Reference { get; set; }
+
+    private ResilienceErrorBoundary? errorBoundary;
+    private FetchResult<OperationalQueueItem> fetchState = new();
+    private OperationalQueueItem? ActiveItem => fetchState.Data;
+
+    private readonly List<TimelineEntry> timelineEntries = [];
+    private IReadOnlyList<TimelineEntry> TimelineEntries => timelineEntries.OrderByDescending(x => x.Timestamp).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadWorkspace();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (fetchState.State == FetchState.Idle)
+        {
+            await LoadWorkspace();
+        }
+    }
+
+    private async Task LoadWorkspace()
+    {
+        try
+        {
+            fetchState = await Fetcher.FetchAsync(
+                async () =>
+                {
+                    await Task.Delay(200);
+                    var reference = string.IsNullOrWhiteSpace(Reference) ? "REQ-1001" : Reference;
+                    return BuildSampleItem(reference);
+                },
+                fetchState,
+                maxRetries: 2,
+                staleThresholdSeconds: 60);
+
+            SeedTimeline();
+        }
+        catch (Exception ex)
+        {
+            errorBoundary?.HandleError(ex, "Failed to load request workspace.");
+        }
+    }
+
+    private async Task HandleRetry()
+    {
+        await LoadWorkspace();
+    }
+
+    private void HandleDismiss()
+    {
+        fetchState.State = FetchState.Idle;
+    }
+
+    private async Task HandleLifecycleAction(TriageAction action)
+    {
+        if (ActiveItem is null)
+        {
+            return;
+        }
+
+        await Task.Delay(100);
+
+        ActiveItem.Status = action switch
+        {
+            TriageAction.Assign => RequestStatus.Assigned,
+            TriageAction.Complete => RequestStatus.Completed,
+            TriageAction.Escalate => RequestStatus.Escalated,
+            TriageAction.Hold => RequestStatus.OnHold,
+            TriageAction.Reopen => RequestStatus.Assessing,
+            TriageAction.Reassign => RequestStatus.Assigned,
+            TriageAction.Reject => RequestStatus.Cancelled,
+            _ => ActiveItem.Status,
+        };
+
+        AddTimelineEvent($"Lifecycle action applied: {action}.");
+    }
+
+    private async Task RunRapidAction()
+    {
+        await Task.Delay(100);
+        AddTimelineEvent("Rapid resolve pathway initiated by operator.");
+    }
+
+    private void AddTimelineEvent(string message)
+    {
+        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), DateTime.UtcNow, message));
+    }
+
+    private void SeedTimeline()
+    {
+        timelineEntries.Clear();
+        var now = DateTime.UtcNow;
+        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), now.AddMinutes(-65), "Request created through customer portal."));
+        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), now.AddMinutes(-42), "Initial triage completed and priority confirmed."));
+        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), now.AddMinutes(-18), "Dispatch note added for worker coordination."));
+    }
+
+    private static OperationalQueueItem BuildSampleItem(string reference)
+    {
+        return new OperationalQueueItem
+        {
+            Reference = reference,
+            Customer = "Contoso Facilities",
+            Stage = "Dispatch",
+            Priority = "High",
+            Summary = "HVAC outage escalation with tenant comfort impact.",
+            UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-8),
+            Status = RequestStatus.Assigned,
+            UrgencyLevel = UrgencyLevel.High,
+            AgeMinutes = 92,
+            IsEscalated = true,
+            IsSLABreach = false,
+            AssignedWorker = "Alice Chen",
+            EstimatedMinutes = 55,
+            WorkloadHint = "High priority and active dispatch coordination",
+        };
+    }
+
+    private void GoBackToQueue()
+    {
+        Navigation.NavigateTo("/customer-care/requests");
+    }
+
+    private sealed record TimelineEntry(Guid Id, DateTime Timestamp, string Message);
+}

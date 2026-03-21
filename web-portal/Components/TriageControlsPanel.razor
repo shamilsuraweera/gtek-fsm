@@ -1,0 +1,112 @@
+@namespace GTEK.FSM.WebPortal.Components
+
+@using GTEK.FSM.WebPortal.Models
+
+<div class="triage-controls">
+	@if (AvailableActions?.Any() ?? false)
+	{
+		@foreach (var action in AvailableActions)
+		{
+			<button
+				class="btn-triage btn-triage-@GetActionStyle(action)"
+				title="@GetActionTooltip(action)"
+				@onclick="@(() => InvokeAction(action))"
+				disabled="@IsActionDisabled">
+				@GetActionLabel(action)
+			</button>
+		}
+	}
+	else
+	{
+		<span class="triage-empty">No actions available</span>
+	}
+
+	@if (ShowMoreMenu && AvailableActions?.Count > 3)
+	{
+		<div class="triage-menu">
+			<button class="btn-triage-more" @onclick="@ToggleMoreMenu">
+				@(MoreMenuOpen ? "↑" : "↓")
+			</button>
+			@if (MoreMenuOpen)
+			{
+				<div class="triage-menu-items">
+					@foreach (var action in AvailableActions.Skip(3))
+					{
+						<button
+							class="menu-item"
+							@onclick="@(() => { InvokeAction(action); MoreMenuOpen = false; })">
+							@GetActionLabel(action)
+						</button>
+					}
+				</div>
+			}
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter]
+	public IReadOnlyList<TriageAction>? AvailableActions { get; set; }
+
+	[Parameter]
+	public EventCallback<TriageAction> OnAction { get; set; }
+
+	[Parameter]
+	public bool IsActionDisabled { get; set; } = false;
+
+	[Parameter]
+	public bool ShowMoreMenu { get; set; } = true;
+
+	private bool MoreMenuOpen { get; set; } = false;
+
+	private async Task InvokeAction(TriageAction action)
+	{
+		if (OnAction.HasDelegate)
+		{
+			await OnAction.InvokeAsync(action);
+		}
+	}
+
+	private void ToggleMoreMenu()
+	{
+		MoreMenuOpen = !MoreMenuOpen;
+	}
+
+	private string GetActionLabel(TriageAction action) => action switch
+	{
+		TriageAction.Assign => "Assign",
+		TriageAction.Escalate => "Escalate",
+		TriageAction.Complete => "Complete",
+		TriageAction.Hold => "Hold",
+		TriageAction.Reopen => "Reopen",
+		TriageAction.Reject => "Reject",
+		TriageAction.Reassign => "Reassign",
+		TriageAction.RequestInfo => "Request Info",
+		TriageAction.ViewDetails => "Details",
+		TriageAction.AddNote => "Add Note",
+		_ => action.ToString(),
+	};
+
+	private string GetActionStyle(TriageAction action) => action switch
+	{
+		TriageAction.Escalate or TriageAction.Complete => "primary",
+		TriageAction.Reject or TriageAction.Reopen => "danger",
+		TriageAction.Hold => "warning",
+		_ => "secondary",
+	};
+
+	private string GetActionTooltip(TriageAction action) => action switch
+	{
+		TriageAction.Assign => "Assign this request to a worker",
+		TriageAction.Escalate => "Move to higher priority handling",
+		TriageAction.Complete => "Mark as resolved",
+		TriageAction.Hold => "Pause pending further action",
+		TriageAction.Reopen => "Resume from hold or completion",
+		TriageAction.Reject => "Cancel this request",
+		TriageAction.Reassign => "Transfer to another worker",
+		TriageAction.RequestInfo => "Ask customer for more information",
+		TriageAction.ViewDetails => "View full request details",
+		TriageAction.AddNote => "Add a comment or note",
+		_ => "",
+	};
+}

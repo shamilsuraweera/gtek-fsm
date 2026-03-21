@@ -1,0 +1,285 @@
+@namespace GTEK.FSM.WebPortal.Components
+
+@using GTEK.FSM.WebPortal.Models
+
+<section class="assignment-shell">
+    <header class="assignment-shell__header">
+        <div>
+            <h2 class="assignment-shell__title">Assignment And Coordination</h2>
+            <p class="assignment-shell__subtitle">Fast matching, reassignment, and conflict-aware decisions in one workspace.</p>
+        </div>
+
+        <div class="assignment-shell__actions">
+            <button class="btn-quick-action btn-primary" @onclick="AssignBestMatch" disabled="@(SelectedRequest is null)">Assign Best Match</button>
+            <button class="btn-quick-action btn-warning" @onclick="ReassignSelected" disabled="@(SelectedRequest is null)">Reassign Selected</button>
+        </div>
+    </header>
+
+    <section class="assignment-shell__grid">
+        <article class="assignment-panel">
+            <h3>Requests Needing Coordination</h3>
+            <div class="assignment-request-list">
+                @foreach (var item in PrioritizedRequests)
+                {
+                    var selected = string.Equals(selectedReference, item.Reference, StringComparison.Ordinal);
+                    <button class="assignment-request-item @(selected ? "selected" : string.Empty)" @onclick="() => SelectRequest(item.Reference)">
+                        <div>
+                            <p class="mono assignment-ref">@item.Reference</p>
+                            <p class="assignment-summary">@item.Summary</p>
+                            <p class="assignment-meta">@item.Customer · @item.Stage · @item.Priority</p>
+                        </div>
+                        <div class="assignment-badges">
+                            @if (item.IsEscalated)
+                            {
+                                <span class="assignment-badge danger">Escalated</span>
+                            }
+                            @if (item.IsSLABreach)
+                            {
+                                <span class="assignment-badge warning">SLA Risk</span>
+                            }
+                            @if (string.IsNullOrWhiteSpace(item.AssignedWorker))
+                            {
+                                <span class="assignment-badge neutral">Unassigned</span>
+                            }
+                            else
+                            {
+                                <span class="assignment-badge info">@item.AssignedWorker</span>
+                            }
+                        </div>
+                    </button>
+                }
+            </div>
+        </article>
+
+        <article class="assignment-panel">
+            <h3>Worker Matching</h3>
+            @if (SelectedRequest is null)
+            {
+                <p class="assignment-hint">Select a request to view candidate workers.</p>
+            }
+            else
+            {
+                <div class="assignment-worker-list">
+                    @foreach (var worker in CandidateWorkers)
+                    {
+                        var isSelected = string.Equals(selectedWorkerId, worker.Id, StringComparison.Ordinal);
+                        var score = ComputeMatchScore(SelectedRequest, worker);
+
+                        <div class="assignment-worker-item @(isSelected ? "selected" : string.Empty)">
+                            <div class="assignment-worker-main">
+                                <button class="assignment-worker-select" @onclick="() => SelectWorker(worker.Id)">
+                                    <strong>@worker.Name</strong>
+                                    <span>@worker.SkillTag · Active @worker.ActiveAssignments</span>
+                                </button>
+                                <span class="assignment-score">Match @score%</span>
+                            </div>
+                            <div class="assignment-worker-status">
+                                @if (!worker.IsAvailable)
+                                {
+                                    <span class="assignment-badge danger">Unavailable</span>
+                                }
+                                else if (worker.HasConflict)
+                                {
+                                    <span class="assignment-badge warning" title="@worker.ConflictReason">Conflict</span>
+                                }
+                                else
+                                {
+                                    <span class="assignment-badge success">Ready</span>
+                                }
+                            </div>
+                            <div class="assignment-worker-actions">
+                                <button class="btn-quick-action" @onclick="() => AssignWorker(worker.Id, false)" disabled="@(!worker.IsAvailable)">Assign</button>
+                                <button class="btn-quick-action" @onclick="() => AssignWorker(worker.Id, true)" disabled="@(!worker.IsAvailable)">Reassign</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+
+        <article class="assignment-panel">
+            <h3>Conflict Aware Guidance</h3>
+            @if (SelectedRequest is null)
+            {
+                <p class="assignment-hint">Select a request to see conflict guidance.</p>
+            }
+            else
+            {
+                <p class="assignment-hint">Current request: <strong>@SelectedRequest.Reference</strong></p>
+
+                @if (CurrentWorker is null)
+                {
+                    <p class="assignment-hint">No worker selected. Pick a worker from the matching panel.</p>
+                }
+                else
+                {
+                    <ul class="assignment-guidance-list">
+                        <li><strong>Worker:</strong> @CurrentWorker.Name (@CurrentWorker.SkillTag)</li>
+                        <li><strong>Current workload:</strong> @CurrentWorker.ActiveAssignments active assignments</li>
+                        @if (CurrentWorker.HasConflict)
+                        {
+                            <li class="assignment-guidance-warning"><strong>Conflict:</strong> @CurrentWorker.ConflictReason</li>
+                        }
+                        else
+                        {
+                            <li><strong>Conflict status:</strong> No active conflict flags</li>
+                        }
+                        <li><strong>Recommendation:</strong> @GetRecommendation(SelectedRequest, CurrentWorker)</li>
+                    </ul>
+                }
+            }
+        </article>
+    </section>
+</section>
+
+@code {
+    private string? selectedReference;
+    private string? selectedWorkerId;
+
+    [Parameter]
+    public List<OperationalQueueItem> Requests { get; set; } = [];
+
+    [Parameter]
+    public List<AssignmentWorkerOption> Workers { get; set; } = [];
+
+    [Parameter]
+    public EventCallback<(string requestReference, string workerId, bool isReassignment)> OnDecisionTriggered { get; set; }
+
+    private IReadOnlyList<OperationalQueueItem> PrioritizedRequests => Requests
+        .OrderByDescending(x => x.IsEscalated)
+        .ThenByDescending(x => x.IsSLABreach)
+        .ThenByDescending(x => x.UrgencyLevel)
+        .ThenByDescending(x => x.UpdatedAtUtc)
+        .ToList();
+
+    private OperationalQueueItem? SelectedRequest => PrioritizedRequests.FirstOrDefault(x => string.Equals(x.Reference, selectedReference, StringComparison.Ordinal));
+
+    private AssignmentWorkerOption? CurrentWorker => Workers.FirstOrDefault(x => string.Equals(x.Id, selectedWorkerId, StringComparison.Ordinal));
+
+    private IReadOnlyList<AssignmentWorkerOption> CandidateWorkers => SelectedRequest is null
+        ? []
+        : Workers
+            .OrderByDescending(x => ComputeMatchScore(SelectedRequest, x))
+            .ThenBy(x => x.HasConflict)
+            .ThenBy(x => x.ActiveAssignments)
+            .ToList();
+
+    protected override void OnParametersSet()
+    {
+        if ((selectedReference is null) && PrioritizedRequests.Count > 0)
+        {
+            selectedReference = PrioritizedRequests[0].Reference;
+        }
+
+        if ((selectedWorkerId is null) && CandidateWorkers.Count > 0)
+        {
+            selectedWorkerId = CandidateWorkers[0].Id;
+        }
+    }
+
+    private void SelectRequest(string reference)
+    {
+        selectedReference = reference;
+        selectedWorkerId = CandidateWorkers.FirstOrDefault()?.Id;
+    }
+
+    private void SelectWorker(string workerId)
+    {
+        selectedWorkerId = workerId;
+    }
+
+    private async Task AssignBestMatch()
+    {
+        if (SelectedRequest is null)
+        {
+            return;
+        }
+
+        var best = CandidateWorkers.FirstOrDefault(x => x.IsAvailable && !x.HasConflict) ?? CandidateWorkers.FirstOrDefault(x => x.IsAvailable);
+        if (best is null)
+        {
+            return;
+        }
+
+        selectedWorkerId = best.Id;
+        await AssignWorker(best.Id, false);
+    }
+
+    private async Task ReassignSelected()
+    {
+        if ((SelectedRequest is null) || (CurrentWorker is null))
+        {
+            return;
+        }
+
+        await AssignWorker(CurrentWorker.Id, true);
+    }
+
+    private async Task AssignWorker(string workerId, bool isReassignment)
+    {
+        if (SelectedRequest is null)
+        {
+            return;
+        }
+
+        if (OnDecisionTriggered.HasDelegate)
+        {
+            await OnDecisionTriggered.InvokeAsync((SelectedRequest.Reference, workerId, isReassignment));
+        }
+    }
+
+    private static int ComputeMatchScore(OperationalQueueItem request, AssignmentWorkerOption worker)
+    {
+        var score = 50;
+
+        if (request.Stage.Contains("Dispatch", StringComparison.OrdinalIgnoreCase) && worker.SkillTag.Contains("Dispatch", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 20;
+        }
+
+        if (request.Priority.Equals("Critical", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 15;
+        }
+        else if (request.Priority.Equals("High", StringComparison.OrdinalIgnoreCase))
+        {
+            score += 10;
+        }
+
+        score -= worker.ActiveAssignments * 4;
+
+        if (worker.HasConflict)
+        {
+            score -= 20;
+        }
+
+        if (!worker.IsAvailable)
+        {
+            score -= 30;
+        }
+
+        return Math.Clamp(score, 0, 99);
+    }
+
+    private static string GetRecommendation(OperationalQueueItem request, AssignmentWorkerOption worker)
+    {
+        if (!worker.IsAvailable)
+        {
+            return "Do not assign. Select an available worker.";
+        }
+
+        if (worker.HasConflict)
+        {
+            return request.IsEscalated
+                ? "Conflict present; escalate override only if no alternative can meet SLA."
+                : "Prefer a non-conflicting candidate to reduce reassignment churn.";
+        }
+
+        if (worker.ActiveAssignments >= 4)
+        {
+            return "Valid match but workload is high. Consider secondary candidate.";
+        }
+
+        return "Recommended for immediate assignment.";
+    }
+}

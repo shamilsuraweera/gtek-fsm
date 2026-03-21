@@ -21,22 +21,24 @@
 		AllowStaleRender="true"
 		OnRetry="@HandleRetry"
 		OnDismiss="@HandleDismiss">
-		<HighDensityQueueList
-			Title="Assignment Queue"
-			StickyContext="Dispatch coordination and reassignment monitoring"
-			Items="@(fetchState.Data ?? [])" />
+		<AssignmentCoordinationShell
+			Requests="@(fetchState.Data ?? [])"
+			Workers="workerOptions"
+			OnDecisionTriggered="@HandleDecision" />
 	</DataFetchStateDisplay>
 </ResilienceErrorBoundary>
 
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
-	private FetchResult<List<QueueListItem>> fetchState = new();
-	private readonly IReadOnlyList<QueueListItem> sampleAssignmentItems =
+	private FetchResult<List<OperationalQueueItem>> fetchState = new();
+
+	private readonly List<AssignmentWorkerOption> workerOptions =
 	[
-		new("ASN-221", "Metro Hospital", "Dispatch", "Critical", "Escalated outage requires immediate reassignment.", DateTime.UtcNow.AddMinutes(-5)),
-		new("ASN-219", "Northline Apartments", "Assessment", "High", "Worker requested spare part verification.", DateTime.UtcNow.AddMinutes(-18)),
-		new("ASN-217", "Bay Distribution Hub", "In Progress", "Medium", "On-site diagnostics active; ETA review pending.", DateTime.UtcNow.AddMinutes(-31)),
-		new("ASN-214", "Greenfield Towers", "Intake", "Low", "New assignment candidate awaiting workload check.", DateTime.UtcNow.AddMinutes(-52)),
+		new() { Id = "W-100", Name = "Alice Chen", SkillTag = "Dispatch", ActiveAssignments = 2, HasConflict = false, IsAvailable = true },
+		new() { Id = "W-101", Name = "Bob Silva", SkillTag = "Electrical", ActiveAssignments = 4, HasConflict = true, ConflictReason = "Overlapping emergency ticket window.", IsAvailable = true },
+		new() { Id = "W-102", Name = "Carol Lopez", SkillTag = "Dispatch", ActiveAssignments = 1, HasConflict = false, IsAvailable = true },
+		new() { Id = "W-103", Name = "David Patel", SkillTag = "HVAC", ActiveAssignments = 3, HasConflict = true, ConflictReason = "Required certification mismatch for this request.", IsAvailable = true },
+		new() { Id = "W-104", Name = "Evelyn Ross", SkillTag = "Plumbing", ActiveAssignments = 5, HasConflict = false, IsAvailable = false },
 	];
 
 	protected override async Task OnInitializedAsync()
@@ -51,9 +53,8 @@
 			fetchState = await Fetcher.FetchAsync(
 				async () =>
 				{
-					// Simulate network delay
-					await Task.Delay(200);
-					return sampleAssignmentItems.ToList();
+					await Task.Delay(220);
+					return BuildSampleAssignmentItems();
 				},
 				fetchState,
 				maxRetries: 2,
@@ -73,5 +74,108 @@
 	private void HandleDismiss()
 	{
 		fetchState.State = FetchState.Idle;
+	}
+
+	private async Task HandleDecision((string requestReference, string workerId, bool isReassignment) decision)
+	{
+		var (requestReference, workerId, isReassignment) = decision;
+
+		var request = fetchState.Data?.FirstOrDefault(x => string.Equals(x.Reference, requestReference, StringComparison.Ordinal));
+		var worker = workerOptions.FirstOrDefault(x => string.Equals(x.Id, workerId, StringComparison.Ordinal));
+
+		if ((request is null) || (worker is null))
+		{
+			return;
+		}
+
+		await Task.Delay(120);
+
+		if (isReassignment && !string.IsNullOrWhiteSpace(request.AssignedWorker) && !string.Equals(request.AssignedWorker, worker.Name, StringComparison.Ordinal))
+		{
+			var previous = workerOptions.FirstOrDefault(x => string.Equals(x.Name, request.AssignedWorker, StringComparison.Ordinal));
+			if ((previous is not null) && (previous.ActiveAssignments > 0))
+			{
+				previous.ActiveAssignments--;
+			}
+		}
+
+		request.AssignedWorker = worker.Name;
+		request.Status = RequestStatus.Assigned;
+		request.Stage = "Dispatch";
+		request.UpdatedAtUtc = DateTime.UtcNow;
+
+		if (worker.ActiveAssignments < 9)
+		{
+			worker.ActiveAssignments++;
+		}
+
+		StateHasChanged();
+	}
+
+	private static List<OperationalQueueItem> BuildSampleAssignmentItems()
+	{
+		return
+		[
+			new OperationalQueueItem
+			{
+				Reference = "ASN-221",
+				Customer = "Metro Hospital",
+				Stage = "Dispatch",
+				Priority = "Critical",
+				Summary = "Escalated outage requires immediate reassignment.",
+				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+				Status = RequestStatus.Escalated,
+				UrgencyLevel = UrgencyLevel.Critical,
+				AgeMinutes = 185,
+				IsEscalated = true,
+				IsSLABreach = true,
+				AssignedWorker = "Bob Silva",
+			},
+			new OperationalQueueItem
+			{
+				Reference = "ASN-219",
+				Customer = "Northline Apartments",
+				Stage = "Assessment",
+				Priority = "High",
+				Summary = "Worker requested spare part verification.",
+				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-18),
+				Status = RequestStatus.Waiting,
+				UrgencyLevel = UrgencyLevel.High,
+				AgeMinutes = 122,
+				IsEscalated = false,
+				IsSLABreach = false,
+				AssignedWorker = "",
+			},
+			new OperationalQueueItem
+			{
+				Reference = "ASN-217",
+				Customer = "Bay Distribution Hub",
+				Stage = "In Progress",
+				Priority = "Medium",
+				Summary = "On-site diagnostics active; ETA review pending.",
+				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-31),
+				Status = RequestStatus.Active,
+				UrgencyLevel = UrgencyLevel.Moderate,
+				AgeMinutes = 81,
+				IsEscalated = false,
+				IsSLABreach = false,
+				AssignedWorker = "Carol Lopez",
+			},
+			new OperationalQueueItem
+			{
+				Reference = "ASN-214",
+				Customer = "Greenfield Towers",
+				Stage = "Intake",
+				Priority = "Low",
+				Summary = "New assignment candidate awaiting workload check.",
+				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-52),
+				Status = RequestStatus.New,
+				UrgencyLevel = UrgencyLevel.Normal,
+				AgeMinutes = 52,
+				IsEscalated = false,
+				IsSLABreach = false,
+				AssignedWorker = "",
+			},
+		];
 	}
 }
