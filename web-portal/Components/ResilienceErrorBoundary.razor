@@ -1,0 +1,85 @@
+@namespace GTEK.FSM.WebPortal.Components
+
+@using Microsoft.AspNetCore.Components
+
+<div class="resilience-error-boundary">
+	@if (DisplayError)
+	{
+		<div class="error-boundary-container">
+			<div class="error-boundary-content">
+				<div class="error-boundary-icon">
+					<span>🔴</span>
+				</div>
+				<h3>Something Went Wrong</h3>
+				<p>@(ErrorMessage ?? "An unexpected error occurred in this section. Please try refreshing or contact support.")</p>
+				<div class="error-boundary-actions">
+					<button class="btn-recover" @onclick="HandleRecover">Recover</button>
+					@if (!string.IsNullOrWhiteSpace(DetailedErrorMessage))
+					{
+						<button class="btn-details" @onclick="ToggleDetails">@(ShowDetails ? "Hide Details" : "Show Details")</button>
+					}
+				</div>
+				@if (ShowDetails && !string.IsNullOrWhiteSpace(DetailedErrorMessage))
+				{
+					<details class="error-details">
+						<summary>Technical Details</summary>
+						<pre>@DetailedErrorMessage</pre>
+					</details>
+				}
+			</div>
+		</div>
+	}
+	else
+	{
+		@ChildContent
+	}
+</div>
+
+@code {
+	[Parameter]
+	public RenderFragment? ChildContent { get; set; }
+
+	[Parameter]
+	public EventCallback OnRecover { get; set; }
+
+	/// <summary>
+	/// Custom error message to display. If not set, a default message is shown.
+	/// </summary>
+	[Parameter]
+	public string? ErrorMessage { get; set; }
+
+	private bool DisplayError { get; set; } = false;
+	private string? DetailedErrorMessage { get; set; }
+	private bool ShowDetails { get; set; } = false;
+
+	/// <summary>
+	/// Handle an exception and display the error boundary.
+	/// </summary>
+	public void HandleError(Exception ex, string? customMessage = null)
+	{
+		DetailedErrorMessage = ex?.ToString();
+		if (!string.IsNullOrWhiteSpace(customMessage))
+		{
+			ErrorMessage = customMessage;
+		}
+		DisplayError = true;
+		StateHasChanged();
+	}
+
+	private async Task HandleRecover()
+	{
+		DisplayError = false;
+		ShowDetails = false;
+		DetailedErrorMessage = null;
+		if (OnRecover.HasDelegate)
+		{
+			await OnRecover.InvokeAsync();
+		}
+		StateHasChanged();
+	}
+
+	private void ToggleDetails()
+	{
+		ShowDetails = !ShowDetails;
+	}
+}
