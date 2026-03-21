@@ -1,0 +1,78 @@
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+
+<section class="ops-queue">
+    <div class="ops-queue__sticky">
+        <div class="ops-queue__head-row">
+            <div>
+                <h2 class="ops-queue__title">@Title</h2>
+                <p class="ops-queue__subtitle">@StickyContext</p>
+            </div>
+
+            <div class="ops-queue__controls">
+                <input class="ops-filter-input"
+                       placeholder="Filter reference, customer, summary"
+                       @bind="searchText"
+                       @bind:event="oninput" />
+
+                <select class="ops-filter-select" @bind="stageFilter">
+                    @foreach (var option in StageOptions)
+                    {
+                        <option value="@option">@option</option>
+                    }
+                </select>
+            </div>
+        </div>
+
+        <div class="ops-queue__columns">
+            <span>Reference</span>
+            <span>Customer</span>
+            <span>Stage</span>
+            <span>Priority</span>
+            <span>Summary</span>
+            <span>Updated</span>
+        </div>
+    </div>
+
+    <div class="ops-queue__body">
+        <Virtualize TItem="QueueListItem" Items="@FilteredItems" Context="item" ItemSize="@ItemSize">
+            <article class="ops-queue__item">
+                <span class="mono">@item.Reference</span>
+                <span>@item.Customer</span>
+                <span>@item.Stage</span>
+                <span class="priority-chip priority-@item.Priority.ToLowerInvariant()">@item.Priority</span>
+                <span>@item.Summary</span>
+                <span>@item.UpdatedAtUtc.ToLocalTime().ToString("MM-dd HH:mm")</span>
+            </article>
+        </Virtualize>
+    </div>
+</section>
+
+@code {
+    private string searchText = string.Empty;
+    private string stageFilter = "All";
+
+    [Parameter]
+    public string Title { get; set; } = "Operations Queue";
+
+    [Parameter]
+    public string StickyContext { get; set; } = "High-density queue view";
+
+    [Parameter]
+    public int ItemSize { get; set; } = 48;
+
+    [Parameter]
+    public IReadOnlyList<QueueListItem> Items { get; set; } = [];
+
+    private IReadOnlyList<string> StageOptions =>
+        ["All", .. Items.Select(x => x.Stage).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)];
+
+    private List<QueueListItem> FilteredItems =>
+        Items
+            .Where(x => stageFilter == "All" || string.Equals(x.Stage, stageFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(x => string.IsNullOrWhiteSpace(searchText)
+                || x.Reference.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || x.Customer.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                || x.Summary.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(x => x.UpdatedAtUtc)
+            .ToList();
+}

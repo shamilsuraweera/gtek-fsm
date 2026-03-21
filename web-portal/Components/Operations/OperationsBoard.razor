@@ -1,0 +1,79 @@
+<section class="ops-board">
+    <div class="ops-board__header">
+        <div>
+            <h2 class="ops-board__title">@Title</h2>
+            <p class="ops-board__subtitle">@Subtitle</p>
+        </div>
+
+        <div class="ops-board__controls">
+            <input class="ops-filter-input"
+                   placeholder="Filter cards"
+                   @bind="searchText"
+                   @bind:event="oninput" />
+            <select class="ops-filter-select" @bind="priorityFilter">
+                @foreach (var option in PriorityOptions)
+                {
+                    <option value="@option">@option</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="ops-board__lane-wrap">
+        @foreach (var lane in FilteredColumns)
+        {
+            <section class="ops-lane">
+                <header class="ops-lane__header">
+                    <span>@lane.Name</span>
+                    <span class="ops-count">@lane.Cards.Count</span>
+                </header>
+
+                <div class="ops-lane__cards">
+                    @foreach (var card in lane.Cards)
+                    {
+                        <article class="ops-card">
+                            <p class="ops-card__ref mono">@card.Reference</p>
+                            <h3>@card.Title</h3>
+                            <div class="ops-card__meta">
+                                <span class="priority-chip priority-@card.Priority.ToLowerInvariant()">@card.Priority</span>
+                                <span>@card.Assignee</span>
+                            </div>
+                            <p class="ops-card__updated">Updated @card.UpdatedAtUtc.ToLocalTime().ToString("MM-dd HH:mm")</p>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+    </div>
+</section>
+
+@code {
+    private string searchText = string.Empty;
+    private string priorityFilter = "All";
+
+    [Parameter]
+    public string Title { get; set; } = "Operations Board";
+
+    [Parameter]
+    public string Subtitle { get; set; } = "Stage-based coordination view";
+
+    [Parameter]
+    public IReadOnlyList<OperationsBoardColumn> Columns { get; set; } = [];
+
+    private IReadOnlyList<string> PriorityOptions =>
+        ["All", .. Columns.SelectMany(x => x.Cards).Select(x => x.Priority).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)];
+
+    private IReadOnlyList<OperationsBoardColumn> FilteredColumns =>
+        Columns
+            .Select(column => new OperationsBoardColumn(
+                column.Name,
+                column.Cards
+                    .Where(card => priorityFilter == "All" || string.Equals(card.Priority, priorityFilter, StringComparison.OrdinalIgnoreCase))
+                    .Where(card => string.IsNullOrWhiteSpace(searchText)
+                        || card.Reference.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                        || card.Title.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+                        || card.Assignee.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(card => card.UpdatedAtUtc)
+                    .ToList()))
+            .ToList();
+}

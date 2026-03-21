@@ -3,4 +3,43 @@
 <PageTitle>Customer Care Requests</PageTitle>
 
 <h1>Customer Care Requests</h1>
-<p>Placeholder page for incoming and active requests.</p>
+<HighDensityQueueList
+	Title="Request Queue"
+	StickyContext="Virtualized high-density list for queue-heavy operations"
+	Items="@queueItems" />
+
+@code {
+	private readonly IReadOnlyList<QueueListItem> queueItems = Enumerable.Range(1, 180)
+		.Select(index => new QueueListItem(
+			$"REQ-{1000 + index}",
+			$"Customer {index:000}",
+			ResolveStage(index),
+			ResolvePriority(index),
+			$"Operational ticket {index:000} requires follow-up and assignment.",
+			DateTime.UtcNow.AddMinutes(-index * 3)))
+		.ToList();
+
+	private static string ResolveStage(int index)
+	{
+		var stageIndex = index - ((index / 4) * 4);
+		return stageIndex switch
+		{
+			0 => "Intake",
+			1 => "Assessment",
+			2 => "Dispatch",
+			_ => "In Progress",
+		};
+	}
+
+	private static string ResolvePriority(int index)
+	{
+		var priorityIndex = index - ((index / 5) * 5);
+		return priorityIndex switch
+		{
+			0 => "Critical",
+			1 => "High",
+			2 => "Medium",
+			_ => "Low",
+		};
+	}
+}

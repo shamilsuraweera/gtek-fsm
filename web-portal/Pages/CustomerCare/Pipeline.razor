@@ -3,4 +3,36 @@
 <PageTitle>Customer Care Pipeline</PageTitle>
 
 <h1>Customer Care Pipeline</h1>
-<p>Placeholder page for pipeline board operations.</p>
+<OperationsBoard
+	Title="Dispatch Pipeline"
+	Subtitle="Stage board with fast filters for assignment coordination"
+	Columns="@pipelineColumns" />
+
+@code {
+	private readonly IReadOnlyList<OperationsBoardColumn> pipelineColumns =
+	[
+		new(
+			"Intake",
+			[
+				new("REQ-1043", "Electrical inspection pending", "High", "N. Perera", DateTime.UtcNow.AddMinutes(-12)),
+				new("REQ-1041", "Water pressure complaint", "Medium", "A. Silva", DateTime.UtcNow.AddMinutes(-28)),
+			]),
+		new(
+			"Assessment",
+			[
+				new("REQ-1037", "AC not cooling on site", "High", "K. Fernando", DateTime.UtcNow.AddMinutes(-35)),
+				new("REQ-1034", "Door lock replacement", "Low", "D. Akila", DateTime.UtcNow.AddMinutes(-63)),
+			]),
+		new(
+			"Dispatch",
+			[
+				new("REQ-1033", "Fiber outage triage", "Critical", "J. Peris", DateTime.UtcNow.AddMinutes(-6)),
+				new("REQ-1029", "Backup generator noise", "Medium", "M. Karuna", DateTime.UtcNow.AddMinutes(-44)),
+			]),
+		new(
+			"In Progress",
+			[
+				new("REQ-1026", "Camera recalibration", "Low", "S. Dias", DateTime.UtcNow.AddMinutes(-15)),
+			]),
+	];
+}
