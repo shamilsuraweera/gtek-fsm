@@ -408,6 +408,189 @@ code {
     margin-bottom: var(--space-2);
 }
 
+.assignment-shell {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.assignment-shell__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    box-shadow: var(--elevation-1);
+}
+
+.assignment-shell__title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+}
+
+.assignment-shell__subtitle {
+    margin: var(--space-1) 0 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-muted);
+}
+
+.assignment-shell__actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+}
+
+.assignment-shell__grid {
+    display: grid;
+    gap: var(--space-3);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.assignment-panel {
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    box-shadow: var(--elevation-1);
+}
+
+.assignment-panel h3 {
+    margin-top: 0;
+    margin-bottom: var(--space-2);
+    font-size: var(--font-size-md);
+}
+
+.assignment-request-list,
+.assignment-worker-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.assignment-request-item {
+    width: 100%;
+    text-align: left;
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-surface-alt);
+    padding: var(--space-2);
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-2);
+    cursor: pointer;
+}
+
+.assignment-request-item.selected,
+.assignment-worker-item.selected {
+    border-color: #0f6abd;
+    box-shadow: 0 0 0 1px #0f6abd;
+}
+
+.assignment-ref {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.assignment-summary {
+    margin: var(--space-1) 0;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+}
+
+.assignment-meta {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.assignment-badges {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    align-items: flex-end;
+}
+
+.assignment-badge {
+    border-radius: 999px;
+    padding: 0.2rem 0.45rem;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-semibold);
+}
+
+.assignment-badge.success { background: #dcfce7; color: #166534; }
+.assignment-badge.info { background: #dbeafe; color: #1e40af; }
+.assignment-badge.warning { background: #fef3c7; color: #92400e; }
+.assignment-badge.danger { background: #fee2e2; color: #991b1b; }
+.assignment-badge.neutral { background: #e5e7eb; color: #374151; }
+
+.assignment-worker-item {
+    border: 1px solid var(--color-border-default);
+    border-radius: var(--radius-sm);
+    background: var(--color-bg-surface-alt);
+    padding: var(--space-2);
+    display: grid;
+    gap: var(--space-1);
+}
+
+.assignment-worker-main {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.assignment-worker-select {
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.assignment-worker-select span {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-xs);
+}
+
+.assignment-score {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.assignment-worker-status,
+.assignment-worker-actions {
+    display: flex;
+    gap: var(--space-1);
+    flex-wrap: wrap;
+}
+
+.assignment-hint {
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    margin: 0;
+}
+
+.assignment-guidance-list {
+    margin: 0;
+    padding-left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    font-size: var(--font-size-sm);
+}
+
+.assignment-guidance-warning {
+    color: #92400e;
+}
+
 .request-workspace-shell {
     display: flex;
     flex-direction: column;
@@ -512,6 +695,10 @@ code {
     .ops-queue__item span:nth-child(5),
     .ops-queue__item span:nth-child(6) {
         display: none;
+    }
+
+    .assignment-shell__grid {
+        grid-template-columns: 1fr;
     }
 
     .workspace-grid {
