@@ -1,6 +1,7 @@
 # GTEK FSM
 
 GTEK FSM is a multi-tenant Facility Service Management platform with:
+
 - Mobile app for Customers and Workers
 - Web portal for Management and Customer Care
 - Shared .NET and MS SQL backend
@@ -47,9 +48,9 @@ See `roadmap.txt` for the phase-by-phase plan.
 - Copy `backend/api/.env.auth.example` to `backend/api/.env.auth.local` and set local values.
 - Start API with matching JWT env values (or local appsettings overrides).
 - Generate a token for local/dev checks:
-	- `./backend/api/scripts/dev-auth-token.sh`
+  - `./backend/api/scripts/dev-auth-token.sh`
 - Run bootstrap auth probe checks (`401`, `403`, `200` paths):
-	- `./backend/api/scripts/dev-auth-bootstrap-check.sh`
+  - `./backend/api/scripts/dev-auth-bootstrap-check.sh`
 
 Notes:
 

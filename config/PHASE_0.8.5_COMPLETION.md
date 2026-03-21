@@ -9,12 +9,14 @@
 ## Deliverables Summary
 
 ### 1. Git Workflow Conventions Guide
+
 **File:** [config/GIT_WORKFLOW_CONVENTIONS.md](config/GIT_WORKFLOW_CONVENTIONS.md)  
 **Lines:** 500+  
 **Purpose:** Comprehensive reference for all git operations
 
 **Sections:**
-- Branch naming conventions (feature/*, bugfix/*, hotfix/*, etc.)
+
+- Branch naming conventions (feature/_, bugfix/_, hotfix/\*, etc.)
 - Commit message format (type(scope): subject + body)
 - Pull request process and guidelines
 - Code review standards and checklist
@@ -25,6 +27,7 @@
 - Phase-specific guidelines (Phase 0-11)
 
 **Key Features:**
+
 - Clear, actionable examples for every scenario
 - Tables for quick reference
 - Real-world workflow examples
@@ -34,11 +37,13 @@
 ---
 
 ### 2. Contributing Guide
+
 **File:** [.github/CONTRIBUTING.md](.github/CONTRIBUTING.md)  
 **Lines:** 400+  
 **Purpose:** Onboarding guide for new contributors
 
 **Sections:**
+
 - Quick start (fork, branch, dev setup, commit, PR)
 - Code quality requirements (what must pass locally)
 - Complete commit message guidelines with examples
@@ -53,6 +58,7 @@
 - Phase-specific guidelines
 
 **Key Features:**
+
 - Minimum viable guide (5-minute quick start)
 - Links to detailed guides in references
 - Practical examples of good vs bad code
@@ -61,11 +67,13 @@
 ---
 
 ### 3. GitHub Pull Request Template
+
 **File:** [.github/pull_request_template.md](.github/pull_request_template.md)  
 **Lines:** 150+  
 **Purpose:** Auto-populated template for all PRs on GitHub
 
 **Sections:**
+
 - Description field
 - Type of change selector (feature, bug fix, breaking, docs, etc.)
 - Related issues links
@@ -88,7 +96,8 @@ When a contributor creates a PR on GitHub, this template automatically fills the
 ## Conventions Defined
 
 ### Branch Naming
-```
+
+```text
 {type}/{scope}/{description}
 
 Examples:
@@ -99,7 +108,8 @@ Examples:
 ```
 
 ### Commit Messages
-```
+
+```text
 type(scope): subject
 
 Examples:
@@ -110,7 +120,8 @@ Examples:
 ```
 
 ### PR Titles
-```
+
+```text
 {type}({scope}): {description}
 
 Examples:
@@ -135,12 +146,12 @@ Examples:
 
 ### Comment Types
 
-| Symbol | Type | When to Use |
-|--------|------|------------|
-| 🚫 | Blocker | Must fix before merge |
-| ⚠️ | Important | Should fix |
-| 💡 | Suggestion | Nice to have |
-| ✅ | Approved | Ready to merge |
+| Symbol | Type       | When to Use           |
+| ------ | ---------- | --------------------- |
+| 🚫     | Blocker    | Must fix before merge |
+| ⚠️     | Important  | Should fix            |
+| 💡     | Suggestion | Nice to have          |
+| ✅     | Approved   | Ready to merge        |
 
 ### PR Approval Requirements
 
@@ -153,32 +164,37 @@ Examples:
 ## Merge Strategies
 
 ### Feature → Dev Branch
-```bash
+
+````bash
 # Squash commits for cleaner history
 git merge --squash feature/user-auth
-```
+```text
 
 **When to squash:**
+
 - Multiple small/work-in-progress commits
 - Want cleaner commit history
 - 3-10 commits total
 
 ### Dev → Main (Release)
+
 ```bash
 # Preserve full history without squashing
 git merge --no-ff dev
-```
+````
 
 **Why no squash:**
+
 - Maintain full audit trail
 - Better for production traceability
 - Enables precise rollback
 
 ### Hotfix → Main
-```bash
+
+````bash
 # Fast-forward merge for critical fixes
 git merge --ff-only hotfix/security-patch
-```
+```text
 
 ---
 
@@ -187,7 +203,7 @@ git merge --ff-only hotfix/security-patch
 ### How Task 0.8.5 Completes Phase 0
 
 | Task | Deliverable | Purpose |
-|------|------------|---------|
+| ------ | ------------ | --------- |
 | 0.8.1 | Build scripts & VS Code tasks | Automation & consistency |
 | 0.8.2 | Code quality & EditorConfig | Quality enforcement |
 | 0.8.3 | CI pipeline & GitHub Actions | Automated validation |
@@ -197,6 +213,7 @@ git merge --ff-only hotfix/security-patch
 ### How 0.8.5 Enables Phase 1
 
 Team can now:
+
 - Contribute code with clear conventions
 - Have standardized code reviews
 - Maintain clean git history
@@ -208,17 +225,20 @@ Team can now:
 ## Verification Checklist
 
 ✅ **Branch Conventions**
+
 - 8 branch types defined (feature, bugfix, hotfix, chore, refactor, docs, experiment, test)
 - Clear naming format documented
 - Examples for each type provided
 
 ✅ **Commit Standards**
+
 - 8 commit types defined (feat, fix, docs, style, refactor, perf, test, chore)
 - Subject line rules (50 chars max, imperative mood)
 - Body format guidelines (72 char lines)
 - 20+ examples provided
 
 ✅ **Pull Request Process**
+
 - PR template created (auto-populated on GitHub)
 - Title format documented
 - Description requirements defined
@@ -227,20 +247,23 @@ Team can now:
 - Comprehensive checklist included
 
 ✅ **Code Review Standards**
+
 - 7 review categories documented
 - 4 comment types defined with usage
 - Approval requirements specified
 - Reviewer responsibilities outlined
 
 ✅ **Merge Strategy**
+
 - Squash vs merge commit policies defined
 - When to use each strategy
 - Complete workflow examples
 - Rollback procedures documented
 
 ✅ **Documentation**
+
 - 500+ line comprehensive guide
-- 400+ line contributor guide  
+- 400+ line contributor guide
 - 150+ line PR template
 - All linked and cross-referenced
 
@@ -249,7 +272,7 @@ Team can now:
 ## Files Created/Modified
 
 | File | Lines | Status |
-|------|-------|--------|
+| ------ | ------- | -------- |
 | `config/GIT_WORKFLOW_CONVENTIONS.md` | 500+ | ✅ Created |
 | `.github/CONTRIBUTING.md` | 400+ | ✅ Created |
 | `.github/pull_request_template.md` | 150+ | ✅ Created |
@@ -288,11 +311,11 @@ git push origin feature/email-service  # Review updates automatically
 git checkout dev
 git pull origin dev
 git branch -D feature/email-service
-```
+````
 
 ### Example 2: Bug Fix
 
-```bash
+````bash
 # Quick 1-3 day bugfix
 git checkout -b bugfix/email-validation
 
@@ -302,7 +325,7 @@ git commit -m "fix(validation): handle special characters in email"
 
 git push origin bugfix/email-validation
 # Create PR, pass review, merge
-```
+```text
 
 ### Example 3: Hotfix (Production)
 
@@ -317,7 +340,7 @@ git commit -m "fix(payments): handle timeout in payment processor"
 git push origin hotfix/payment-processing
 # Create PR, emergency review, fast-forward merge to main
 # Also merge to dev: git merge main -> dev
-```
+````
 
 ---
 
@@ -329,9 +352,10 @@ git push origin hotfix/payment-processing
 ✅ **0.8.2** - Code formatting & linting (EditorConfig, StyleCop, Guides)  
 ✅ **0.8.3** - CI pipeline (3 GitHub Actions workflows)  
 ✅ **0.8.4** - Environment templates (4 configs, 3 guides, 1,100+ lines)  
-✅ **0.8.5** - Git conventions (3 files, 1,050+ lines)  
+✅ **0.8.5** - Git conventions (3 files, 1,050+ lines)
 
 **Infrastructure Delivered:**
+
 - 2,000+ lines of documentation
 - 20+ configuration and script files
 - 60+ code examples
@@ -345,12 +369,14 @@ git push origin hotfix/payment-processing
 ### Phase 1: Domain and Data Backbone
 
 With Phase 0.8 complete, teams can now:
+
 - Set up local development in 15-25 minutes
 - Follow consistent code quality standards
 - Contribute code via standardized workflows
 - Deploy with confidence using CI/CD
 
 Phase 1 introduces:
+
 - Entity Framework Core database design
 - Domain model implementation
 - Test suite introduction
@@ -360,7 +386,7 @@ Phase 1 introduces:
 
 ## Success Criteria - MET ✅
 
-- ✅ Branch naming standardized (feature/*, bugfix/*, hotfix/*, etc.)
+- ✅ Branch naming standardized (feature/_, bugfix/_, hotfix/\*, etc.)
 - ✅ Commit message format enforced (type(scope): subject)
 - ✅ PR template auto-populated on GitHub
 - ✅ Code review checklist established
@@ -379,4 +405,3 @@ Phase 1 introduces:
 - [.github/pull_request_template.md](.github/pull_request_template.md) - PR template
 - [CODE_QUALITY_BASELINE.md](config/CODE_QUALITY_BASELINE.md) - Code style standards
 - [ARCHITECTURE_RULES.md](config/ARCHITECTURE_RULES.md) - Design patterns
-

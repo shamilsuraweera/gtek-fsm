@@ -6,13 +6,13 @@ Thank you for contributing to GTEK FSM! This guide ensures all contributions mai
 
 ### 1. Fork/Clone and Branch
 
-```bash
+````bash
 git clone https://github.com/shamil-suraweera/gtek-fsm.git
 cd gtek-fsm
 
 # Create feature branch (follows convention: feature/*, bugfix/*, etc.)
 git checkout -b feature/your-feature-name
-```
+```text
 
 ### 2. Set Up Local Development
 
@@ -24,7 +24,7 @@ dotnet build GTEK.FSM.slnx
 
 # Start services
 ./deploy/scripts/start-all.sh
-```
+````
 
 Detailed setup: [LOCAL_SETUP_GUIDE.md](../LOCAL_SETUP_GUIDE.md)
 
@@ -36,10 +36,10 @@ Detailed setup: [LOCAL_SETUP_GUIDE.md](../LOCAL_SETUP_GUIDE.md)
 
 ### 4. Commit with Proper Format
 
-```bash
+````bash
 # Format: type(scope): subject
 git commit -m "feat(auth): add login endpoint"
-```
+```text
 
 **Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 
@@ -49,7 +49,7 @@ See [GIT_WORKFLOW_CONVENTIONS.md](../config/GIT_WORKFLOW_CONVENTIONS.md#commit-m
 
 ```bash
 git push origin feature/your-feature-name
-```
+````
 
 Then create PR on GitHub. Template auto-populates.
 
@@ -61,7 +61,7 @@ Then create PR on GitHub. Template auto-populates.
 
 **All of these must pass locally:**
 
-```bash
+````bash
 # 1. Clean build (no errors)
 dotnet build GTEK.FSM.slnx
 
@@ -76,9 +76,10 @@ dotnet build GTEK.FSM.slnx
 
 # 4. Follow code quality baseline
 # See config/CODE_QUALITY_BASELINE.md for naming, formatting, patterns
-```
+```text
 
 **If violations appear:**
+
 1. Fix the violation (preferred)
 2. Or add justified suppression with explanation (see ANALYZER_SUPPRESSIONS_GUIDE.md)
 
@@ -98,7 +99,8 @@ Your PR automatically runs 3 workflows:
 
 ### Format
 
-```
+````
+
 type(scope): subject line, max 50 chars
 
 Optional body explaining WHY not WHAT.
@@ -106,38 +108,49 @@ Keep lines under 72 characters.
 Reference related issues.
 
 Fixes #123
-```
+
+```text
 
 ### Examples
 
 ✅ **Good:**
+
 ```
+
 feat(auth): add jwt token validation
 
 Implement JWT token parsing and validation in auth middleware.
 Validates token signature and expiration before allowing request.
 
 Fixes #42
-```
+
+```text
 
 ```
+
 fix(api): handle null reference in product mapper
 
 Added null check before accessing product.Category.
 Prevents NullReferenceException when category is null.
-```
+
+```text
 
 ```
+
 docs(setup): add Docker troubleshooting section
-```
+
+```text
 
 ❌ **Bad:**
+
 ```
+
 fixed stuff
 WIP
 auth
 Updated
-```
+
+```text
 
 See full guide: [GIT_WORKFLOW_CONVENTIONS.md#commit-message-conventions](../config/GIT_WORKFLOW_CONVENTIONS.md#commit-message-conventions)
 
@@ -148,12 +161,15 @@ See full guide: [GIT_WORKFLOW_CONVENTIONS.md#commit-message-conventions](../conf
 ### Format
 
 ```
+
 {type}/{scope}/{description-in-kebab-case}
-```
+
+````text
 
 ### Examples
 
 ✅ **Good:**
+
 - `feature/user-authentication`
 - `bugfix/email-validation`
 - `hotfix/payment-processor`
@@ -161,6 +177,7 @@ See full guide: [GIT_WORKFLOW_CONVENTIONS.md#commit-message-conventions](../conf
 - `docs/api-documentation`
 
 ❌ **Bad:**
+
 - `feature` (too vague)
 - `my-work` (no type)
 - `Feature/User Authentication` (mixed case, spaces)
@@ -174,6 +191,7 @@ See full guide: [GIT_WORKFLOW_CONVENTIONS.md#branch-naming-conventions](../confi
 ### Know the Rules
 
 **Before coding, understand:**
+
 1. [Architectural Rules](../config/ARCHITECTURE_RULES.md) - Dependency direction, layering
 2. [Project Boundaries](../config/PROJECT_BOUNDARIES.md) - What belongs where
 3. [Tenancy Approach](../config/TENANCY_APPROACH.md) - Data isolation patterns
@@ -181,6 +199,7 @@ See full guide: [GIT_WORKFLOW_CONVENTIONS.md#branch-naming-conventions](../confi
 ### Follow These Patterns
 
 **Backend Architecture:**
+
 - Domain layer: Business logic (no frameworks)
 - Application layer: Use cases and workflows
 - Infrastructure layer: Database, external services
@@ -188,11 +207,13 @@ See full guide: [GIT_WORKFLOW_CONVENTIONS.md#branch-naming-conventions](../confi
 - Shared contracts: Cross-project models
 
 **Code Organization:**
+
 - Namespace follows folder structure
 - One public type per file (or closely related types)
 - Naming: PascalCase (public), camelCase (local), _camelCase (private fields)
 
 **Configuration:**
+
 - Environment-aware via `.env` and `appsettings.{Env}.json`
 - No hardcoded secrets
 - Feature flags for gradual rollout
@@ -208,9 +229,10 @@ When tests are added:
 dotnet test GTEK.FSM.slnx
 
 # Expected: All green ✅
-```
+````
 
 **Test requirements:**
+
 - Unit tests: 80%+ coverage target
 - Integration tests: Critical paths only
 - Naming: `{ClassUnderTest}Tests.cs`
@@ -246,6 +268,7 @@ dotnet test GTEK.FSM.slnx
 ### Reviewer Expectations
 
 Reviewers look for:
+
 - ✅ Code correctness (works, no bugs)
 - ✅ Architecture compliance (follows rules)
 - ✅ Style consistency (naming, formatting)
@@ -263,6 +286,7 @@ Reviewers look for:
 3. **Ready to merge** (maintainer merges)
 4. **Source branch deleted** (auto)
 5. **Local cleanup:**
+
    ```bash
    git checkout dev
    git pull origin dev
@@ -275,20 +299,21 @@ Reviewers look for:
 
 ### Quick Reference
 
-| Element | Convention | Example |
-|---------|-----------|---------|
-| Class/Type | PascalCase | `CustomerService`, `ValidationError` |
-| Method | PascalCase | `GetCustomer()`, `ValidateEmail()` |
-| Public Property | PascalCase | `CustomerId`, `IsActive` |
-| Local Variable | camelCase | `totalAmount`, `isValid` |
-| Private Field | _camelCase | `_logger`, `_repository` |
-| Constant | UPPER_SNAKE_CASE | `MAX_RETRIES`, `DEFAULT_TIMEOUT` |
-| Interface | IPascalCase | `ICustomerService`, `IValidator` |
+| Element         | Convention       | Example                              |
+| --------------- | ---------------- | ------------------------------------ |
+| Class/Type      | PascalCase       | `CustomerService`, `ValidationError` |
+| Method          | PascalCase       | `GetCustomer()`, `ValidateEmail()`   |
+| Public Property | PascalCase       | `CustomerId`, `IsActive`             |
+| Local Variable  | camelCase        | `totalAmount`, `isValid`             |
+| Private Field   | \_camelCase      | `_logger`, `_repository`             |
+| Constant        | UPPER_SNAKE_CASE | `MAX_RETRIES`, `DEFAULT_TIMEOUT`     |
+| Interface       | IPascalCase      | `ICustomerService`, `IValidator`     |
 
 ### Code Examples
 
 ✅ **Good:**
-```csharp
+
+````csharp
 public class CustomerService
 {
     private readonly ICustomerRepository _repository;
@@ -299,9 +324,10 @@ public class CustomerService
         return customer;
     }
 }
-```
+```text
 
 ❌ **Bad:**
+
 ```csharp
 public class customer_service  // Wrong: lowercase
 {
@@ -313,7 +339,7 @@ public class customer_service  // Wrong: lowercase
         return Customer;
     }
 }
-```
+````
 
 See full style guide: [CODE_QUALITY_BASELINE.md](../config/CODE_QUALITY_BASELINE.md)
 
@@ -323,13 +349,13 @@ See full style guide: [CODE_QUALITY_BASELINE.md](../config/CODE_QUALITY_BASELINE
 
 ### Issue: Build fails locally but CI passes
 
-```bash
+````bash
 # Clear cache and rebuild
 rm -rf ~/.nuget/packages/*gtek* 2>/dev/null
 dotnet clean GTEK.FSM.slnx
 dotnet restore GTEK.FSM.slnx
 dotnet build GTEK.FSM.slnx
-```
+```text
 
 ### Issue: StyleCop violations won't go away
 
@@ -351,13 +377,13 @@ git merge origin/dev
 git add .
 git commit -m "merge: resolve conflicts from dev"
 git push origin feature/your-feature
-```
+````
 
 ### Issue: Accidentally committed secrets
 
 **Do NOT push this branch!**
 
-```bash
+````bash
 # Remove file from history
 git rm --cached .env
 git commit -m "remove: .env file with secrets"
@@ -367,7 +393,7 @@ git commit -m "remove: .env file with secrets"
 
 # Then push
 git push origin your-branch
-```
+```text
 
 ---
 
@@ -416,21 +442,25 @@ When reporting bugs or suggesting features:
 ## Phase-Specific Guidelines
 
 ### Phase 0 (Current - Foundation)
+
 - Follow conventions to establish patterns
 - 1 reviewer minimum
 - Focus on architecture compliance
 
 ### Phase 1 (Domain & Database)
+
 - Tests required for new domain logic
 - 2 reviewers for main
 - Entity mapping validation
 
 ### Phase 2+ (Features)
+
 - Unit test coverage: 80%+
 - Security review for auth/identity
 - Performance testing for queries
 
 ### Phase 11 (Production)
+
 - GPG-signed commits
 - Deploy checklist verification
 - Automated test suite 100% passing
@@ -440,6 +470,7 @@ When reporting bugs or suggesting features:
 ## Recognition
 
 Contributors are recognized in:
+
 - Commit history (forever in git log)
 - Release notes (Phase 1+)
 - Contributors file (if added)
@@ -456,4 +487,4 @@ Thank you for making GTEK FSM better! 🎉
 - 🚀 **Ready to contribute?** Start with "good first issue" label
 
 Happy coding!
-
+````

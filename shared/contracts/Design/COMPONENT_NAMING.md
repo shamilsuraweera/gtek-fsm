@@ -12,7 +12,7 @@ All components follow **PascalCase** naming with clear, descriptive names.
 
 ### Pattern
 
-```
+```text
 {Noun}{Descriptor}
 ```
 
@@ -21,7 +21,7 @@ All components follow **PascalCase** naming with clear, descriptive names.
 
 ### Examples
 
-```
+```text
 Button              # Base button
 ButtonPrimary       # Primary action button
 ButtonSecondary     # Secondary action button
@@ -59,7 +59,7 @@ TabPanel            # Individual tab pane
 
 ### Folder Structure
 
-```
+```text
 web-portal/
 ├── Components/
 │   ├── Common/
@@ -109,7 +109,8 @@ web-portal/
 ### Component File Structure
 
 **Single-File Component:**
-```razor
+
+````razor
 @* Button.razor *@
 <button class="btn btn-@Variant btn-@Size" @onclick="OnClick">
     @ChildContent
@@ -131,9 +132,10 @@ web-portal/
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 }
-```
+```text
 
 **Multi-Section Component (Card example):**
+
 ```razor
 @* Card.razor *@
 <div class="card">
@@ -159,10 +161,11 @@ web-portal/
 <div class="card-body">
     @ChildContent
 </div>
-```
+````
 
 **Usage:**
-```razor
+
+````razor
 <Card>
     <CardHeader>
         <h2>Card Title</h2>
@@ -171,7 +174,7 @@ web-portal/
         Content goes here
     </CardBody>
 </Card>
-```
+```text
 
 ---
 
@@ -179,34 +182,37 @@ web-portal/
 
 ### Folder Structure
 
-```
+````
+
 mobile-app/
 └── customer-worker/
-    ├── Components/
-    │   ├── Common/
-    │   │   ├── GtkButton.xaml / GtkButton.xaml.cs
-    │   │   ├── GtkCard.xaml / GtkCard.xaml.cs
-    │   │   ├── GtkAlert.xaml / GtkAlert.xaml.cs
-    │   │   ├── GtkBadge.xaml / GtkBadge.xaml.cs
-    │   │   └── GtkSpinner.xaml / GtkSpinner.xaml.cs
-    │   ├── Forms/
-    │   │   ├── GtkInput.xaml / GtkInput.xaml.cs
-    │   │   ├── GtkSelect.xaml / GtkSelect.xaml.cs
-    │   │   ├── GtkCheckbox.xaml / GtkCheckbox.xaml.cs
-    │   │   └── GtkToggle.xaml / GtkToggle.xaml.cs
-    │   └── Navigation/
-    │       ├── GtkTabs.xaml / GtkTabs.xaml.cs
-    │       └── GtkBottomSheet.xaml / GtkBottomSheet.xaml.cs
-    └── Resources/
-        └── Styles/
-            └── ComponentStyles.xaml
-```
+├── Components/
+│ ├── Common/
+│ │ ├── GtkButton.xaml / GtkButton.xaml.cs
+│ │ ├── GtkCard.xaml / GtkCard.xaml.cs
+│ │ ├── GtkAlert.xaml / GtkAlert.xaml.cs
+│ │ ├── GtkBadge.xaml / GtkBadge.xaml.cs
+│ │ └── GtkSpinner.xaml / GtkSpinner.xaml.cs
+│ ├── Forms/
+│ │ ├── GtkInput.xaml / GtkInput.xaml.cs
+│ │ ├── GtkSelect.xaml / GtkSelect.xaml.cs
+│ │ ├── GtkCheckbox.xaml / GtkCheckbox.xaml.cs
+│ │ └── GtkToggle.xaml / GtkToggle.xaml.cs
+│ └── Navigation/
+│ ├── GtkTabs.xaml / GtkTabs.xaml.cs
+│ └── GtkBottomSheet.xaml / GtkBottomSheet.xaml.cs
+└── Resources/
+└── Styles/
+└── ComponentStyles.xaml
+
+````text
 
 ### MAUI Component Pattern
 
 **Namespace Convention:** `GTEK.FSM.MobileApp.CustomerWorker.Components.Common` (or Forms, Navigation, etc.)
 
 **XAML Component File:**
+
 ```xaml
 @* GtkButton.xaml *@
 <?xml version="1.0" encoding="utf-8" ?>
@@ -221,10 +227,11 @@ mobile-app/
         FontAttributes="Bold"
         Text="{Binding Text, Source={x:Reference this}}" />
 </ContentView>
-```
+````
 
 **Code-Behind:**
-```csharp
+
+````csharp
 namespace GTEK.FSM.MobileApp.CustomerWorker.Components.Common;
 
 public partial class GtkButton : ContentView
@@ -252,15 +259,16 @@ public partial class GtkButton : ContentView
         InitializeComponent();
     }
 }
-```
+```text
 
 **Usage in XAML:**
+
 ```xaml
 <components:GtkButton
     Text="Click Me"
     Variant="primary"
     Margin="16" />
-```
+````
 
 ---
 
@@ -271,6 +279,7 @@ public partial class GtkButton : ContentView
 All major components support these variant properties:
 
 #### 1. **Variant** (Style)
+
 - `primary` — Primary action (filled, prominent)
 - `secondary` — Secondary action (outlined, less prominent)
 - `ghost` — Minimal style (text-only or very subtle)
@@ -280,44 +289,51 @@ All major components support these variant properties:
 - `info` — Informational state
 
 #### 2. **Size**
+
 - `sm` / `small` — Compact, 20–24px height
 - `md` / `medium` — Default, 32–40px height
 - `lg` / `large` — Prominent, 48px height
 
 #### 3. **State**
+
 Represented as boolean properties, not variant names:
+
 - `Disabled` — Disabled/unavailable
 - `Loading` — Processing/waiting
 - `Active` — Currently selected or focused
 - `Error` — Error state
 
 #### 4. **Width**
+
 - `Full` — 100% width
 - `Fit` — Fit to content
 
 ### Component Examples with Variants
 
 **Button Component:**
-```razor
+
+````razor
 <Button Variant="primary" Size="md" Disabled="false">Click</Button>
 <Button Variant="secondary" Size="lg">Cancel</Button>
 <Button Variant="danger" Size="sm" Loading="true">Delete...</Button>
-```
+```text
 
 **Input Component:**
+
 ```razor
 <Input Type="text" Placeholder="Enter text" />
 <Input Type="email" Error="true" ErrorMessage="Invalid email" />
 <Input Type="password" Disabled="true" />
-```
+````
 
 **Card Component:**
-```razor
+
+````razor
 <Card Variant="default" Clickable="true">
     <CardHeader>Title</CardHeader>
     <CardBody>Content</CardBody>
 </Card>
-```
+```text
 
 ---
 
@@ -326,7 +342,7 @@ Represented as boolean properties, not variant names:
 Map component names consistently between web and mobile clients:
 
 | Purpose | Blazor | MAUI |
-|---------|--------|------|
+| --------- | -------- | ------ |
 | Primary Button | Button (primary) | GtkButton (primary) |
 | Form Input | InputText | GtkInput |
 | Checkbox | InputCheckbox | GtkCheckbox |
@@ -399,23 +415,23 @@ Each component should include:
 ```csharp
 /// <summary>
 /// GtkButton is a reusable button component supporting multiple variants and sizes.
-/// 
+///
 /// Variants: primary (default), secondary, ghost, danger, success, warning, info
 /// Sizes: sm (20px), md (32px), lg (48px)
-/// 
+///
 /// Usage:
 /// <code>
 /// <GtkButton Text="Click Me" Variant="primary" Size="md" />
 /// </code>
-/// 
+///
 /// Accessibility:
 /// - Button text is announced to screen readers
 /// - Keyboard accessible (Tab, Enter/Space to activate)
 /// - Disabled state disables interaction
-/// 
+///
 /// Mobile: Touch target minimum 48x48 px
 /// </summary>
-```
+````
 
 ---
 

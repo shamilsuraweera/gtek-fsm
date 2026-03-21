@@ -261,8 +261,8 @@ Implemented artifacts:
 Resolution behavior:
 
 - Middleware resolves tenant from authenticated request context in strict order:
-  1) `tenant_id` claim
-  2) configured header fallback (`X-Tenant-Id`) only for configured privileged roles (`Admin` by default)
+  1. `tenant_id` claim
+  2. configured header fallback (`X-Tenant-Id`) only for configured privileged roles (`Admin` by default)
 - Middleware explicitly rejects unresolved/invalid tenant context with deterministic API responses:
   - malformed claim -> `401 MALFORMED_TENANT_CLAIM`
   - unresolved tenant context -> `401 TENANT_CONTEXT_UNRESOLVED`
@@ -704,4 +704,3 @@ Assertion focus:
 
 - Phase 2 closure is now objective and auditable rather than implied by tracker status alone.
 - Phase 3 starts with explicit security guardrails, reducing risk of workflow-layer authorization or tenant-isolation regression.
-

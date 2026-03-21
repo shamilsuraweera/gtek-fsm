@@ -9,6 +9,7 @@ This project establishes the Phase 5 test baseline for the web operations shell:
 
 ## Run
 
-```bash
+````bash
 dotnet test web-portal.tests/GTEK.FSM.WebPortal.Tests.csproj
-```
+```text
+````

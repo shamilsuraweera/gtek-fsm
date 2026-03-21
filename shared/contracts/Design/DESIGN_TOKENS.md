@@ -14,7 +14,7 @@ Color tokens define the semantic palette for light and dark themes.
 
 #### Theme-Aware Color System
 
-```
+```text
 ColorBgPage          # Page background (primary background)
 ColorBgPageDark      # Page background (dark mode)
 ColorBgSurface       # Surface/card background (raised elements)
@@ -31,7 +31,7 @@ ColorAccentDark      # Primary accent (dark mode)
 
 #### Status Colors
 
-```
+```text
 ColorStatusSuccess   # Success/positive state (#10B981 or similar)
 ColorStatusError     # Error/destructive state (#EF4444 or similar)
 ColorStatusWarning   # Warning/caution state (#F59E0B or similar)
@@ -41,7 +41,8 @@ ColorStatusInfo      # Informational state (#3B82F6 or similar)
 #### Usage Examples
 
 **Web (CSS Custom Properties):**
-```css
+
+````css
 :root {
   /* Light Mode */
   --color-bg-page: #FFFFFF;
@@ -50,7 +51,7 @@ ColorStatusInfo      # Informational state (#3B82F6 or similar)
   --color-text-muted: #666666;
   --color-border-default: #E0E0E0;
   --color-accent: #0F6ABD;
-  
+
   /* Status Colors */
   --color-status-success: #10B981;
   --color-status-error: #EF4444;
@@ -69,9 +70,10 @@ ColorStatusInfo      # Informational state (#3B82F6 or similar)
     --color-accent: #2563EB;
   }
 }
-```
+```text
 
 **Mobile (XAML Resources):**
+
 ```xaml
 <Color x:Key="ColorBgPage">#FFFFFF</Color>
 <Color x:Key="ColorBgPageDark">#1A1A1A</Color>
@@ -84,7 +86,7 @@ ColorStatusInfo      # Informational state (#3B82F6 or similar)
 <Color x:Key="ColorStatusError">#EF4444</Color>
 <Color x:Key="ColorStatusWarning">#F59E0B</Color>
 <Color x:Key="ColorStatusInfo">#3B82F6</Color>
-```
+````
 
 ---
 
@@ -92,19 +94,20 @@ ColorStatusInfo      # Informational state (#3B82F6 or similar)
 
 Typography tokens define font families, sizes, weights, and line heights.
 
-| Token | Size | Weight | Line Height | Category |
-|-------|------|--------|-------------|----------|
-| TypographyDisplay | 48px | 700 | 1.2 | Heading |
-| TypographyH1 | 32px | 700 | 1.3 | Heading |
-| TypographyH2 | 24px | 600 | 1.35 | Heading |
-| TypographyH3 | 20px | 600 | 1.4 | Heading |
-| TypographyH4 | 18px | 600 | 1.4 | Heading |
-| TypographyBody | 16px | 400 | 1.6 | Body |
-| TypographyBodySmall | 14px | 400 | 1.5 | Body |
-| TypographyCaption | 12px | 400 | 1.4 | UI |
-| TypographyLabel | 14px | 500 | 1.4 | UI |
+| Token               | Size | Weight | Line Height | Category |
+| ------------------- | ---- | ------ | ----------- | -------- |
+| TypographyDisplay   | 48px | 700    | 1.2         | Heading  |
+| TypographyH1        | 32px | 700    | 1.3         | Heading  |
+| TypographyH2        | 24px | 600    | 1.35        | Heading  |
+| TypographyH3        | 20px | 600    | 1.4         | Heading  |
+| TypographyH4        | 18px | 600    | 1.4         | Heading  |
+| TypographyBody      | 16px | 400    | 1.6         | Body     |
+| TypographyBodySmall | 14px | 400    | 1.5         | Body     |
+| TypographyCaption   | 12px | 400    | 1.4         | UI       |
+| TypographyLabel     | 14px | 500    | 1.4         | UI       |
 
 **Font Families:**
+
 - Primary: `"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif`
 - Mono: `"Courier New", "Consolas", monospace`
 
@@ -116,7 +119,7 @@ Typography tokens define font families, sizes, weights, and line heights.
 
 Spacing tokens define layout intervals based on a 4px grid.
 
-```
+```text
 SpacingXs    = 4px
 SpacingSm    = 8px
 SpacingMd    = 16px
@@ -127,7 +130,8 @@ Spacing3xl   = 64px
 ```
 
 **Web Implementation:**
-```css
+
+````css
 :root {
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -137,9 +141,10 @@ Spacing3xl   = 64px
   --spacing-2xl: 48px;
   --spacing-3xl: 64px;
 }
-```
+```text
 
 **Mobile Implementation:**
+
 ```xaml
 <x:Double x:Key="SpacingXs">4</x:Double>
 <x:Double x:Key="SpacingSm">8</x:Double>
@@ -148,7 +153,7 @@ Spacing3xl   = 64px
 <x:Double x:Key="SpacingXl">32</x:Double>
 <x:Double x:Key="Spacing2xl">48</x:Double>
 <x:Double x:Key="Spacing3xl">64</x:Double>
-```
+````
 
 **Reference:** See [SPACING.md](SPACING.md) for full documentation.
 
@@ -158,7 +163,7 @@ Spacing3xl   = 64px
 
 Elevation tokens create depth through shadows.
 
-```
+```text
 ElevationNone       # No shadow
 ElevationSm         # Subtle shadow (small, raised elements)
 ElevationMd         # Medium shadow (cards, modals)
@@ -167,7 +172,8 @@ ElevationXl         # Strong shadow (top-level overlays)
 ```
 
 **Web CSS:**
-```css
+
+````css
 :root {
   --elevation-none: 0;
   --elevation-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -183,15 +189,16 @@ ElevationXl         # Strong shadow (top-level overlays)
 .modal {
   box-shadow: var(--elevation-xl);
 }
-```
+```text
 
 **Mobile XAML:**
+
 ```xaml
 <!-- MAUI doesn't have native shadow tokens; use Frame border/padding instead -->
 <Frame HasShadow="True" CornerRadius="8" Padding="16">
     <!-- Content -->
 </Frame>
-```
+````
 
 ---
 
@@ -199,7 +206,7 @@ ElevationXl         # Strong shadow (top-level overlays)
 
 Border radius tokens define corner rounding for consistency.
 
-```
+```text
 RadiusNone    = 0px   # Sharp corners
 RadiusSm      = 2px   # Minimal rounding
 RadiusMd      = 4px   # Default rounding
@@ -209,7 +216,8 @@ RadiusFull    = 50%   # Fully rounded (circles, pills)
 ```
 
 **Web CSS:**
-```css
+
+````css
 :root {
   --radius-none: 0;
   --radius-sm: 2px;
@@ -230,14 +238,15 @@ RadiusFull    = 50%   # Fully rounded (circles, pills)
 .avatar {
   border-radius: var(--radius-full);
 }
-```
+```text
 
 **Mobile XAML:**
+
 ```xaml
 <Button CornerRadius="4" />
 <Frame CornerRadius="8" />
 <Ellipse /><!-- For fully rounded elements -->
-```
+````
 
 ---
 
@@ -245,14 +254,15 @@ RadiusFull    = 50%   # Fully rounded (circles, pills)
 
 Duration tokens define animation timing for consistency.
 
-```
+```text
 DurationFast     = 100ms   # Quick feedback
 DurationNormal   = 200ms   # Standard transitions
 DurationSlow     = 300ms   # Emphasis transitions
 ```
 
 **Web CSS:**
-```css
+
+````css
 :root {
   --duration-fast: 100ms;
   --duration-normal: 200ms;
@@ -262,38 +272,39 @@ DurationSlow     = 300ms   # Emphasis transitions
 .button {
   transition: background-color var(--duration-normal) ease-in-out;
 }
-```
+```text
 
 **Mobile Animation (C#):**
+
 ```csharp
 // Standard animation duration in code-behind
 const int AnimationDurationMs = 200;
 
 element.FadeTo(1, (uint)AnimationDurationMs);
-```
+````
 
 ---
 
 ## Unified Token Reference Table
 
-| Category | Token | Value | Usage |
-|----------|-------|-------|-------|
-| **Color** | ColorBgPage | #FFFFFF (#1A1A1A dark) | Page background |
-| | ColorAccent | #0F6ABD (#2563EB dark) | Primary CTA, emphasis |
-| | ColorStatusSuccess | #10B981 | Success messages, confirmations |
-| | ColorStatusError | #EF4444 | Error messages, destructive actions |
-| | ColorStatusWarning | #F59E0B | Warning alerts, caution states |
-| | ColorStatusInfo | #3B82F6 | Informational messages |
-| **Typography** | TypographyH1 | 32px, 700 weight | Page titles |
-| | TypographyBody | 16px, 400 weight | Paragraph text |
-| | TypographyCaption | 12px, 400 weight | Metadata, hints |
-| **Spacing** | SpacingMd | 16px | Default padding/margin |
-| | SpacingLg | 24px | Section separation |
-| **Elevation** | ElevationMd | 0 4px 6px rgba(0,0,0,0.1) | Cards |
-| | ElevationLg | 0 10px 15px rgba(0,0,0,0.15) | Floating elements |
-| **Radius** | RadiusMd | 4px | Buttons, inputs |
-| | RadiusLg | 8px | Cards, modals |
-| **Duration** | DurationNormal | 200ms | Standard transitions |
+| Category       | Token              | Value                        | Usage                               |
+| -------------- | ------------------ | ---------------------------- | ----------------------------------- |
+| **Color**      | ColorBgPage        | #FFFFFF (#1A1A1A dark)       | Page background                     |
+|                | ColorAccent        | #0F6ABD (#2563EB dark)       | Primary CTA, emphasis               |
+|                | ColorStatusSuccess | #10B981                      | Success messages, confirmations     |
+|                | ColorStatusError   | #EF4444                      | Error messages, destructive actions |
+|                | ColorStatusWarning | #F59E0B                      | Warning alerts, caution states      |
+|                | ColorStatusInfo    | #3B82F6                      | Informational messages              |
+| **Typography** | TypographyH1       | 32px, 700 weight             | Page titles                         |
+|                | TypographyBody     | 16px, 400 weight             | Paragraph text                      |
+|                | TypographyCaption  | 12px, 400 weight             | Metadata, hints                     |
+| **Spacing**    | SpacingMd          | 16px                         | Default padding/margin              |
+|                | SpacingLg          | 24px                         | Section separation                  |
+| **Elevation**  | ElevationMd        | 0 4px 6px rgba(0,0,0,0.1)    | Cards                               |
+|                | ElevationLg        | 0 10px 15px rgba(0,0,0,0.15) | Floating elements                   |
+| **Radius**     | RadiusMd           | 4px                          | Buttons, inputs                     |
+|                | RadiusLg           | 8px                          | Cards, modals                       |
+| **Duration**   | DurationNormal     | 200ms                        | Standard transitions                |
 
 ---
 
@@ -302,7 +313,8 @@ element.FadeTo(1, (uint)AnimationDurationMs);
 ### Web (Blazor)
 
 **SCSS:**
-```scss
+
+````scss
 .card {
   background-color: var(--color-bg-surface);
   padding: var(--spacing-lg);
@@ -321,25 +333,27 @@ element.FadeTo(1, (uint)AnimationDurationMs);
   color: var(--color-text-primary);
   line-height: var(--font-h2-line-height);
 }
-```
+```text
 
 **Razor Component:**
+
 ```razor
 <div class="card">
     <h2 class="card-title">@Title</h2>
     <p class="card-content">@Content</p>
 </div>
-```
+````
 
 ### Mobile (.NET MAUI)
 
 **XAML:**
-```xaml
+
+````xaml
 <Frame
     Padding="{StaticResource SpacingLg}"
     CornerRadius="8"
     HasShadow="True"
-    BackgroundColor="{AppThemeBinding 
+    BackgroundColor="{AppThemeBinding
         Light={StaticResource ColorBgSurface},
         Dark={StaticResource ColorBgSurfaceDark}}">
     <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
@@ -353,7 +367,7 @@ element.FadeTo(1, (uint)AnimationDurationMs);
         <Label Text="Card content" />
     </VerticalStackLayout>
 </Frame>
-```
+```text
 
 ---
 
@@ -367,14 +381,18 @@ element.FadeTo(1, (uint)AnimationDurationMs);
 - **PATCH:** Token value updates not affecting structure or naming
 
 ### Example Changelog
-```
+
+````
+
 v1.0.0 — Initial token system (colors, typography, spacing, elevation, radius, duration)
 v1.1.0 — Add animation tokens for transitions
 v1.2.0 — Add soft/muted color variants for secondary UI
 v2.0.0 — Rename ColorBgPageDark to ColorBgPageDarkMode (breaking change)
-```
+
+```text
 
 ### Update Process
+
 1. Define changes in design system
 2. Update tokens in this document
 3. Update CSS custom properties (web)
@@ -420,4 +438,4 @@ v2.0.0 — Rename ColorBgPageDark to ColorBgPageDarkMode (breaking change)
 4. **Design Tool Sync:** Sync tokens between design tool (Figma) and code
 5. **Performance Analytics:** Track token usage and identify optimization opportunities
 6. **Accessibility Compliance:** Automated contrast and accessibility checks for color tokens
-
+```

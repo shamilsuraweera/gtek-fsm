@@ -10,15 +10,15 @@ Consistent spacing creates visual rhythm, improves readability, and establishes 
 
 A linear spacing scale based on multiples of 4px provides flexibility and consistency.
 
-| Token | Value | Usage |
-|-------|-------|-------|
-| xs | 4px | Tight spacing between related elements |
-| sm | 8px | Small gaps, icon spacing, tight grouping |
-| md | 16px | Default spacing between components |
-| lg | 24px | Section separation, medium grouping |
-| xl | 32px | Major section breaks, prominent spacing |
-| 2xl | 48px | Full section separation, hero spacing |
-| 3xl | 64px | Very large sections, rare usage |
+| Token | Value | Usage                                    |
+| ----- | ----- | ---------------------------------------- |
+| xs    | 4px   | Tight spacing between related elements   |
+| sm    | 8px   | Small gaps, icon spacing, tight grouping |
+| md    | 16px  | Default spacing between components       |
+| lg    | 24px  | Section separation, medium grouping      |
+| xl    | 32px  | Major section breaks, prominent spacing  |
+| 2xl   | 48px  | Full section separation, hero spacing    |
+| 3xl   | 64px  | Very large sections, rare usage          |
 
 ---
 
@@ -26,7 +26,7 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
 
 ### CSS Custom Properties
 
-```css
+````css
 :root {
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -36,44 +36,88 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
   --spacing-2xl: 48px;
   --spacing-3xl: 64px;
 }
-```
+```text
 
 ### SCSS Mixins & Helper Classes
 
 ```scss
 /* Margin utilities */
-.m-xs { margin: var(--spacing-xs); }
-.m-sm { margin: var(--spacing-sm); }
-.m-md { margin: var(--spacing-md); }
-.m-lg { margin: var(--spacing-lg); }
-.m-xl { margin: var(--spacing-xl); }
-.m-2xl { margin: var(--spacing-2xl); }
+.m-xs {
+  margin: var(--spacing-xs);
+}
+.m-sm {
+  margin: var(--spacing-sm);
+}
+.m-md {
+  margin: var(--spacing-md);
+}
+.m-lg {
+  margin: var(--spacing-lg);
+}
+.m-xl {
+  margin: var(--spacing-xl);
+}
+.m-2xl {
+  margin: var(--spacing-2xl);
+}
 
 /* Margin sizing */
-.mt-xs { margin-top: var(--spacing-xs); }
-.mt-sm { margin-top: var(--spacing-sm); }
-.mt-md { margin-top: var(--spacing-md); }
+.mt-xs {
+  margin-top: var(--spacing-xs);
+}
+.mt-sm {
+  margin-top: var(--spacing-sm);
+}
+.mt-md {
+  margin-top: var(--spacing-md);
+}
 /* ... and so on for mb, ml, mr, mx, my */
 
 /* Padding utilities */
-.p-xs { padding: var(--spacing-xs); }
-.p-sm { padding: var(--spacing-sm); }
-.p-md { padding: var(--spacing-md); }
-.p-lg { padding: var(--spacing-lg); }
-.p-xl { padding: var(--spacing-xl); }
-.p-2xl { padding: var(--spacing-2xl); }
+.p-xs {
+  padding: var(--spacing-xs);
+}
+.p-sm {
+  padding: var(--spacing-sm);
+}
+.p-md {
+  padding: var(--spacing-md);
+}
+.p-lg {
+  padding: var(--spacing-lg);
+}
+.p-xl {
+  padding: var(--spacing-xl);
+}
+.p-2xl {
+  padding: var(--spacing-2xl);
+}
 
 /* Padding sizing */
-.pt-xs { padding-top: var(--spacing-xs); }
-.pt-sm { padding-top: var(--spacing-sm); }
+.pt-xs {
+  padding-top: var(--spacing-xs);
+}
+.pt-sm {
+  padding-top: var(--spacing-sm);
+}
 /* ... and so on for pb, pl, pr, px, py */
 
 /* Gap utilities (flexbox) */
-.gap-xs { gap: var(--spacing-xs); }
-.gap-sm { gap: var(--spacing-sm); }
-.gap-md { gap: var(--spacing-md); }
-.gap-lg { gap: var(--spacing-lg); }
-.gap-xl { gap: var(--spacing-xl); }
+.gap-xs {
+  gap: var(--spacing-xs);
+}
+.gap-sm {
+  gap: var(--spacing-sm);
+}
+.gap-md {
+  gap: var(--spacing-md);
+}
+.gap-lg {
+  gap: var(--spacing-lg);
+}
+.gap-xl {
+  gap: var(--spacing-xl);
+}
 
 /* Mixin for common spacing scenarios */
 @mixin container-padding {
@@ -92,11 +136,11 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
   margin-top: var(--spacing-2xl);
   margin-bottom: var(--spacing-2xl);
 }
-```
+````
 
 ### Blazor Component Spacing
 
-```razor
+````razor
 @* Container component with automatic spacing *@
 <div class="container p-lg">
     <div class="section gap-md">
@@ -108,9 +152,10 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
     [Parameter]
     public RenderFragment? ChildContent { get; set; }
 }
-```
+```text
 
 **Usage:**
+
 ```razor
 <Container>
     <h1 class="mb-md">Page Title</h1>
@@ -119,7 +164,7 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
         <!-- Items -->
     </div>
 </Container>
-```
+````
 
 ---
 
@@ -127,7 +172,7 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
 
 ### XAML Spacing in App.xaml
 
-```xaml
+````xaml
 <ResourceDictionary>
     <!-- Spacing values -->
     <x:Double x:Key="SpacingXs">4</x:Double>
@@ -159,28 +204,28 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
         <Setter Property="Spacing" Value="{StaticResource Spacing2xl}" />
     </Style>
 </ResourceDictionary>
-```
+```text
 
 ### XAML Usage
 
 ```xaml
 <VerticalStackLayout Style="{StaticResource StackLayoutDefault}">
     <Label Text="Section Title" FontSize="20" FontAttributes="Bold" />
-    
+
     <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
         <Label Text="Item 1" />
         <Label Text="Item 2" />
         <Label Text="Item 3" />
     </VerticalStackLayout>
 
-    <VerticalStackLayout 
-        Margin="{StaticResource SpacingLg}" 
+    <VerticalStackLayout
+        Margin="{StaticResource SpacingLg}"
         Padding="{StaticResource SpacingMd}"
         BackgroundColor="{AppThemeBinding Light=#F5F5F5, Dark=#2C2C2C}">
         <Label Text="Card content" />
     </VerticalStackLayout>
 </VerticalStackLayout>
-```
+````
 
 ---
 
@@ -188,14 +233,15 @@ A linear spacing scale based on multiples of 4px provides flexibility and consis
 
 ### Page/Container Padding
 
-```
+```text
 Desktop: 32px (lg)
 Tablet: 24px (lg)
 Mobile: 16px (md)
 ```
 
 **Web CSS:**
-```css
+
+````css
 .page {
   padding: var(--spacing-md);
 }
@@ -205,31 +251,34 @@ Mobile: 16px (md)
     padding: var(--spacing-lg);
   }
 }
-```
+```text
 
 **Mobile XAML:**
+
 ```xaml
 <VerticalStackLayout Padding="16,0">
     <!-- Page content -->
 </VerticalStackLayout>
-```
+````
 
 ### List Item Spacing
 
-```
+```text
 Item padding: 16px (md)
 Item margin-bottom: 8px (sm)
 ```
 
 **Web CSS:**
-```css
+
+````css
 .list-item {
   padding: var(--spacing-md);
   margin-bottom: var(--spacing-sm);
 }
-```
+```text
 
 **Mobile XAML:**
+
 ```xaml
 <VerticalStackLayout Spacing="{StaticResource SpacingSm}">
     <Frame Padding="{StaticResource SpacingMd}">
@@ -239,20 +288,21 @@ Item margin-bottom: 8px (sm)
         <Label Text="Item 2" />
     </Frame>
 </VerticalStackLayout>
-```
+````
 
 ### Card Spacing
 
-```
+```text
 Card padding: 24px (lg) outside, 16px (md) inside
 Gap between cards: 16px (md)
 ```
 
 **Web CSS:**
-```scss
+
+````scss
 .card {
   @include card-spacing;
-  
+
   &__content {
     display: flex;
     flex-direction: column;
@@ -265,9 +315,10 @@ Gap between cards: 16px (md)
   flex-direction: column;
   gap: var(--spacing-md);
 }
-```
+```text
 
 **Mobile XAML:**
+
 ```xaml
 <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
     <Frame Padding="{StaticResource SpacingLg}" CornerRadius="8">
@@ -277,18 +328,19 @@ Gap between cards: 16px (md)
         </VerticalStackLayout>
     </Frame>
 </VerticalStackLayout>
-```
+````
 
 ### Section Separation
 
-```
+```text
 Between major sections: 48px (2xl)
 Between subsections: 32px (xl)
 Between content groups: 24px (lg)
 ```
 
 **Web HTML:**
-```html
+
+````html
 <section>
   <h1>Section 1</h1>
   <!-- content -->
@@ -298,33 +350,31 @@ Between content groups: 24px (lg)
   <h1>Section 2</h1>
   <!-- content -->
 </section>
-```
-
-**Mobile XAML:**
-```xaml
+```text **Mobile XAML:** ```xaml
 <VerticalStackLayout Spacing="{StaticResource Spacing2xl}">
-    <VerticalStackLayout>
-        <Label Text="Section 1" FontAttributes="Bold" />
-        <!-- content -->
-    </VerticalStackLayout>
-    
-    <VerticalStackLayout>
-        <Label Text="Section 2" FontAttributes="Bold" />
-        <!-- content -->
-    </VerticalStackLayout>
+  <VerticalStackLayout>
+    <label Text="Section 1" FontAttributes="Bold" />
+    <!-- content -->
+  </VerticalStackLayout>
+
+  <VerticalStackLayout>
+    <label Text="Section 2" FontAttributes="Bold" />
+    <!-- content -->
+  </VerticalStackLayout>
 </VerticalStackLayout>
-```
+````
 
 ### Form Field Spacing
 
-```
+```text
 Label to input: 4px (xs)
 Input to input: 16px (md)
 Input to button: 24px (lg)
 ```
 
 **Web CSS:**
-```css
+
+````css
 .form-group {
   margin-bottom: var(--spacing-md);
 }
@@ -341,20 +391,21 @@ Input to button: 24px (lg)
 .form-actions {
   margin-top: var(--spacing-lg);
 }
-```
+```text
 
 **Mobile XAML:**
+
 ```xaml
 <VerticalStackLayout Spacing="{StaticResource SpacingMd}">
     <Label Text="Email" FontAttributes="Bold" />
     <Entry Placeholder="Enter email" Margin="0,0,0,8" />
-    
+
     <Label Text="Password" FontAttributes="Bold" Margin="0,8,0,0" />
     <Entry Placeholder="Enter password" IsPassword="True" />
-    
+
     <Button Text="Sign In" Margin="0,24,0,0" />
 </VerticalStackLayout>
-```
+````
 
 ---
 
@@ -362,27 +413,30 @@ Input to button: 24px (lg)
 
 ### Internal Button Spacing
 
-```
+```text
 Icon + text gap: 8px (sm)
 Button padding: 12px (vertical), 16px (horizontal)
 ```
 
 **Web CSS:**
-```css
+
+````css
 .button {
   padding: 12px var(--spacing-md);
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
 }
-```
+```text
 
 ### Icon Spacing Guidelines
 
-```
+````
+
 Icon + label gap: 8px (sm)
 Standalone icon + text gap: 16px (md)
-```
+
+```text
 
 ---
 
@@ -421,3 +475,4 @@ Standalone icon + text gap: 16px (md)
 - Design Tokens: [DESIGN_TOKENS.md](DESIGN_TOKENS.md)
 - Typography System: [TYPOGRAPHY.md](TYPOGRAPHY.md)
 - Component Naming: [COMPONENT_NAMING.md](COMPONENT_NAMING.md)
+```

@@ -12,7 +12,7 @@ Schema baseline source:
 
 ## ERD (Mermaid)
 
-```mermaid
+````mermaid
 erDiagram
     Tenants ||--o{ Users : "owns"
     Tenants ||--o{ ServiceRequests : "owns"
@@ -80,7 +80,7 @@ erDiagram
       datetime2 UpdatedAtUtc
       bit IsDeleted
     }
-```
+```text
 
 ## Relationship Map
 
@@ -105,7 +105,7 @@ Purpose:
 - Root entity representing tenant boundary and ownership scope.
 
 | Field | Type | Required | Key/Constraint | Meaning |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `Id` | `uniqueidentifier` | Yes | `PK_Tenants` | Stable tenant identifier and ownership boundary key used by all tenant-owned aggregates. |
 | `Code` | `nvarchar(32)` | Yes | `UQ_Tenants_Code` | Human-manageable unique tenant code used for lookup and provisioning contexts. |
 | `Name` | `nvarchar(120)` | Yes | - | Display/business name for tenant. |
@@ -121,7 +121,7 @@ Purpose:
 - Identity/profile entity for actors within a tenant.
 
 | Field | Type | Required | Key/Constraint | Meaning |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `Id` | `uniqueidentifier` | Yes | `PK_Users` | Stable user identifier inside tenant scope. |
 | `TenantId` | `uniqueidentifier` | Yes | FK to `Tenants`, `AK_Users_TenantId_Id` | Tenant ownership key; prevents cross-tenant identity association. |
 | `ExternalIdentity` | `nvarchar(128)` | Yes | `UQ_Users_TenantId_ExternalIdentity` | External auth/provider identity key unique within tenant. |
@@ -137,7 +137,7 @@ Purpose:
 - Customer-originated request intake and lifecycle tracking.
 
 | Field | Type | Required | Key/Constraint | Meaning |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `Id` | `uniqueidentifier` | Yes | `PK_ServiceRequests` | Stable request identifier. |
 | `TenantId` | `uniqueidentifier` | Yes | FK to `Tenants`, `AK_ServiceRequests_TenantId_Id` | Tenant ownership discriminator for request and child references. |
 | `CustomerUserId` | `uniqueidentifier` | Yes | FK composite to `Users (TenantId, Id)` | User who created/requested service; enforced to same tenant. |
@@ -155,7 +155,7 @@ Purpose:
 - Executable work item derived from a service request.
 
 | Field | Type | Required | Key/Constraint | Meaning |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `Id` | `uniqueidentifier` | Yes | `PK_Jobs` | Stable job identifier. |
 | `TenantId` | `uniqueidentifier` | Yes | FK to `Tenants`, `AK_Jobs_TenantId_Id` | Tenant ownership discriminator for all job relations. |
 | `ServiceRequestId` | `uniqueidentifier` | Yes | FK composite to `ServiceRequests (TenantId, Id)` | Parent request from which the job was created. |
@@ -172,7 +172,7 @@ Purpose:
 - Tenant commercial plan and coverage windows.
 
 | Field | Type | Required | Key/Constraint | Meaning |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `Id` | `uniqueidentifier` | Yes | `PK_Subscriptions` | Stable subscription identifier. |
 | `TenantId` | `uniqueidentifier` | Yes | FK to `Tenants`, `AK_Subscriptions_TenantId_Id` | Owning tenant for this subscription record. |
 | `PlanCode` | `nvarchar(32)` | Yes | `IX_Subscriptions_TenantId_PlanCode` | Commercial plan/tier code attached to subscription. |
@@ -207,3 +207,4 @@ Purpose:
 - All Phase 1 entities include audit and soft-delete fields.
 - `__EFMigrationsHistory` is excluded from the business data dictionary because it is an EF internal metadata table.
 - This document complements `database/PHASE1_RELATIONAL_TABLE_DESIGN.md` and serves as the formal Phase 1.5.1 ERD/data dictionary artifact.
+````

@@ -15,7 +15,7 @@ Press `Ctrl+Shift+B` (or `Cmd+Shift+B` on macOS) to open the VS Code task picker
 
 ### Option 2: Shell Scripts (Direct Terminal Use)
 
-```bash
+````bash
 # Build entire solution
 dotnet build GTEK.FSM.slnx
 
@@ -33,7 +33,7 @@ dotnet build GTEK.FSM.slnx
 
 # Stop all services
 ./deploy/scripts/dev-down.sh
-```
+```text
 
 ### Option 3: Makefile Targets
 
@@ -44,7 +44,7 @@ make dev-down       # Stop all containers
 make dev-logs       # Tail service logs
 make dev-db-init    # Apply database migrations
 make dev-db-reset   # Drop and recreate database
-```
+````
 
 ---
 
@@ -53,21 +53,25 @@ make dev-db-reset   # Drop and recreate database
 ### Build Tasks
 
 #### Build: Solution (restore + build)
+
 - **Default build task** (Ctrl+Shift+B)
 - Restores NuGet packages and builds entire solution
 - Uses Debug configuration
 - Runs all project builds in dependency order
 
 #### Build: API Only
+
 - Builds only `backend/api/GTEK.FSM.Backend.Api.csproj`
 - Faster for focused API development
 - Skips web portal and mobile app builds
 
 #### Build: Web Portal
+
 - Builds only `web-portal/GTEK.FSM.WebPortal.csproj`
 - For Blazor WebAssembly portal changes
 
 #### Build: Mobile App (Android)
+
 - Builds `mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj` for Android
 - Ubuntu-only; Windows/macOS support separate targets
 - Requires Android SDK (via `dotnet workload install maui`)
@@ -75,34 +79,40 @@ make dev-db-reset   # Drop and recreate database
 ### Run Tasks
 
 #### Run: API (Standalone - SQL Server in Docker)
+
 - Starts Docker SQL Server container if needed
 - Applies pending migrations automatically
 - Launches API server on `http://localhost:5000`
 - Health check available at `http://localhost:5000/health`
 
 #### Run: API + SQL Server (Docker Compose)
+
 - Equivalent to `make dev-up`
 - Starts both sql and api services via docker-compose
 - Maintains container state across runs
 
 #### Run: Web Portal (Watch + Dev Server)
+
 - Starts Blazor WebAssembly dev server with hot-reload
 - Available at `http://localhost:5001`
 - Watches `.razor`, `.cs`, and `.css` files for changes
 - Ctrl+C to stop
 
 #### Run: Mobile App (Android - Debug)
+
 - Detects platform (Linux = Android, macOS = iOS + Android)
 - Shows instructions for running on emulator or device
 - Requires Android SDK setup on Linux
 
 #### Run: All (API + Portal + Mobile)
+
 - Orchestrated startup of full development stack
 - Starts SQL + API in background
 - Prints instructions for portal and mobile in separate terminals
 - Provides single cleanup command
 
 #### Stop: All Services
+
 - Runs `docker-compose down`
 - Stops and removes running containers
 - Preserves named volume `gtek-fsm-sql-data` (database persists)
@@ -111,17 +121,20 @@ make dev-db-reset   # Drop and recreate database
 ### Database Tasks
 
 #### Database: Init (Apply Migrations)
+
 - Applies pending EF Core migrations to local database
 - Equivalent to `dotnet ef database update`
 - Runs if already in Docker compose; creates container if needed
 
 #### Database: Reset (Drop + Recreate)
+
 - Drops entire database
 - Reapplies migrations from ground zero
 - Useful for testing seed data or resolving schema conflicts
 - Does **not** reset containers; use `make dev-reset` for that
 
 #### Database: Seed
+
 - Runs seed script pipeline (placeholder in Phase 0.7)
 - Discovers and executes SQL seed files from `database/seeds/`
 - Intended for reference data population in future phases
@@ -129,6 +142,7 @@ make dev-db-reset   # Drop and recreate database
 ### Utility Tasks
 
 #### Clean: Build Artifacts
+
 - Removes all `bin/` and `obj/` folders
 - Useful for resolving build cache issues
 - Runs silently, doesn't display output
@@ -140,7 +154,8 @@ make dev-db-reset   # Drop and recreate database
 All scripts are executable (`chmod +x`) and located in `deploy/scripts/`:
 
 ### run-api-standalone.sh
-```
+
+```text
 Usage: ./deploy/scripts/run-api-standalone.sh
 
 Purpose:
@@ -158,7 +173,8 @@ Output:
 ```
 
 ### run-web-portal.sh
-```
+
+```text
 Usage: ./deploy/scripts/run-web-portal.sh
 
 Purpose:
@@ -174,7 +190,8 @@ Output:
 ```
 
 ### run-mobile-app.sh
-```
+
+```text
 Usage: ./deploy/scripts/run-mobile-app.sh
 
 Purpose:
@@ -199,7 +216,8 @@ Output:
 ```
 
 ### start-all.sh
-```
+
+```text
 Usage: ./deploy/scripts/start-all.sh
 
 Purpose:
@@ -224,7 +242,7 @@ Note:
 
 All targets are convenience wrappers around shell scripts or dotnet commands:
 
-```makefile
+````makefile
 make build              # dotnet build GTEK.FSM.slnx -c Debug
 make dev-db-init       # ./database/scripts/dev-db-init.sh
 make dev-db-reset      # ./database/scripts/dev-db-reset.sh
@@ -233,7 +251,7 @@ make dev-up            # ./deploy/scripts/dev-up.sh
 make dev-down          # ./deploy/scripts/dev-down.sh
 make dev-logs          # ./deploy/scripts/dev-logs.sh
 make dev-reset         # ./deploy/scripts/dev-reset.sh
-```
+```text
 
 ---
 
@@ -260,11 +278,11 @@ make build
 # API:     http://localhost:5000
 # Portal:  http://localhost:5001
 # Health:  http://localhost:5000/health
-```
+````
 
 ### API-Only Development
 
-```bash
+````bash
 # 1. Build just API
 make build-api            # OR Ctrl+Shift+B → "Build: API Only"
 
@@ -274,7 +292,7 @@ make build-api            # OR Ctrl+Shift+B → "Build: API Only"
 
 # 3. Test in another terminal
 curl http://localhost:5000/health
-```
+```text
 
 ### Web Portal Development
 
@@ -286,11 +304,11 @@ curl http://localhost:5000/health
 
 # 2. Access API (requires separate API terminal)
 # API should already be running from API-only workflow
-```
+````
 
 ### Database Management
 
-```bash
+````bash
 # Reset database to latest migration state
 make dev-db-reset
 
@@ -302,7 +320,7 @@ make dev-db-seed
 
 # View container logs
 make dev-logs
-```
+```text
 
 ### Cleanup and Recovery
 
@@ -319,7 +337,7 @@ make build
 
 # Restart everything
 ./deploy/scripts/start-all.sh
-```
+````
 
 ---
 
@@ -329,7 +347,7 @@ make build
 
 Create `.env` file in project root (already provided `.env.example`):
 
-```bash
+````bash
 # Copy template
 cp .env.example .env
 
@@ -337,7 +355,7 @@ cp .env.example .env
 COMPOSE_PROJECT_NAME=gtek-fsm-dev
 SQL_SA_PASSWORD=YourStrongPassword123!
 ASPNETCORE_ENVIRONMENT=Development
-```
+```text
 
 ### Connection Strings
 
@@ -350,43 +368,62 @@ ASPNETCORE_ENVIRONMENT=Development
 ## Troubleshooting
 
 ### Docker not running
-```
+
+````
+
 Error: Docker is not running
 Fix: Start Docker daemon or Docker Desktop
-```
+
+```text
 
 ### Port already in use
+
 ```
+
 Error: Address already in use (port 5000, 5001, 1433)
-Fix: 
-  - Stop conflicting service: lsof -i :5000
-  - Or use different port in launchSettings.json
-```
+Fix:
+
+- Stop conflicting service: lsof -i :5000
+- Or use different port in launchSettings.json
+
+```text
 
 ### Android SDK not found
+
 ```
+
 Error: ANDROID_SDK_ROOT not set
 Fix:
-  - Linux: dotnet workload install maui
-  - Or set: export ANDROID_SDK_ROOT=/path/to/android/sdk
-```
+
+- Linux: dotnet workload install maui
+- Or set: export ANDROID_SDK_ROOT=/path/to/android/sdk
+
+```text
 
 ### Database migrations not applying
-```
-Error: "No executed migrations"
-Fix:
-  - Verify SQL Server is running: docker ps
-  - Check connection string in appsettings
-  - Run: ./database/scripts/dev-db-init.sh
+
 ```
 
-### Hot-reload not working (Web Portal)
-```
+Error: "No executed migrations"
 Fix:
-  - Stop current session (Ctrl+C)
-  - Run: make clean
-  - Restart: ./deploy/scripts/run-web-portal.sh
+
+- Verify SQL Server is running: docker ps
+- Check connection string in appsettings
+- Run: ./database/scripts/dev-db-init.sh
+
+```text
+
+### Hot-reload not working (Web Portal)
+
 ```
+
+Fix:
+
+- Stop current session (Ctrl+C)
+- Run: make clean
+- Restart: ./deploy/scripts/run-web-portal.sh
+
+```text
 
 ---
 
@@ -406,4 +443,4 @@ Fix:
 - Add linting rules (StyleCop, Roslyn analyzers)
 - Add test project discovery and running
 - Add pre-commit hooks for quality checks
-
+```

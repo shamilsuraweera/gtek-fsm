@@ -11,13 +11,15 @@ Docker provides consistent development, staging, and production environments wit
 ### 1. Install Docker Desktop
 
 **macOS (Intel & Apple Silicon):**
-```bash
+
+````bash
 # Download from https://www.docker.com/products/docker-desktop
 # Or use Homebrew:
 brew install docker --cask
-```
+```text
 
 **Ubuntu/Debian (Linux):**
+
 ```bash
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
@@ -25,19 +27,21 @@ sudo sh get-docker.sh
 # Add current user to docker group
 sudo usermod -aG docker $USER
 newgrp docker
-```
+````
 
 **Windows 11:**
+
 - Download [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop)
 - Enable WSL 2 backend (recommended for performance)
 - Restart computer
 
 **Verify Installation:**
-```bash
+
+````bash
 docker --version        # Docker version 20.10+
 docker-compose --version  # Docker Compose 2.0+
 docker run hello-world  # Should print success message
-```
+```text
 
 ### 2. Resource Configuration
 
@@ -46,17 +50,18 @@ docker run hello-world  # Should print success message
 Edit Docker Desktop Settings:
 
 | Setting | Recommended | Minimum |
-|---------|-------------|---------|
+| --------- | ------------- | --------- |
 | CPU | 4 cores | 2 cores |
 | Memory | 8 GB | 4 GB |
 | Disk | 50 GB | 20 GB |
 | Swap | 2 GB | 1 GB |
 
 **Check Current:**
+
 ```bash
 docker system df
 docker stats  # Real-time resource usage
-```
+````
 
 ---
 
@@ -65,11 +70,13 @@ docker stats  # Real-time resource usage
 ### 1. Environment File
 
 Copy template:
-```bash
+
+````bash
 cp .env.example .env
-```
+```text
 
 Edit for Docker:
+
 ```bash
 # .env
 ASPNETCORE_ENVIRONMENT=Development
@@ -78,14 +85,15 @@ SQL_SERVER_HOST=sqlserver        # Service name in compose
 SQL_SERVER_PORT=1433
 SQL_SERVER_DATABASE=GTEK_FSM_Local
 API_PORT=5000
-```
+````
 
 ### 2. Review docker-compose.yml
 
 Located at: `docker-compose.yml` in project root
 
 **Services:**
-```yaml
+
+````yaml
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2019-latest
@@ -108,7 +116,7 @@ services:
     port: 5001
     depends_on:
       - api
-```
+```text
 
 ### 3. Build Images
 
@@ -116,18 +124,19 @@ services:
 
 ```bash
 docker-compose up --build
-```
+````
 
 This automatically:
+
 1. Builds Docker images from `Dockerfile`s
 2. Pulls base images (SQL Server, .NET runtime)
 3. Creates containers
 4. Starts services
 5. Shows logs
 
-**Option B: Manual**
+### Option B: Manual
 
-```bash
+````bash
 # Build each service individually
 docker-compose build sqlserver
 docker-compose build api
@@ -135,7 +144,7 @@ docker-compose build portal
 
 # Then start
 docker-compose up
-```
+```text
 
 ### 4. View Services Running
 
@@ -148,7 +157,7 @@ docker-compose ps
 # sqlserver         Up 2m       1433/tcp
 # api               Up 1m       5000/tcp
 # portal            Up 30s      5001/tcp
-```
+````
 
 ---
 
@@ -156,7 +165,7 @@ docker-compose ps
 
 ### Starting & Stopping
 
-```bash
+````bash
 # Start all services (foreground - see logs)
 docker-compose up
 
@@ -171,7 +180,7 @@ docker-compose down -v
 
 # Restart specific service
 docker-compose restart api
-```
+```text
 
 ### Viewing Logs
 
@@ -187,11 +196,11 @@ docker-compose logs -f --tail=100
 
 # Timestamps
 docker-compose logs -t api
-```
+````
 
 ### Database Management
 
-```bash
+````bash
 # Connect to SQL Server in container
 docker-compose exec sqlserver sqlcmd -S . -U sa -P $SA_PASSWORD
 
@@ -209,7 +218,7 @@ docker-compose exec sqlserver sqlcmd -S . -U sa -P $SA_PASSWORD
 # Server: localhost:1433
 # User: sa
 # Password: {SA_PASSWORD from .env}
-```
+```text
 
 ### Rebuilding After Changes
 
@@ -225,7 +234,7 @@ docker-compose up -d --build api
 
 # Complete rebuild (all services)
 docker-compose up --build --force-recreate
-```
+````
 
 ---
 
@@ -234,21 +243,23 @@ docker-compose up --build --force-recreate
 ### Data Persistence
 
 **SQL Server Data:**
-```yaml
+
+````yaml
 volumes:
   sqlserver_data:
     driver: local
-```
+```text
 
 - **Location:** Docker-managed directory (not on host filesystem)
 - **Persists:** When container stops/starts
 - **Cleared:** Only with `docker-compose down -v`
 
 **Storage (Files):**
+
 ```yaml
 volumes:
   - ./storage/docker:/app/storage
-```
+````
 
 - **Location:** `./storage/docker` on host machine
 - **Visibility:** Accessible from host
@@ -256,7 +267,7 @@ volumes:
 
 ### View Volumes
 
-```bash
+````bash
 # List all volumes
 docker volume ls
 
@@ -265,7 +276,7 @@ docker volume inspect gtek-fsm_sqlserver_data
 
 # Remove unused volumes
 docker volume prune
-```
+```text
 
 ### Backup Database
 
@@ -281,7 +292,7 @@ docker cp $(docker-compose ps -q sqlserver):/var/opt/mssql/backup/backup.bak ./b
 # Or volume mount approach (add to docker-compose.yml):
 # volumes:
 #   - ./backups:/var/opt/mssql/backup
-```
+````
 
 ---
 
@@ -290,7 +301,8 @@ docker cp $(docker-compose ps -q sqlserver):/var/opt/mssql/backup/backup.bak ./b
 ### Container Networking
 
 **Automatic bridge network created:**
-```
+
+```text
 gtek-fsm_default
 
 Containers connected:
@@ -300,20 +312,24 @@ Containers connected:
 ```
 
 **Service Discovery:**
+
 - API talks to SQL Server: `Server=sqlserver;...`
 - Portal talks to API: `http://api:5000`
 
 ### Port Mapping
 
-| Service | Container Port | Host Port | Access |
-|---------|---------------|-----------| -------|
-| API | 5000 | 5000 | http://localhost:5000 |
-| Portal | 5001 | 5001 | http://localhost:5001 |
-| SQL Server | 1433 | 1433 | localhost:1433 |
+| Service    | Container Port | Host Port | Access                              |
+| ---------- | -------------- | --------- | ----------------------------------- |
+| API        | 5000           | 5000      | [http://localhost:5000][api-url]    |
+| Portal     | 5001           | 5001      | [http://localhost:5001][portal-url] |
+| SQL Server | 1433           | 1433      | localhost:1433                      |
+
+[api-url]: http://localhost:5000
+[portal-url]: http://localhost:5001
 
 ### Custom Network (Advanced)
 
-```yaml
+````yaml
 networks:
   core:
     driver: bridge
@@ -325,7 +341,7 @@ services:
   database:
     networks:
       - core
-```
+```text
 
 ---
 
@@ -347,11 +363,11 @@ grep SA_PASSWORD .env
 
 # 3. Image build failed
 docker-compose build --no-cache api
-```
+````
 
 ### Issue: Can't connect to SQL Server
 
-```bash
+````bash
 # Verify SQL Server is running
 docker-compose ps sqlserver
 
@@ -363,7 +379,7 @@ docker-compose exec api sqlcmd -S sqlserver -U sa -P $SA_PASSWORD
 
 # Verify connection string in .env
 # Should be: Server=sqlserver;... (not localhost from inside container)
-```
+```text
 
 ### Issue: Out of disk space
 
@@ -381,11 +397,11 @@ docker volume prune
 docker builder prune
 
 # Increase Docker desktop disk allocation (Settings)
-```
+````
 
 ### Issue: Performance is slow
 
-```bash
+````bash
 # Check resource usage
 docker stats
 
@@ -396,7 +412,7 @@ docker stats
 {
   "storage-driver": "overlay2"
 }
-```
+```text
 
 ### Issue: Permission denied
 
@@ -407,11 +423,11 @@ newgrp docker
 
 # Or use sudo (temporary)
 sudo docker-compose up
-```
+````
 
 ### Issue: Migrations not applied
 
-```bash
+````bash
 # Check migration logic in Dockerfile/entrypoint
 docker-compose logs api
 
@@ -422,7 +438,7 @@ docker-compose exec api \
 # Or reset database
 docker-compose down -v
 docker-compose up --build
-```
+```text
 
 ---
 
@@ -445,11 +461,11 @@ docker-compose restart api
 
 # Evening: Stop services
 docker-compose stop
-```
+````
 
 ### Full Reset (Fresh Start)
 
-```bash
+````bash
 # Complete cleanup
 docker-compose down -v
 
@@ -459,7 +475,7 @@ docker-compose up --build
 # Verify services
 docker-compose ps
 docker-compose logs api
-```
+```text
 
 ### Multi-Environment Setup
 
@@ -473,19 +489,21 @@ docker-compose -f docker-compose.staging.yml up
 # Or use environment files
 docker-compose --env-file .env.dev up
 docker-compose --env-file .env.staging up
-```
+````
 
 ---
 
 ## Production Considerations (Phase 11)
 
 ### Not Recommended for Production
+
 - **Local volumes** → Use cloud storage (Blob/S3)
 - **Docker Compose** → Use Kubernetes/AKS
 - **Self-managed SQL** → Use Managed SQL Database
 
 ### Production Setup (Future)
-```bash
+
+````bash
 # Use registry
 docker login myregistry.azurecr.io
 docker-compose push
@@ -495,7 +513,7 @@ az container create --image myregistry.azurecr.io/api:latest
 
 # Or Kubernetes
 kubectl apply -f k8s/
-```
+```text
 
 ---
 
@@ -514,7 +532,7 @@ docker scan gtek-fsm:latest
 
 # View image layers and size
 docker history gtek-fsm --no-trunc
-```
+````
 
 ---
 
@@ -524,4 +542,3 @@ docker history gtek-fsm --no-trunc
 - [Docker Compose Docs](https://docs.docker.com/compose/)
 - [SQL Server on Docker](https://hub.docker.com/_/microsoft-mssql-server)
 - [.NET Docker Images](https://hub.docker.com/_/microsoft-dotnet)
-

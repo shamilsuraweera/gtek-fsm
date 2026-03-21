@@ -5,6 +5,7 @@ This document provides common suppressions and patterns used in the GTEK FSM cod
 ## Why Suppress Rules?
 
 StyleCop rules are **guidelines, not absolutes**. Suppressions are appropriate when:
+
 - A rule conflicts with organizational or project conventions
 - Exception cases justify a deviation from the standard
 - Code clarity or performance requires breaking a rule
@@ -18,14 +19,14 @@ All suppressions should include explanatory comments.
 
 Suppress a rule for an entire file using `#pragma warning disable` at the top:
 
-```csharp
+````csharp
 // Suppress SA1600 (documentation) for this file - generated code
 #pragma warning disable SA1600
 
 namespace GTEK.FSM.Backend.Domain.Generated;
 
 // Content here...
-```
+```text
 
 ---
 
@@ -42,7 +43,7 @@ private void ProcessInternal()
 {
 }
 #pragma warning restore SA1600
-```
+````
 
 ---
 
@@ -51,19 +52,21 @@ private void ProcessInternal()
 ### SA1600: Elements must be documented
 
 **When to use:**
+
 - Internal or private helper methods
 - Auto-generated code
 - Properties with obvious intent
 
-```csharp
+````csharp
 #pragma warning disable SA1600
 private List<Order> _orders = [];
 #pragma warning restore SA1600
-```
+```text
 
 ### SA1651: Do not use @
 
 **When to use:**
+
 - Not applicable to modern C# namespace syntax (`namespace X.Y.Z;`)
 
 ### CA1707: Identifiers should not contain underscores
@@ -73,6 +76,7 @@ private List<Order> _orders = [];
 ### CA1822: Member does not use instance data
 
 **Use when:**
+
 - Helper method is intentionally shared but not static (rare)
 - Violating this would require refactoring that reduces clarity
 
@@ -84,22 +88,23 @@ public string FormatInternal(string value)
     return value.ToUpper();
 }
 #pragma warning restore CA1822
-```
+````
 
 ### CA1001: Types that own disposable fields should be disposable
 
 **Use when:**
+
 - Object manages disposable fields but lifetime is externally managed
 - Disposal is handled by a parent container
 
-```csharp
+````csharp
 #pragma warning disable CA1001
 public class ServiceContainer
 {
     private HttpClient _client; // Disposed by DI container, not this class
 }
 #pragma warning restore CA1001
-```
+```text
 
 ---
 
@@ -123,6 +128,7 @@ These require **no suppression** since they're globally disabled.
 Avoid suppressing when:
 
 ❌ **Better option exists:**
+
 ```csharp
 // Don't do this:
 #pragma warning disable CA1822
@@ -131,25 +137,27 @@ public string Name => _name.ToUpper();  // Use static instead
 
 // Do this:
 public static string NameFormat(string name) => name.ToUpper();
-```
+````
 
 ❌ **Indicates design issue:**
-```csharp
+
+````csharp
 // Don't suppress CA1505 (complexity) — refactor instead
 #pragma warning disable CA1505
 public void ProcessOrder(var x, var y) { /* 200 lines */ }
 #pragma warning restore CA1505
 
 // Do this — refactor into smaller methods
-public void ProcessOrder(...) 
+public void ProcessOrder(...)
 {
     ValidateOrder();
     CalculateTotal();
     ApplyDiscounts();
 }
-```
+```text
 
 ❌ **Masking real issues:**
+
 ```csharp
 // Don't suppress CA2000 (dispose objects) — use 'using' instead
 #pragma warning disable CA2000
@@ -158,7 +166,7 @@ var stream = new FileStream(...);
 
 // Do this:
 using var stream = new FileStream(...);
-```
+````
 
 ---
 
@@ -167,7 +175,8 @@ using var stream = new FileStream(...);
 All suppressions are **committed to Git** and reviewed in pull requests. Treat suppressions like code — document and justify them.
 
 **Good commit message:**
-```
+
+```text
 fix: suppress SA1600 for auto-generated DTO methods
 
 Generated mappers do not require documentation per project convention.
@@ -175,7 +184,8 @@ Suppressions located in GeneratedCode/Mappers.cs.
 ```
 
 **Bad commit message:**
-```
+
+```text
 suppress warnings
 ```
 
@@ -185,13 +195,13 @@ suppress warnings
 
 Periodically review suppressions to ensure they remain justified:
 
-```bash
+````bash
 # Find all suppressions in the codebase
 grep -r "#pragma warning disable" src/
 
 # Remove unnecessary suppressions during Phase 1 refactoring
 # Suppressions should trend downward as code matures
-```
+```text
 
 ---
 
@@ -199,3 +209,4 @@ grep -r "#pragma warning disable" src/
 
 - StyleCop Analyzer Rules: https://github.com/DotNetAnalyzers/StyleCopAnalyzers/blob/master/RULES.md
 - Microsoft NetAnalyzers: https://github.com/microsoft/NetAnalyzers
+````
