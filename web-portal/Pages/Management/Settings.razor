@@ -1,6 +1,220 @@
 @page "/management/settings"
 
+@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services
+
+@inject ResilientDataFetcher Fetcher
+
 <PageTitle>Management Settings</PageTitle>
 
 <h1>Management Settings</h1>
-<p>Placeholder page for management-level portal settings.</p>
+
+<ResilienceErrorBoundary @ref="errorBoundary">
+	<DataFetchStateDisplay
+		State="@fetchState.State"
+		LoadingMessage="Loading permission and governance settings..."
+		ErrorMessage="@fetchState.ErrorMessage"
+		StaleMessage="Governance settings are cached; refresh for latest policy state."
+		PartialMessage="Settings loaded with partial policy context."
+		RetryingMessage="@($"Retrying settings load... Attempt {fetchState.RetryAttempts}")"
+		AllowStaleRender="true"
+		OnRetry="@HandleRetry"
+		OnDismiss="@HandleDismiss">
+
+		@if (Data is not null)
+		{
+			<section class="governance-shell">
+				<section class="governance-panel">
+					<header class="governance-header">
+						<h2>Permission Matrix</h2>
+						<span class="audit-muted">Role visibility for sensitive management actions</span>
+					</header>
+					<div class="governance-table-wrap">
+						<table class="audit-table">
+							<thead>
+								<tr>
+									<th>Capability</th>
+									<th>Support</th>
+									<th>Manager</th>
+									<th>Admin</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var cap in Data.Capabilities)
+								{
+									<tr>
+										<td>@cap.Name</td>
+										<td>@RenderPermission(cap.Support)</td>
+										<td>@RenderPermission(cap.Manager)</td>
+										<td>@RenderPermission(cap.Admin)</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</section>
+
+				<section class="governance-panel">
+					<header class="governance-header">
+						<h2>Sensitive Action Guardrails</h2>
+						<span class="audit-muted">Control policy for high-impact operations</span>
+					</header>
+					<div class="guardrail-list">
+						@foreach (var rule in Data.Guardrails)
+						{
+							<article class="guardrail-item">
+								<div>
+									<p class="oversight-title">@rule.Title</p>
+									<p class="audit-muted">@rule.Description</p>
+								</div>
+								<label class="guardrail-toggle">
+									<input type="checkbox" checked="@rule.Enabled" @onchange="(_)=> ToggleRule(rule.Id)" />
+									<span>@(rule.Enabled ? "Enabled" : "Disabled")</span>
+								</label>
+							</article>
+						}
+					</div>
+				</section>
+
+				<section class="governance-panel">
+					<header class="governance-header">
+						<h2>Governance Workflow States</h2>
+						<span class="audit-muted">Operational readiness and policy enforcement path</span>
+					</header>
+					<ol class="governance-steps">
+						@foreach (var step in Data.Workflow)
+						{
+							<li class="governance-step">
+								<span class="audit-pill @(step.State == "Active" ? "allow" : "medium")">@step.State</span>
+								<div>
+									<p class="oversight-title">@step.Name</p>
+									<p class="audit-muted">@step.Note</p>
+								</div>
+							</li>
+						}
+					</ol>
+				</section>
+			</section>
+		}
+	</DataFetchStateDisplay>
+</ResilienceErrorBoundary>
+
+@code {
+	private ResilienceErrorBoundary? errorBoundary;
+	private FetchResult<GovernanceData> fetchState = new();
+	private GovernanceData? Data => fetchState.Data;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadData();
+	}
+
+	private async Task LoadData()
+	{
+		try
+		{
+			fetchState = await Fetcher.FetchAsync(
+				async () =>
+				{
+					await Task.Delay(200);
+					return BuildSampleData();
+				},
+				fetchState,
+				maxRetries: 2,
+				staleThresholdSeconds: 90);
+		}
+		catch (Exception ex)
+		{
+			errorBoundary?.HandleError(ex, "Failed to load governance settings.");
+		}
+	}
+
+	private async Task HandleRetry()
+	{
+		await LoadData();
+	}
+
+	private void HandleDismiss()
+	{
+		fetchState.State = FetchState.Idle;
+	}
+
+	private static string RenderPermission(bool allowed)
+	{
+		return allowed ? "Allow" : "Deny";
+	}
+
+	private void ToggleRule(Guid id)
+	{
+		if (Data is null)
+		{
+			return;
+		}
+
+		var rule = Data.Guardrails.FirstOrDefault(x => x.Id == id);
+		if (rule is not null)
+		{
+			rule.Enabled = !rule.Enabled;
+		}
+	}
+
+	private static GovernanceData BuildSampleData()
+	{
+		return new GovernanceData
+		{
+			Capabilities =
+			[
+				new("Cross-tenant data export", false, false, true),
+				new("Role elevation", false, true, true),
+				new("Policy override", false, true, true),
+				new("Subscription tier mutation", false, true, true),
+			],
+			Guardrails =
+			[
+				new(Guid.NewGuid(), "Two-step approval", "Require manager plus admin approval for sensitive actions.", true),
+				new(Guid.NewGuid(), "Reason capture", "Force rationale note before policy override submission.", true),
+				new(Guid.NewGuid(), "Time-window restriction", "Block role elevation outside governance window.", true),
+			],
+			Workflow =
+			[
+				new("Submission", "Active", "Sensitive action request created by operator."),
+				new("Policy Evaluation", "Active", "Rules and tenant boundaries validated."),
+				new("Dual Approval", "Pending", "Awaiting second approver for high-risk action."),
+				new("Execution", "Pending", "Action runs only after governance approvals are complete."),
+			],
+		};
+	}
+
+	private sealed record Capability(string Name, bool Support, bool Manager, bool Admin);
+
+	private sealed class Guardrail
+	{
+		public Guardrail(Guid id, string title, string description, bool enabled)
+		{
+			Id = id;
+			Title = title;
+			Description = description;
+			Enabled = enabled;
+		}
+
+		public Guid Id { get; }
+
+		public string Title { get; }
+
+		public string Description { get; }
+
+		public bool Enabled { get; set; }
+	}
+
+	private sealed record WorkflowStep(string Name, string State, string Note);
+
+	private sealed class GovernanceData
+	{
+		public List<Capability> Capabilities { get; set; } = [];
+
+		public List<Guardrail> Guardrails { get; set; } = [];
+
+		public List<WorkflowStep> Workflow { get; set; } = [];
+	}
+}
