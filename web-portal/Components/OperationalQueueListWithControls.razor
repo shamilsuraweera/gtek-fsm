@@ -136,7 +136,7 @@
 	public int ItemSize { get; set; } = 64;
 
 	[Parameter]
-	public IReadOnlyList<OperationalQueueItem> Items { get; set; } = [];
+	public List<OperationalQueueItem> Items { get; set; } = [];
 
 	[Parameter]
 	public EventCallback<(OperationalQueueItem item, TriageAction action)> OnActionTriggered { get; set; }

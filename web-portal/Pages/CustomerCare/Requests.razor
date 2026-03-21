@@ -1,8 +1,10 @@
 @page "/customer-care/requests"
 
 @using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Components.Operations
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@inject NavigationManager Navigation
 
 @inject ResilientDataFetcher Fetcher
 
@@ -26,6 +28,11 @@
 			StickyContext="Live queue with triage controls, status signals, and workload prioritization"
 			Items="@(fetchState.Data ?? [])"
 			OnActionTriggered="@HandleTriageAction" />
+
+		<OperationsBoard
+			Title="Dispatch Board"
+			Subtitle="Stage-based dispatch shell for quick operational coordination"
+			Columns="@DispatchBoardColumns" />
 	</DataFetchStateDisplay>
 </ResilienceErrorBoundary>
 
@@ -72,6 +79,13 @@
 	private async Task HandleTriageAction((OperationalQueueItem item, TriageAction action) args)
 	{
 		var (item, action) = args;
+
+		if (action == TriageAction.ViewDetails)
+		{
+			Navigation.NavigateTo($"/customer-care/requests/workspace/{item.Reference}");
+			return;
+		}
+
 		try
 		{
 			// Simulate action processing
@@ -94,7 +108,31 @@
 		{
 			errorBoundary?.HandleError(ex, $"Failed to execute {action} action. Please try again.");
 		}
-		};
+	}
+
+	private IReadOnlyList<OperationsBoardColumn> DispatchBoardColumns => BuildDispatchBoardColumns(fetchState.Data ?? []);
+
+	private static IReadOnlyList<OperationsBoardColumn> BuildDispatchBoardColumns(IReadOnlyList<OperationalQueueItem> items)
+	{
+		return
+		[
+			new OperationsBoardColumn("Intake", ToCards(items.Where(x => x.Status is RequestStatus.New or RequestStatus.Assessing).ToList())),
+			new OperationsBoardColumn("Assigned", ToCards(items.Where(x => x.Status == RequestStatus.Assigned).ToList())),
+			new OperationsBoardColumn("Active", ToCards(items.Where(x => x.Status == RequestStatus.Active).ToList())),
+			new OperationsBoardColumn("Escalated", ToCards(items.Where(x => x.Status == RequestStatus.Escalated).ToList())),
+		];
+	}
+
+	private static IReadOnlyList<OperationsBoardCard> ToCards(IReadOnlyList<OperationalQueueItem> items)
+	{
+		return items
+			.Select(item => new OperationsBoardCard(
+				item.Reference,
+				item.Summary,
+				item.Priority,
+				item.AssignedWorker ?? "Unassigned",
+				item.UpdatedAtUtc))
+			.ToList();
 	}
 
 	private List<OperationalQueueItem> GenerateSampleQueueItems()
