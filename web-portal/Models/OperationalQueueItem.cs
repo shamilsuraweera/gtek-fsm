@@ -22,6 +22,11 @@ public class OperationalQueueItem
     public string Customer { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets the tenant context for this request.
+    /// </summary>
+    public string TenantId { get; set; } = "TENANT-01";
+
+    /// <summary>
     /// Gets or sets the request stage.
     /// </summary>
     public string Stage { get; set; } = string.Empty;

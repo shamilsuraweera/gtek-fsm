@@ -3,8 +3,10 @@
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@using GTEK.FSM.WebPortal.Services.Security
 
 @inject ResilientDataFetcher Fetcher
+@inject UiSecurityContext SecurityContext
 
 <PageTitle>Management Settings</PageTitle>
 
@@ -25,6 +27,16 @@
 		@if (Data is not null)
 		{
 			<section class="governance-shell">
+				@if (!CanModifyGuardrails())
+				{
+					<p class="security-forbidden-message">Forbidden: only admin scope in active tenant context can change governance guardrails.</p>
+				}
+
+				@if (!string.IsNullOrWhiteSpace(securityFeedback))
+				{
+					<p class="security-forbidden-message">@securityFeedback</p>
+				}
+
 				<section class="governance-panel">
 					<header class="governance-header">
 						<h2>Permission Matrix</h2>
@@ -69,7 +81,7 @@
 									<p class="audit-muted">@rule.Description</p>
 								</div>
 								<label class="guardrail-toggle">
-									<input type="checkbox" checked="@rule.Enabled" @onchange="(_)=> ToggleRule(rule.Id)" />
+									<input type="checkbox" checked="@rule.Enabled" @onchange="(_)=> ToggleRule(rule.Id)" disabled="@(!CanModifyGuardrails())" />
 									<span>@(rule.Enabled ? "Enabled" : "Disabled")</span>
 								</label>
 							</article>
@@ -103,6 +115,7 @@
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
 	private FetchResult<GovernanceData> fetchState = new();
+	private string? securityFeedback;
 	private GovernanceData? Data => fetchState.Data;
 
 	protected override async Task OnInitializedAsync()
@@ -152,11 +165,24 @@
 			return;
 		}
 
+		if (!CanModifyGuardrails())
+		{
+			securityFeedback = "Forbidden: you do not have permission to mutate guardrails.";
+			return;
+		}
+
+		securityFeedback = null;
+
 		var rule = Data.Guardrails.FirstOrDefault(x => x.Id == id);
 		if (rule is not null)
 		{
 			rule.Enabled = !rule.Enabled;
 		}
+	}
+
+	private bool CanModifyGuardrails()
+	{
+		return SecurityContext.HasAnyRole(PortalRole.Admin) && SecurityContext.CanAccessTenant(SecurityContext.CurrentTenantId);
 	}
 
 	private static GovernanceData BuildSampleData()

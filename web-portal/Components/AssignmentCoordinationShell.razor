@@ -1,6 +1,9 @@
 @namespace GTEK.FSM.WebPortal.Components
 
 @using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services.Security
+
+@inject UiSecurityContext SecurityContext
 
 <section class="assignment-shell">
     <header class="assignment-shell__header">
@@ -10,10 +13,15 @@
         </div>
 
         <div class="assignment-shell__actions">
-            <button class="btn-quick-action btn-primary" @onclick="AssignBestMatch" disabled="@(SelectedRequest is null)">Assign Best Match</button>
-            <button class="btn-quick-action btn-warning" @onclick="ReassignSelected" disabled="@(SelectedRequest is null)">Reassign Selected</button>
+            <button class="btn-quick-action btn-primary" @onclick="AssignBestMatch" disabled="@(!CanRunHeaderAction())">Assign Best Match</button>
+            <button class="btn-quick-action btn-warning" @onclick="ReassignSelected" disabled="@(!CanRunHeaderAction())">Reassign Selected</button>
         </div>
     </header>
+
+    @if (!string.IsNullOrWhiteSpace(securityFeedback))
+    {
+        <p class="security-forbidden-message">@securityFeedback</p>
+    }
 
     <section class="assignment-shell__grid">
         <article class="assignment-panel">
@@ -26,7 +34,7 @@
                         <div>
                             <p class="mono assignment-ref">@item.Reference</p>
                             <p class="assignment-summary">@item.Summary</p>
-                            <p class="assignment-meta">@item.Customer · @item.Stage · @item.Priority</p>
+                            <p class="assignment-meta">@item.Customer · @item.Stage · @item.Priority · @item.TenantId</p>
                         </div>
                         <div class="assignment-badges">
                             @if (item.IsEscalated)
@@ -88,8 +96,8 @@
                                 }
                             </div>
                             <div class="assignment-worker-actions">
-                                <button class="btn-quick-action" @onclick="() => AssignWorker(worker.Id, false)" disabled="@(!worker.IsAvailable)">Assign</button>
-                                <button class="btn-quick-action" @onclick="() => AssignWorker(worker.Id, true)" disabled="@(!worker.IsAvailable)">Reassign</button>
+                                <button class="btn-quick-action" @onclick="() => AssignWorker(worker.Id, false)" disabled="@(!CanApplyDecision(worker, false))">Assign</button>
+                                <button class="btn-quick-action" @onclick="() => AssignWorker(worker.Id, true)" disabled="@(!CanApplyDecision(worker, true))">Reassign</button>
                             </div>
                         </div>
                     }
@@ -135,6 +143,7 @@
 @code {
     private string? selectedReference;
     private string? selectedWorkerId;
+    private string? securityFeedback;
 
     [Parameter]
     public List<OperationalQueueItem> Requests { get; set; } = [];
@@ -195,6 +204,12 @@
             return;
         }
 
+        if (!CanRunHeaderAction())
+        {
+            securityFeedback = "Forbidden: your role or tenant scope cannot modify this request.";
+            return;
+        }
+
         var best = CandidateWorkers.FirstOrDefault(x => x.IsAvailable && !x.HasConflict) ?? CandidateWorkers.FirstOrDefault(x => x.IsAvailable);
         if (best is null)
         {
@@ -212,6 +227,12 @@
             return;
         }
 
+        if (!CanApplyDecision(CurrentWorker, true))
+        {
+            securityFeedback = "Forbidden: reassignment is blocked by role or tenant guardrails.";
+            return;
+        }
+
         await AssignWorker(CurrentWorker.Id, true);
     }
 
@@ -222,10 +243,47 @@
             return;
         }
 
+        var selectedWorker = Workers.FirstOrDefault(x => string.Equals(x.Id, workerId, StringComparison.Ordinal));
+        if ((selectedWorker is null) || !CanApplyDecision(selectedWorker, isReassignment))
+        {
+            securityFeedback = "Forbidden: assignment action denied for the current context.";
+            return;
+        }
+
+        securityFeedback = null;
+
         if (OnDecisionTriggered.HasDelegate)
         {
             await OnDecisionTriggered.InvokeAsync((SelectedRequest.Reference, workerId, isReassignment));
         }
+    }
+
+    private bool CanRunHeaderAction()
+    {
+        return SelectedRequest is not null
+            && SecurityContext.HasAnyRole(PortalRole.Support, PortalRole.Manager, PortalRole.Admin)
+            && SecurityContext.CanAccessTenant(SelectedRequest.TenantId);
+    }
+
+    private bool CanApplyDecision(AssignmentWorkerOption worker, bool isReassignment)
+    {
+        if ((SelectedRequest is null) || !worker.IsAvailable)
+        {
+            return false;
+        }
+
+        if (!SecurityContext.HasAnyRole(PortalRole.Support, PortalRole.Manager, PortalRole.Admin)
+            || !SecurityContext.CanAccessTenant(SelectedRequest.TenantId))
+        {
+            return false;
+        }
+
+        if (isReassignment)
+        {
+            return SecurityContext.HasAnyRole(PortalRole.Manager, PortalRole.Admin);
+        }
+
+        return true;
     }
 
     private static int ComputeMatchScore(OperationalQueueItem request, AssignmentWorkerOption worker)
