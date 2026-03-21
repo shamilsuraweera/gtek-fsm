@@ -507,5 +507,19 @@ build/
 .expo-shared/
 web-build/
 
+# VSCode - ignore cache/state but keep shared configurations
+.vscode/
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Additional safety patterns
+*.lock
+*.swp
+*~
+.DS_Store
+Thumbs.db
+
 Task Tracker
 tracker.txt
