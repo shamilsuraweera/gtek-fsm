@@ -1,15 +1,37 @@
 @page "/customer-care/pipeline"
 
+@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services
+
+@inject ResilientDataFetcher Fetcher
+
 <PageTitle>Customer Care Pipeline</PageTitle>
 
 <h1>Customer Care Pipeline</h1>
-<OperationsBoard
-	Title="Dispatch Pipeline"
-	Subtitle="Stage board with fast filters for assignment coordination"
-	Columns="@pipelineColumns" />
+
+<ResilienceErrorBoundary @ref="errorBoundary">
+	<DataFetchStateDisplay
+		State="@fetchState.State"
+		LoadingMessage="Fetching dispatch pipeline..."
+		ErrorMessage="@fetchState.ErrorMessage"
+		StaleMessage="Dispatch pipeline is cached; stage updates may be delayed."
+		PartialMessage="Loaded dispatch pipeline (some stages may be incomplete)."
+		RetryingMessage="@($"Retrying dispatch pipeline... Attempt {fetchState.RetryAttempts}")"
+		AllowStaleRender="true"
+		OnRetry="@HandleRetry"
+		OnDismiss="@HandleDismiss">
+		<OperationsBoard
+			Title="Dispatch Pipeline"
+			Subtitle="Stage board with fast filters for assignment coordination"
+			Columns="@(fetchState.Data ?? [])" />
+	</DataFetchStateDisplay>
+</ResilienceErrorBoundary>
 
 @code {
-	private readonly IReadOnlyList<OperationsBoardColumn> pipelineColumns =
+	private ResilienceErrorBoundary? errorBoundary;
+	private FetchResult<List<OperationsBoardColumn>> fetchState = new();
+	private readonly IReadOnlyList<OperationsBoardColumn> samplePipelineColumns =
 	[
 		new(
 			"Intake",
@@ -35,4 +57,44 @@
 				new("REQ-1026", "Camera recalibration", "Low", "S. Dias", DateTime.UtcNow.AddMinutes(-15)),
 			]),
 	];
+
+	protected override async Task OnInitializedAsync()
+	{
+		await FetchPipelineData();
+	}
+
+	private async Task FetchPipelineData()
+	{
+		try
+		{
+			// Simulate a fetch operation with potential failures for resilience demo.
+			// Uncommenting the line below adds a 10% chance of temporary failure.
+			// if (Random.Shared.Next(100) < 10) throw new Exception("Simulated network error");
+
+			fetchState = await Fetcher.FetchAsync(
+				async () =>
+				{
+					// Simulate network delay
+					await Task.Delay(250);
+					return samplePipelineColumns.ToList();
+				},
+				fetchState,
+				maxRetries: 2,
+				staleThresholdSeconds: 120);
+		}
+		catch (Exception ex)
+		{
+			errorBoundary?.HandleError(ex, "Failed to fetch dispatch pipeline. Please try again.");
+		}
+	}
+
+	private async Task HandleRetry()
+	{
+		await FetchPipelineData();
+	}
+
+	private void HandleDismiss()
+	{
+		fetchState.State = FetchState.Idle;
+	}
 }

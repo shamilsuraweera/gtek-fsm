@@ -1,19 +1,77 @@
 @page "/customer-care/assignments"
 
+@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services
+
+@inject ResilientDataFetcher Fetcher
+
 <PageTitle>Customer Care Assignments</PageTitle>
 
 <h1>Customer Care Assignments</h1>
-<HighDensityQueueList
-	Title="Assignment Queue"
-	StickyContext="Dispatch coordination and reassignment monitoring"
-	Items="@assignmentItems" />
+
+<ResilienceErrorBoundary @ref="errorBoundary">
+	<DataFetchStateDisplay
+		State="@fetchState.State"
+		LoadingMessage="Fetching assignment queue..."
+		ErrorMessage="@fetchState.ErrorMessage"
+		StaleMessage="Assignment queue is cached; dispatch updates may be delayed."
+		PartialMessage="Loaded assignment queue (some assignments may be incomplete)."
+		RetryingMessage="@($"Retrying assignment queue... Attempt {fetchState.RetryAttempts}")"
+		AllowStaleRender="true"
+		OnRetry="@HandleRetry"
+		OnDismiss="@HandleDismiss">
+		<HighDensityQueueList
+			Title="Assignment Queue"
+			StickyContext="Dispatch coordination and reassignment monitoring"
+			Items="@(fetchState.Data ?? [])" />
+	</DataFetchStateDisplay>
+</ResilienceErrorBoundary>
 
 @code {
-	private readonly IReadOnlyList<QueueListItem> assignmentItems =
+	private ResilienceErrorBoundary? errorBoundary;
+	private FetchResult<List<QueueListItem>> fetchState = new();
+	private readonly IReadOnlyList<QueueListItem> sampleAssignmentItems =
 	[
 		new("ASN-221", "Metro Hospital", "Dispatch", "Critical", "Escalated outage requires immediate reassignment.", DateTime.UtcNow.AddMinutes(-5)),
 		new("ASN-219", "Northline Apartments", "Assessment", "High", "Worker requested spare part verification.", DateTime.UtcNow.AddMinutes(-18)),
 		new("ASN-217", "Bay Distribution Hub", "In Progress", "Medium", "On-site diagnostics active; ETA review pending.", DateTime.UtcNow.AddMinutes(-31)),
 		new("ASN-214", "Greenfield Towers", "Intake", "Low", "New assignment candidate awaiting workload check.", DateTime.UtcNow.AddMinutes(-52)),
 	];
+
+	protected override async Task OnInitializedAsync()
+	{
+		await FetchAssignmentData();
+	}
+
+	private async Task FetchAssignmentData()
+	{
+		try
+		{
+			fetchState = await Fetcher.FetchAsync(
+				async () =>
+				{
+					// Simulate network delay
+					await Task.Delay(200);
+					return sampleAssignmentItems.ToList();
+				},
+				fetchState,
+				maxRetries: 2,
+				staleThresholdSeconds: 90);
+		}
+		catch (Exception ex)
+		{
+			errorBoundary?.HandleError(ex, "Failed to fetch assignment queue. Please try again.");
+		}
+	}
+
+	private async Task HandleRetry()
+	{
+		await FetchAssignmentData();
+	}
+
+	private void HandleDismiss()
+	{
+		fetchState.State = FetchState.Idle;
+	}
 }

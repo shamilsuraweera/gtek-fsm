@@ -1,15 +1,37 @@
 @page "/customer-care/requests"
 
+@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services
+
+@inject ResilientDataFetcher Fetcher
+
 <PageTitle>Customer Care Requests</PageTitle>
 
 <h1>Customer Care Requests</h1>
-<HighDensityQueueList
-	Title="Request Queue"
-	StickyContext="Virtualized high-density list for queue-heavy operations"
-	Items="@queueItems" />
+
+<ResilienceErrorBoundary @ref="errorBoundary">
+	<DataFetchStateDisplay
+		State="@fetchState.State"
+		LoadingMessage="Fetching request queue..."
+		ErrorMessage="@fetchState.ErrorMessage"
+		StaleMessage="Request queue is cached; newer updates may be available."
+		PartialMessage="Loaded request queue (some items may be incomplete)."
+		RetryingMessage="@($"Retrying request queue... Attempt {fetchState.RetryAttempts}")"
+		AllowStaleRender="true"
+		OnRetry="@HandleRetry"
+		OnDismiss="@HandleDismiss">
+		<HighDensityQueueList
+			Title="Request Queue"
+			StickyContext="Virtualized high-density list for queue-heavy operations"
+			Items="@(fetchState.Data ?? [])" />
+	</DataFetchStateDisplay>
+</ResilienceErrorBoundary>
 
 @code {
-	private readonly IReadOnlyList<QueueListItem> queueItems = Enumerable.Range(1, 180)
+	private ResilienceErrorBoundary? errorBoundary;
+	private FetchResult<List<QueueListItem>> fetchState = new();
+	private readonly IReadOnlyList<QueueListItem> sampleQueueItems = Enumerable.Range(1, 180)
 		.Select(index => new QueueListItem(
 			$"REQ-{1000 + index}",
 			$"Customer {index:000}",
@@ -18,6 +40,46 @@
 			$"Operational ticket {index:000} requires follow-up and assignment.",
 			DateTime.UtcNow.AddMinutes(-index * 3)))
 		.ToList();
+
+	protected override async Task OnInitializedAsync()
+	{
+		await FetchQueueData();
+	}
+
+	private async Task FetchQueueData()
+	{
+		try
+		{
+			// Simulate a fetch operation. In production, this would call a real API endpoint.
+			// Uncommenting the line below adds a 10% chance of temporary failure for demo purposes.
+			// if (Random.Shared.Next(100) < 10) throw new Exception("Simulated network error");
+
+			fetchState = await Fetcher.FetchAsync(
+				async () =>
+				{
+					// Simulate network delay
+					await Task.Delay(300);
+					return sampleQueueItems.ToList();
+				},
+				fetchState,
+				maxRetries: 2,
+				staleThresholdSeconds: 60);
+		}
+		catch (Exception ex)
+		{
+			errorBoundary?.HandleError(ex, "Failed to fetch request queue. Please try again.");
+		}
+	}
+
+	private async Task HandleRetry()
+	{
+		await FetchQueueData();
+	}
+
+	private void HandleDismiss()
+	{
+		fetchState.State = FetchState.Idle;
+	}
 
 	private static string ResolveStage(int index)
 	{
