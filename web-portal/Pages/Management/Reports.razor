@@ -1,6 +1,216 @@
 @page "/management/reports"
 
+@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.WebPortal.Services
+
+@inject ResilientDataFetcher Fetcher
+
 <PageTitle>Management Reports</PageTitle>
 
 <h1>Management Reports</h1>
-<p>Placeholder page for operational and performance reporting.</p>
+
+<ResilienceErrorBoundary @ref="errorBoundary">
+	<DataFetchStateDisplay
+		State="@fetchState.State"
+		LoadingMessage="Loading audit and oversight surfaces..."
+		ErrorMessage="@fetchState.ErrorMessage"
+		StaleMessage="Audit data is cached; live oversight updates may lag."
+		PartialMessage="Audit surfaces loaded with partial context."
+		RetryingMessage="@($"Retrying audit surfaces... Attempt {fetchState.RetryAttempts}")"
+		AllowStaleRender="true"
+		OnRetry="@HandleRetry"
+		OnDismiss="@HandleDismiss">
+
+		@if (ReportData is not null)
+		{
+			<section class="audit-shell">
+				<section class="audit-summary-grid">
+					<article class="audit-summary-card">
+						<p class="audit-summary-label">Sensitive Actions (24h)</p>
+						<p class="audit-summary-value">@ReportData.SensitiveActions24h</p>
+					</article>
+					<article class="audit-summary-card">
+						<p class="audit-summary-label">Policy Violations (24h)</p>
+						<p class="audit-summary-value">@ReportData.PolicyViolations24h</p>
+					</article>
+					<article class="audit-summary-card">
+						<p class="audit-summary-label">Escalated Reviews</p>
+						<p class="audit-summary-value">@ReportData.EscalatedReviews</p>
+					</article>
+				</section>
+
+				<section class="audit-panel">
+					<header class="audit-panel-header">
+						<h2>Audit Event Stream</h2>
+						<span class="audit-muted">Latest sensitive operational actions and outcomes</span>
+					</header>
+					<div class="audit-table-wrap">
+						<table class="audit-table">
+							<thead>
+								<tr>
+									<th>Time</th>
+									<th>Actor</th>
+									<th>Action</th>
+									<th>Tenant</th>
+									<th>Outcome</th>
+									<th>Risk</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var evt in ReportData.Events)
+								{
+									<tr>
+										<td class="mono">@evt.Timestamp.ToLocalTime().ToString("MM-dd HH:mm")</td>
+										<td>@evt.Actor</td>
+										<td>@evt.Action</td>
+										<td>@evt.Tenant</td>
+										<td>
+											<span class="audit-pill @(evt.Outcome.Equals("Allow", StringComparison.OrdinalIgnoreCase) ? "allow" : "deny")">@evt.Outcome</span>
+										</td>
+										<td>
+											<span class="audit-pill @(evt.Risk.Equals("High", StringComparison.OrdinalIgnoreCase) ? "high" : evt.Risk.Equals("Medium", StringComparison.OrdinalIgnoreCase) ? "medium" : "low")">@evt.Risk</span>
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				</section>
+
+				<section class="audit-panel">
+					<header class="audit-panel-header">
+						<h2>Oversight Review Queue</h2>
+						<span class="audit-muted">Manual follow-up required for high-risk or denied actions</span>
+					</header>
+					<div class="oversight-list">
+						@foreach (var review in ReportData.Reviews)
+						{
+							<article class="oversight-item">
+								<div>
+									<p class="oversight-title">@review.Title</p>
+									<p class="audit-muted">@review.Context</p>
+								</div>
+								<div class="oversight-actions">
+									<span class="audit-pill high">@review.Priority</span>
+									<button class="btn-quick-action" @onclick='@(() => ResolveReview(review.Id, "Acknowledge"))'>Acknowledge</button>
+									<button class="btn-quick-action btn-warning" @onclick='@(() => ResolveReview(review.Id, "Escalate"))'>Escalate</button>
+								</div>
+							</article>
+						}
+					</div>
+				</section>
+			</section>
+		}
+	</DataFetchStateDisplay>
+</ResilienceErrorBoundary>
+
+@code {
+	private ResilienceErrorBoundary? errorBoundary;
+	private FetchResult<AuditReportData> fetchState = new();
+	private AuditReportData? ReportData => fetchState.Data;
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadReportData();
+	}
+
+	private async Task LoadReportData()
+	{
+		try
+		{
+			fetchState = await Fetcher.FetchAsync(
+				async () =>
+				{
+					await Task.Delay(200);
+					return BuildSampleData();
+				},
+				fetchState,
+				maxRetries: 2,
+				staleThresholdSeconds: 90);
+		}
+		catch (Exception ex)
+		{
+			errorBoundary?.HandleError(ex, "Failed to load audit surfaces.");
+		}
+	}
+
+	private async Task HandleRetry()
+	{
+		await LoadReportData();
+	}
+
+	private void HandleDismiss()
+	{
+		fetchState.State = FetchState.Idle;
+	}
+
+	private void ResolveReview(Guid reviewId, string decision)
+	{
+		if (ReportData is null)
+		{
+			return;
+		}
+
+		ReportData.Reviews.RemoveAll(x => x.Id == reviewId);
+		ReportData.Events.Insert(
+			0,
+			new AuditEvent(
+				DateTime.UtcNow,
+				"Ops Manager",
+				$"Oversight review {decision}",
+				"TENANT-01",
+				"Allow",
+				"Low"));
+	}
+
+	private static AuditReportData BuildSampleData()
+	{
+		return new AuditReportData
+		{
+			SensitiveActions24h = 42,
+			PolicyViolations24h = 7,
+			EscalatedReviews = 3,
+			Events =
+			[
+				new(DateTime.UtcNow.AddMinutes(-9), "Manager: Ava Lin", "Cross-tenant view request", "TENANT-03", "Deny", "High"),
+				new(DateTime.UtcNow.AddMinutes(-22), "Support: Noah Kim", "Permission override attempt", "TENANT-01", "Deny", "High"),
+				new(DateTime.UtcNow.AddMinutes(-37), "Admin: S. Hart", "Role assignment update", "TENANT-02", "Allow", "Medium"),
+				new(DateTime.UtcNow.AddMinutes(-54), "Manager: J. Iqbal", "Billing tier policy edit", "TENANT-01", "Allow", "Medium"),
+			],
+			Reviews =
+			[
+				new(Guid.NewGuid(), "Denied cross-tenant report export", "User requested data export spanning multiple tenants.", "P1"),
+				new(Guid.NewGuid(), "Repeated permission override failures", "Three denied override attempts in 15 minutes.", "P1"),
+				new(Guid.NewGuid(), "Unexpected role elevation path", "Temporary role assignment detected outside policy window.", "P2"),
+			],
+		};
+	}
+
+	private sealed record AuditEvent(
+		DateTime Timestamp,
+		string Actor,
+		string Action,
+		string Tenant,
+		string Outcome,
+		string Risk);
+
+	private sealed record OversightReview(
+		Guid Id,
+		string Title,
+		string Context,
+		string Priority);
+
+	private sealed class AuditReportData
+	{
+		public int SensitiveActions24h { get; set; }
+
+		public int PolicyViolations24h { get; set; }
+
+		public int EscalatedReviews { get; set; }
+
+		public List<AuditEvent> Events { get; set; } = [];
+
+		public List<OversightReview> Reviews { get; set; } = [];
+	}
+}
