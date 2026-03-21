@@ -9,18 +9,21 @@ Typography establishes hierarchy, readability, and visual consistency across web
 ## Font Family Stack
 
 ### Primary Font (Body & UI)
+
 - **Web:** `"Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif`
 - **Mobile:** Native system font (Segoe UI on Android, SF Pro Display on iOS via MAUI defaults)
 - **Purpose:** Default font for all body text, labels, and UI elements
 - **Characteristics:** Clean, modern, highly legible at small sizes
 
 ### Secondary Font (Headings - Optional)
+
 - **Web:** `"Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif`
 - **Mobile:** Same as primary (consider custom font in future phases)
 - **Purpose:** Emphasis and hierarchy; currently matches primary for consistency
 - **Future:** Consider a distinct heading font (e.g., Inter, Poppins) in Phase 4+
 
 ### Monospace Font (Code & Technical)
+
 - **Web:** `"Courier New", "Consolas", "Monaco", monospace`
 - **Mobile:** `"Courier New"` via XAML FontFamily
 - **Purpose:** Code blocks, error messages, technical data
@@ -32,32 +35,32 @@ Typography establishes hierarchy, readability, and visual consistency across web
 
 ### Heading Levels
 
-| Token | Size (web) | Size (mobile) | Weight | Line Height | Usage |
-|-------|-----------|--------------|--------|-------------|-------|
-| Display | 48px | 40px | 700 | 1.2 | Hero/page title (rare) |
-| H1 | 32px | 28px | 700 | 1.3 | Page title, major section |
-| H2 | 24px | 22px | 600 | 1.35 | Section heading |
-| H3 | 20px | 18px | 600 | 1.4 | Subsection/card title |
-| H4 | 18px | 16px | 600 | 1.4 | Minor heading/label |
-| H5 | 16px | 14px | 600 | 1.45 | Tertiary heading |
-| H6 | 14px | 12px | 500 | 1.5 | Metadata/timestamp |
+| Token   | Size (web) | Size (mobile) | Weight | Line Height | Usage                     |
+| ------- | ---------- | ------------- | ------ | ----------- | ------------------------- |
+| Display | 48px       | 40px          | 700    | 1.2         | Hero/page title (rare)    |
+| H1      | 32px       | 28px          | 700    | 1.3         | Page title, major section |
+| H2      | 24px       | 22px          | 600    | 1.35        | Section heading           |
+| H3      | 20px       | 18px          | 600    | 1.4         | Subsection/card title     |
+| H4      | 18px       | 16px          | 600    | 1.4         | Minor heading/label       |
+| H5      | 16px       | 14px          | 600    | 1.45        | Tertiary heading          |
+| H6      | 14px       | 12px          | 500    | 1.5         | Metadata/timestamp        |
 
 ### Body Text
 
-| Token | Size (web) | Size (mobile) | Weight | Line Height | Usage |
-|-------|-----------|--------------|--------|-------------|-------|
-| BodyLarge | 18px | 16px | 400 | 1.6 | Lead text, introduction |
-| Body | 16px | 14px | 400 | 1.6 | Default paragraph text |
-| BodySmall | 14px | 12px | 400 | 1.5 | Secondary text, descriptions |
+| Token     | Size (web) | Size (mobile) | Weight | Line Height | Usage                        |
+| --------- | ---------- | ------------- | ------ | ----------- | ---------------------------- |
+| BodyLarge | 18px       | 16px          | 400    | 1.6         | Lead text, introduction      |
+| Body      | 16px       | 14px          | 400    | 1.6         | Default paragraph text       |
+| BodySmall | 14px       | 12px          | 400    | 1.5         | Secondary text, descriptions |
 
 ### UI Text
 
-| Token | Size (web) | Size (mobile) | Weight | Line Height | Usage |
-|-------|-----------|--------------|--------|-------------|-------|
-| Label | 14px | 12px | 500 | 1.4 | Form labels, captions |
-| Caption | 12px | 11px | 400 | 1.4 | Timestamps, hints, metadata |
-| ButtonText | 16px | 14px | 600 | 1.2 | Button labels (all caps optional) |
-| BadgeText | 12px | 11px | 600 | 1.2 | Badge labels (all caps) |
+| Token      | Size (web) | Size (mobile) | Weight | Line Height | Usage                             |
+| ---------- | ---------- | ------------- | ------ | ----------- | --------------------------------- |
+| Label      | 14px       | 12px          | 500    | 1.4         | Form labels, captions             |
+| Caption    | 12px       | 11px          | 400    | 1.4         | Timestamps, hints, metadata       |
+| ButtonText | 16px       | 14px          | 600    | 1.2         | Button labels (all caps optional) |
+| BadgeText  | 12px       | 11px          | 600    | 1.2         | Badge labels (all caps)           |
 
 ### Emphasis Variants
 
@@ -72,7 +75,7 @@ Typography establishes hierarchy, readability, and visual consistency across web
 
 ### CSS Custom Properties
 
-```css
+````css
 :root {
   /* Display & Headings */
   --font-display-size: 48px;
@@ -126,15 +129,11 @@ Typography establishes hierarchy, readability, and visual consistency across web
   --font-caption-line-height: 1.4;
 
   /* Font Families */
-  --font-family-primary: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-family-primary:
+    "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   --font-family-mono: "Courier New", "Consolas", "Monaco", monospace;
 }
-```
-
-### SCSS Mixins
-
-```scss
-@mixin typography-display {
+```text ### SCSS Mixins ```scss @mixin typography-display {
   font-size: var(--font-display-size);
   font-weight: var(--font-display-weight);
   line-height: var(--font-display-line-height);
@@ -164,11 +163,11 @@ Typography establishes hierarchy, readability, and visual consistency across web
   font-weight: var(--font-caption-weight);
   line-height: var(--font-caption-line-height);
 }
-```
+````
 
 ### Blazor Component Usage
 
-```razor
+````razor
 @* Heading component *@
 <@(@Tag) class="typography-@Type">
     @ChildContent
@@ -191,14 +190,15 @@ Typography establishes hierarchy, readability, and visual consistency across web
         _ => "p"
     };
 }
-```
+```text
 
 **Usage:**
+
 ```razor
 <Typography Type="h1">Page Title</Typography>
 <Typography Type="body">This is body text with normal weight.</Typography>
 <Typography Type="caption">Metadata timestamp</Typography>
-```
+````
 
 ---
 
@@ -206,7 +206,7 @@ Typography establishes hierarchy, readability, and visual consistency across web
 
 ### Named Styles (App.xaml)
 
-```xaml
+````xaml
 <!-- Headings -->
 <Style x:Key="HeadingH1" TargetType="Label">
     <Setter Property="FontFamily" Value="{StaticResource DefaultFontFamily}" />
@@ -252,7 +252,7 @@ Typography establishes hierarchy, readability, and visual consistency across web
     <Setter Property="FontSize" Value="11" />
     <Setter Property="Opacity" Value="0.7" />
 </Style>
-```
+```text
 
 ### XAML Usage
 
@@ -264,7 +264,7 @@ Typography establishes hierarchy, readability, and visual consistency across web
     <Label Text="Secondary text" Style="{StaticResource BodySmall}" />
     <Label Text="Meta information" Style="{StaticResource Caption}" />
 </VerticalStackLayout>
-```
+````
 
 ---
 
@@ -272,7 +272,7 @@ Typography establishes hierarchy, readability, and visual consistency across web
 
 ### Mobile Breakpoint Overrides
 
-```scss
+````scss
 @media (max-width: 768px) {
   :root {
     --font-h1-size: 28px;
@@ -290,7 +290,7 @@ Typography establishes hierarchy, readability, and visual consistency across web
     --font-body-size: 13px;
   }
 }
-```
+```text
 
 ---
 
@@ -331,3 +331,4 @@ Typography establishes hierarchy, readability, and visual consistency across web
 - Spacing System: [SPACING.md](SPACING.md)
 - Component Naming: [COMPONENT_NAMING.md](COMPONENT_NAMING.md)
 - Accessibility Guidelines: (Link to WCAG resources)
+````

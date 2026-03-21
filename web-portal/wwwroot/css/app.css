@@ -444,6 +444,17 @@ code {
     flex-wrap: wrap;
 }
 
+.security-forbidden-message {
+    margin: 0;
+    padding: var(--space-2);
+    border-radius: var(--radius-sm);
+    border: 1px solid #fecaca;
+    background: #fff1f2;
+    color: #9f1239;
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+}
+
 .assignment-shell__grid {
     display: grid;
     gap: var(--space-3);

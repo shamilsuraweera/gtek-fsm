@@ -12,32 +12,34 @@ All contributors must follow these conventions to maintain a clean, readable, an
 
 ### Structure
 
-```
+```text
 {type}/{scope}/{description}
 ```
 
 ### Types
 
-| Type | Purpose | Duration | Example |
-|------|---------|----------|---------|
-| `feature/` | New functionality | 1-2 weeks | `feature/tenant-isolation` |
-| `bugfix/` | Fix non-critical bug | 1-3 days | `bugfix/email-validation` |
-| `hotfix/` | Critical production fix | Same day | `hotfix/security-patch` |
-| `chore/` | Maintenance (deps, config) | 1-2 days | `chore/update-nuget-packages` |
-| `refactor/` | Code restructuring | 1 week | `refactor/api-request-handling` |
-| `docs/` | Documentation only | 1-2 days | `docs/setup-guide` |
-| `experiment/` | Exploration (may be discarded) | 1-2 weeks | `experiment/ai-suggestions` |
+| Type          | Purpose                        | Duration  | Example                         |
+| ------------- | ------------------------------ | --------- | ------------------------------- |
+| `feature/`    | New functionality              | 1-2 weeks | `feature/tenant-isolation`      |
+| `bugfix/`     | Fix non-critical bug           | 1-3 days  | `bugfix/email-validation`       |
+| `hotfix/`     | Critical production fix        | Same day  | `hotfix/security-patch`         |
+| `chore/`      | Maintenance (deps, config)     | 1-2 days  | `chore/update-nuget-packages`   |
+| `refactor/`   | Code restructuring             | 1 week    | `refactor/api-request-handling` |
+| `docs/`       | Documentation only             | 1-2 days  | `docs/setup-guide`              |
+| `experiment/` | Exploration (may be discarded) | 1-2 weeks | `experiment/ai-suggestions`     |
 
 ### Scope
 
 Narrow scope to **single feature/area**:
 
 ✅ **Good:**
+
 - `feature/admin-dashboard`
 - `bugfix/cors-headers`
 - `chore/docker-compose`
 
 ❌ **Bad:**
+
 - `feature/everything` (too broad)
 - `work` (too vague)
 - `feature/a` (meaningless)
@@ -47,18 +49,20 @@ Narrow scope to **single feature/area**:
 Use **lowercase hyphenated** format, max 50 characters:
 
 ✅ **Good:**
+
 - `feature/email-notifications`
 - `bugfix/null-reference-error`
 - `hotfix/payment-processing`
 
 ❌ **Bad:**
+
 - `feature/Email_Notifications` (mixed case)
 - `feature/email-notifications-with-templates-and-attachments` (too long)
 - `feature/email notifications` (spaces)
 
 ### Examples
 
-```bash
+````bash
 # Feature development (1-2 weeks)
 git checkout -b feature/user-authentication
 
@@ -73,7 +77,7 @@ git checkout -b chore/upgrade-aspectcore-sdk
 
 # Learning/exploration (may be discarded)
 git checkout -b experiment/graphql-migration
-```
+```text
 
 ---
 
@@ -81,13 +85,15 @@ git checkout -b experiment/graphql-migration
 
 ### Structure
 
-```
+````
+
 {type}({scope}): {subject}
 
 {body}
 
 {footer}
-```
+
+```text
 
 ### Format Rules
 
@@ -100,7 +106,7 @@ git checkout -b experiment/graphql-migration
 ### Commit Types
 
 | Type | Purpose | Example |
-|------|---------|---------|
+| ------ | --------- | --------- |
 | `feat` | New feature | `feat(auth): add jwt token validation` |
 | `fix` | Bug fix | `fix(api): handle null reference in mapper` |
 | `docs` | Documentation | `docs(setup): add local development guide` |
@@ -115,28 +121,33 @@ git checkout -b experiment/graphql-migration
 #### Example 1: Simple Feature
 
 ```
+
 feat(auth): add login endpoint
 
 - Accept email and password
 - Validate credentials against database
 - Return JWT token on success
 - Return 401 on invalid credentials
-```
+
+```text
 
 #### Example 2: Bug Fix
 
 ```
+
 fix(api): handle empty request body
 
 Previously, POST requests with empty bodies threw NullReferenceException.
 Added validation in request deserializer to return 400 Bad Request instead.
 
 Fixes #1234
-```
+
+```text
 
 #### Example 3: Refactoring
 
 ```
+
 refactor(domain): extract validation logic to separate service
 
 Moved customer validation from Application layer to dedicated
@@ -144,21 +155,25 @@ CustomerValidator service for better reusability and testability.
 
 BREAKING CHANGE: CustomerService.Validate() method removed
 (use CustomerValidator.Validate() instead)
-```
+
+```text
 
 #### Example 4: Chore
 
 ```
+
 chore(deps): upgrade nuget packages to latest stable
 
 - StyleCop.Analyzers 1.2.0 → 1.2.1
 - Microsoft.CodeAnalysis.NetAnalyzers 7.0.2 → 8.0.0
 - No functional changes
-```
+
+````text
 
 ### Commit Best Practices
 
 ✅ **DO:**
+
 - Commit logically related changes together
 - Write in imperative mood ("add", "fix", "update", NOT "added", "fixed")
 - Reference issue numbers: `Fixes #123` or `Related to #456`
@@ -166,6 +181,7 @@ chore(deps): upgrade nuget packages to latest stable
 - Sign commits with GPG key (Phase 11 security hardening)
 
 ❌ **DON'T:**
+
 - Mix unrelated features in one commit
 - Use vague messages: `fix stuff`, `update code`
 - Commit large generated files (use `.gitignore`)
@@ -192,7 +208,7 @@ git log --author="shamil" --oneline
 
 # View changes in a commit
 git show <commit-hash>
-```
+````
 
 ---
 
@@ -201,6 +217,7 @@ git show <commit-hash>
 ### Before Creating PR
 
 1. **Ensure branch is up to date:**
+
    ```bash
    git checkout feature/my-feature
    git pull origin dev
@@ -208,6 +225,7 @@ git show <commit-hash>
    ```
 
 2. **Run local verification:**
+
    ```bash
    dotnet restore GTEK.FSM.slnx
    dotnet build GTEK.FSM.slnx
@@ -215,6 +233,7 @@ git show <commit-hash>
    ```
 
 3. **Code quality check:**
+
    ```bash
    # Verify no StyleCop violations
    # Review EditorConfig compliance
@@ -224,6 +243,7 @@ git show <commit-hash>
 ### Creating PR
 
 1. **Push feature branch:**
+
    ```bash
    git push origin feature/my-feature
    ```
@@ -246,48 +266,56 @@ git show <commit-hash>
 
 ### PR Title Format
 
-```
+```text
 {type}({scope}): {description}
 ```
 
 Same convention as commit messages:
 
 ✅ **Good:**
+
 - `feat(auth): add jwt token validation`
 - `fix(api): handle null reference in mapper`
 - `docs(setup): add local development guide`
 
 ❌ **Bad:**
+
 - `WIP: auth stuff` (vague)
 - `Fix bugs and add features` (no scope)
 - `updated code` (no type)
 
 ### PR Description Template
 
-```markdown
+````markdown
 ## Description
+
 [What does this PR do? Why?)
 
 ## Type of Change
+
 - [ ] New feature
 - [ ] Bug fix
 - [ ] Breaking change
 - [ ] Documentation update
 
 ## Related Issues
+
 Fixes #123
 Related to #456
 
 ## Testing Performed
+
 - [x] Manual testing on local environment
 - [ ] Added unit tests (Phase 1+)
 - [ ] Integration tests pass (Phase 1+)
 - [ ] API contract tests pass (Phase 3+)
 
 ## Screenshots
+
 [If UI changes: add before/after screenshots]
 
 ## Checklist
+
 - [x] Code follows style guidelines
 - [x] No StyleCop violations
 - [x] EditorConfig compliance verified
@@ -295,7 +323,8 @@ Related to #456
 - [x] Comments added for complex logic
 - [x] Documentation updated
 - [x] No new warnings generated
-```
+
+```text
 
 ---
 
@@ -304,6 +333,7 @@ Related to #456
 ### Reviewer Responsibilities
 
 **Review for:**
+
 1. ✅ Correctness (does it work? are there bugs?)
 2. ✅ Architecture (follows defined patterns?)
 3. ✅ Style (follows code quality baseline?)
@@ -315,6 +345,7 @@ Related to #456
 ### Review Comments Format
 
 **Good comments are:**
+
 - Specific and actionable
 - Polite and collaborative
 - Reference code sections
@@ -324,30 +355,42 @@ Related to #456
 
 **Blocker 🚫** (must fix before merge):
 ```
-🚫 This violates our tenant isolation rules. 
+````
+
+🚫 This violates our tenant isolation rules.
 Customer data would be visible across tenants.
 See ARCHITECTURE_RULES.md rule 3.2.
 Please add tenant filter before product query.
-```
+
+```text
 
 **Important ⚠️** (should fix):
+
 ```
-⚠️ This introduces StyleCop violation SA1309 (_prefix).
+
+⚠️ This introduces StyleCop violation SA1309 (\_prefix).
 See CODE_QUALITY_BASELINE.md.
-Consider renaming _customer to customer or remove leading underscore.
-```
+Consider renaming \_customer to customer or remove leading underscore.
+
+```text
 
 **Suggestion 💡** (nice to have):
-```
-💡 This could be more efficient using System.Linq.Skip/.Take
-instead of manual loop. Not critical for Phase 0.
+
 ```
 
+💡 This could be more efficient using System.Linq.Skip/.Take
+instead of manual loop. Not critical for Phase 0.
+
+```text
+
 **Approved ✅** (good to merge):
+
 ```
+
 ✅ Looks good! Follows conventions, no violations detected.
 Ready to merge when all reviews pass.
-```
+
+````text
 
 ### Review Checklist
 
@@ -371,6 +414,7 @@ Reviewers should verify:
 ### Branch Protection Rules
 
 **On `main` branch:**
+
 - ✅ Require pull request reviews (2 approvals)
 - ✅ Require status checks to pass (CI pipeline, code quality)
 - ✅ Dismiss stale PR approvals when new commits pushed
@@ -378,6 +422,7 @@ Reviewers should verify:
 - ✅ Restrict who can push: only admins
 
 **On `dev` branch:**
+
 - ✅ Require pull request reviews (1 approval)
 - ✅ Require status checks to pass (CI pipeline, code quality)
 - ✅ Allow force push for hotfixes (with `--force-with-lease` only)
@@ -392,22 +437,23 @@ git merge --squash feature/user-auth
 
 # Creates single commit with all feature changes
 # good for keeping main history readable
-```
+````
 
 **When to squash:**
+
 - Multiple small commits (~3-10)
 - Work-in-progress commits
 - Intermediate checkpoint commits
 
 #### Dev → Main (Release)
 
-```bash
+````bash
 # Create release commit without squashing
 git merge --no-ff dev
 
 # Preserves full history of all commits
 # Important for traceability and rollback
-```
+```text
 
 **Never squash release merges** - maintain full history.
 
@@ -420,12 +466,13 @@ git merge --ff-only hotfix/security-patch
 # Immediately merge same fix to dev
 git checkout dev
 git merge --ff-only main
-```
+````
 
 ### Merge Procedure
 
 1. **All review approvals received**
-   ```
+
+   ```text
    ✅ Review 1: Approved
    ✅ Review 2: Approved
    ✅ CI Pipeline: Passing
@@ -445,7 +492,7 @@ git merge --ff-only main
 
 ### Example Complete Workflow
 
-```bash
+````bash
 # 1. Create and push feature branch
 git checkout dev
 git pull origin dev
@@ -472,7 +519,7 @@ git push origin feature/email-service
 git checkout dev
 git pull origin dev
 git branch -D feature/email-service
-```
+```text
 
 ---
 
@@ -490,17 +537,17 @@ git reset --hard HEAD~1
 # Ammend last commit (before pushing)
 git add .
 git commit --amend --no-edit
-```
+````
 
 ### Undo After Push (Published)
 
-```bash
+````bash
 # Create new commit that reverts previous commit
 git revert <commit-hash>
 git push origin dev
 
 # This is safer than force-push for published history
-```
+```text
 
 ### Emergency Rollback
 
@@ -510,7 +557,7 @@ git push origin dev
 git push origin main --force-with-lease
 
 # Then notify team immediately
-```
+````
 
 ---
 
@@ -537,14 +584,14 @@ Every PR automatically runs:
 
 ### Viewing CI Results
 
-```bash
+````bash
 # View locally before pushing
 dotnet build GTEK.FSM.slnx
 dotnet test GTEK.FSM.slnx  # Phase 1+
 
 # View on GitHub > PR > Checks tab
 # Click details to see full build log
-```
+```text
 
 ---
 
@@ -555,15 +602,15 @@ dotnet test GTEK.FSM.slnx  # Phase 1+
 ```bash
 git commit --amend -m "fix(auth): add token validation"
 # If not pushed yet
-```
+````
 
 ### Scenario 2: Forgot File in Commit
 
-```bash
+````bash
 git add forgotten-file.cs
 git commit --amend --no-edit
 # Still unpushed
-```
+```text
 
 ### Scenario 3: Squash Multiple Commits Before Push
 
@@ -575,17 +622,17 @@ git rebase -i HEAD~3
 # Save and enter combined message
 
 git push origin feature/my-feature
-```
+````
 
 ### Scenario 4: Pull Dev Into Feature (Stay Updated)
 
-```bash
+````bash
 git checkout feature/my-feature
 git fetch origin
 git merge origin/dev
 # Resolve conflicts if any
 git push origin feature/my-feature
-```
+```text
 
 ### Scenario 5: Accidentally Committed to Main
 
@@ -601,28 +648,32 @@ git checkout feature/oops-main
 git push origin feature/oops-main
 
 # Create PR as normal
-```
+````
 
 ---
 
 ## Phase-Specific Guidelines
 
 ### Phase 0-1 (Foundation)
+
 - Feature branches for all work
 - Commit messages optional but encouraged
 - 1 reviewer minimum
 
 ### Phase 2 (Identity)
+
 - Strict code review required (security focus)
 - All secrets reviewed before merge
 - Commit messages mandatory
 
 ### Phase 3+ (Scaling)
+
 - Squash commits on merge
 - Release branches for staging
 - Automated deployment on merge to main
 
 ### Phase 11 (Production)
+
 - GPG-signed commits required
 - Two-phase approval for main
 - Immutable release tags
@@ -636,4 +687,3 @@ git push origin feature/oops-main
 - [Git Documentation](https://git-scm.com/doc)
 - [ARCHITECTURE_RULES.md](architecture-rules.json)
 - [CODE_QUALITY_BASELINE.md](CODE_QUALITY_BASELINE.md)
-

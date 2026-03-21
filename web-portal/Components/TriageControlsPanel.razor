@@ -10,7 +10,7 @@
 			<button
 				class="btn-triage btn-triage-@GetActionStyle(action)"
 				title="@GetActionTooltip(action)"
-				@onclick="@(() => InvokeAction(action))"
+				@onclick="@(async () => await InvokeAction(action))"
 				disabled="@IsActionDisabled">
 				@GetActionLabel(action)
 			</button>
@@ -34,7 +34,7 @@
 					{
 						<button
 							class="menu-item"
-							@onclick="@(() => { InvokeAction(action); MoreMenuOpen = false; })">
+							@onclick="@(async () => { await InvokeAction(action); MoreMenuOpen = false; })">
 							@GetActionLabel(action)
 						</button>
 					}

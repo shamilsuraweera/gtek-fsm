@@ -5,6 +5,7 @@ This document defines the initial aggregate roots for Phase 1.1.1 and their owne
 ## Aggregate Roots
 
 ### Tenant
+
 - Aggregate root for tenant-level ownership and isolation.
 - Owns:
   - Tenant identity (`Id`, `Code`, `Name`)
@@ -14,6 +15,7 @@ This document defines the initial aggregate roots for Phase 1.1.1 and their owne
   - A tenant can have multiple users, requests, jobs, and subscriptions.
 
 ### User
+
 - Aggregate root for platform actors inside a tenant.
 - Owns:
   - User identity (`Id`, `ExternalIdentity`)
@@ -24,6 +26,7 @@ This document defines the initial aggregate roots for Phase 1.1.1 and their owne
   - User cannot be shared across tenants.
 
 ### ServiceRequest
+
 - Aggregate root for customer-originated work intake.
 - Owns:
   - Request identity (`Id`)
@@ -35,6 +38,7 @@ This document defines the initial aggregate roots for Phase 1.1.1 and their owne
   - Request creator customer must be from the same tenant (enforced at orchestration/policy layer in Phase 2).
 
 ### Job
+
 - Aggregate root for executable work derived from a service request.
 - Owns:
   - Job identity (`Id`)
@@ -47,6 +51,7 @@ This document defines the initial aggregate roots for Phase 1.1.1 and their owne
   - Assigned worker must belong to same tenant (enforced by policy layer).
 
 ### Subscription
+
 - Aggregate root for tenant commercial plan boundaries.
 - Owns:
   - Subscription identity (`Id`)
@@ -245,13 +250,13 @@ Auditing mappings are added to all five configuration classes:
 
 EF Core query filters (`.HasQueryFilter()`) are applied in `GtekFsmDbContext.OnModelCreating()` to automatically exclude soft-deleted records:
 
-```csharp
+````csharp
 modelBuilder.Entity<Tenant>().HasQueryFilter(x => !x.IsDeleted);
 modelBuilder.Entity<User>().HasQueryFilter(x => !x.IsDeleted);
 modelBuilder.Entity<ServiceRequest>().HasQueryFilter(x => !x.IsDeleted);
 modelBuilder.Entity<Job>().HasQueryFilter(x => !x.IsDeleted);
 modelBuilder.Entity<Subscription>().HasQueryFilter(x => !x.IsDeleted);
-```
+```text
 
 This ensures all queries exclude soft-deleted records by default while still retaining recovery and audit trail capability.
 
@@ -752,4 +757,4 @@ Phase 2 entry decision:
 - Entry status: Ready.
 - Blocking issues: None identified at Phase 1 close.
 - Carry-forward note: Phase 2 should implement authentication and authorization end-to-end using existing tenant-safe repository patterns and identity value object contracts, without changing ownership boundaries established in Phase 1.
-
+````

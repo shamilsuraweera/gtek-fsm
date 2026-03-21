@@ -5,6 +5,7 @@ This directory contains GitHub Actions CI/CD workflows for GTEK FSM.
 ## Workflows
 
 ### [ci.yml](workflows/ci.yml)
+
 - **Name:** CI - Restore, Build, Test Discovery
 - **Triggers:** Push to main/dev, Pull requests
 - **Purpose:** NuGet restore, build (Debug + Release), test discovery
@@ -12,6 +13,7 @@ This directory contains GitHub Actions CI/CD workflows for GTEK FSM.
 - **Status:** ✅ Active
 
 ### [quality-checks.yml](workflows/quality-checks.yml)
+
 - **Name:** Code Quality - Formatting & Analyzers
 - **Triggers:** Push to main/dev, Pull requests
 - **Purpose:** StyleCop, Roslyn Analyzer checks, EditorConfig validation
@@ -19,6 +21,7 @@ This directory contains GitHub Actions CI/CD workflows for GTEK FSM.
 - **Status:** ✅ Active
 
 ### [status.yml](workflows/status.yml)
+
 - **Name:** CI Status Dashboard
 - **Triggers:** After CI and quality-checks complete
 - **Purpose:** Aggregate status across workflows
@@ -28,6 +31,7 @@ This directory contains GitHub Actions CI/CD workflows for GTEK FSM.
 ## Configuration
 
 All workflows:
+
 - Run on **Ubuntu** (cost-effective, consistent)
 - Use **.NET 10 SDK** (matches project target)
 - Triggered on **main**, **dev**, **develop** branches
@@ -41,25 +45,28 @@ For detailed information on workflow management, troubleshooting, and monitoring
 
 ## Quick Reference
 
-| Workflow | Restore | Build | Test | Quality | Status |
-|----------|---------|-------|------|---------|--------|
-| ci.yml | ✅ Yes | ✅ Yes | 🧪 Ready | - | ✅ Running |
-| quality-checks.yml | ✅ Yes | - | - | ✅ Yes | ✅ Running |
-| status.yml | - | - | - | - | ✅ Dashboard |
+| Workflow           | Restore | Build  | Test     | Quality | Status       |
+| ------------------ | ------- | ------ | -------- | ------- | ------------ |
+| ci.yml             | ✅ Yes  | ✅ Yes | 🧪 Ready | -       | ✅ Running   |
+| quality-checks.yml | ✅ Yes  | -      | -        | ✅ Yes  | ✅ Running   |
+| status.yml         | -       | -      | -        | -       | ✅ Dashboard |
 
 ## Running Workflows
 
 ### Automatic (via GitHub)
+
 - Push to main/dev branch
 - Create/update pull request targeting main/dev
 
 ### Manual (GitHub UI)
+
 1. Go to **Actions** tab
 2. Select workflow from sidebar
 3. Click **Run workflow → Run workflow**
 
 ### Command Line (gh CLI)
-```bash
+
+````bash
 # List workflows
 gh workflow list
 
@@ -68,10 +75,11 @@ gh workflow run ci.yml -r dev
 
 # View last run
 gh run view --workflow ci.yml
-```
+```text
 
 ## Next Steps
 
 - Phase 0.8.4: Add environment file templates
 - Phase 0.8.5: Add branch protection rules + pre-commit hooks
 - Phase 1+: Add test execution, code coverage, deployment stages
+````

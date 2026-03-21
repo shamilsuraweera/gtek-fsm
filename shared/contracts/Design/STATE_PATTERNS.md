@@ -18,11 +18,11 @@ Empty states occur when a list, view, or section contains no data. They should c
 4. **No Permissions** — User lacks permission to view data in this section
 5. **Not Applicable** — Feature unavailable for current context (e.g., worker with no assigned jobs)
 
-### Visual Treatment
+### Empty State Visual Treatment
 
 Empty states consist of four elements:
 
-```
+```text
 ┌─────────────────────────────────┐
 │                                 │
 │          [Icon]                 │
@@ -42,9 +42,10 @@ Empty states consist of four elements:
 └─────────────────────────────────┘
 ```
 
-#### Element Specifications
+#### Empty State Element Specifications
 
-##### Icon
+##### Empty State Icon
+
 - **Size:** 48px (xl) on web, 40dp on mobile
 - **Color:** Use `ColorTextMuted` or `ColorAccent` depending on context
 - **Semantics:** Choose icons matching the scenario:
@@ -53,7 +54,8 @@ Empty states consist of four elements:
   - Deleted: `status-info` with neutral tone
   - No permissions: `status-warning` or similar
 
-##### Heading
+##### Empty State Heading
+
 - **Typography:** H3 or H4
 - **Color:** `ColorTextPrimary`
 - **Length:** Short, one line maximum
@@ -63,6 +65,7 @@ Empty states consist of four elements:
   - "You don't have access"
 
 ##### Description
+
 - **Typography:** Body or Body Small
 - **Color:** `ColorTextMuted`
 - **Length:** 1–2 lines, explain context and why empty
@@ -73,6 +76,7 @@ Empty states consist of four elements:
   - "You'll see jobs here once assigned"
 
 ##### CTA Button (Optional)
+
 - **When to include:** Only if there's a clear, actionable next step
 - **Variant:** Primary or secondary depending on priority
 - **Examples:**
@@ -81,9 +85,9 @@ Empty states consist of four elements:
   - "Browse Help" (when no permissions)
   - **Don't include:** When nothing can be done (e.g., awaiting assignment)
 
-#### Spacing
+#### Empty State Spacing
 
-```
+```text
 Container Padding:    SpacingMd (16px) or SpacingLg (24px)
 Icon to Heading:      SpacingMd (16px)
 Heading to Description: SpacingSm (8px)
@@ -91,21 +95,21 @@ Description to Button: SpacingLg (24px)
 Button Margin:        SpacingMd (16px) on both sides
 ```
 
-### Implementation Examples
+### Empty State Implementation Examples
 
 #### Blazor Component
 
-```razor
+````razor
 @* EmptyState.razor *@
 <div class="empty-state">
     <div class="empty-state__icon">
         <IconSprite Name="@Icon" Size="xl" />
     </div>
-    
+
     <h3 class="empty-state__heading">@Heading</h3>
-    
+
     <p class="empty-state__description">@Description</p>
-    
+
     @if (!string.IsNullOrEmpty(ButtonLabel) && ButtonAction.HasDelegate)
     {
         <Button Variant="primary" @onclick="ButtonAction">
@@ -117,22 +121,23 @@ Button Margin:        SpacingMd (16px) on both sides
 @code {
     [Parameter]
     public string Icon { get; set; } = "status-info";
-    
+
     [Parameter]
     public string Heading { get; set; } = "No results";
-    
+
     [Parameter]
     public string Description { get; set; } = "";
-    
+
     [Parameter]
     public string? ButtonLabel { get; set; }
-    
+
     [Parameter]
     public EventCallback ButtonAction { get; set; }
 }
-```
+```text
 
 **Usage:**
+
 ```razor
 <EmptyState
     Icon="status-info"
@@ -140,10 +145,11 @@ Button Margin:        SpacingMd (16px) on both sides
     Description="Create your first request to get started"
     ButtonLabel="Create Request"
     ButtonAction="@OnCreateRequest" />
-```
+````
 
 **Styling:**
-```scss
+
+````scss
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -152,18 +158,18 @@ Button Margin:        SpacingMd (16px) on both sides
   padding: var(--spacing-lg);
   text-align: center;
   min-height: 300px;
-  
+
   &__icon {
     margin-bottom: var(--spacing-md);
     color: var(--color-text-muted);
   }
-  
+
   &__heading {
     @include typography-h3;
     margin-bottom: var(--spacing-sm);
     color: var(--color-text-primary);
   }
-  
+
   &__description {
     @include typography-body;
     margin-bottom: var(--spacing-lg);
@@ -171,7 +177,7 @@ Button Margin:        SpacingMd (16px) on both sides
     max-width: 360px;
   }
 }
-```
+```text
 
 #### MAUI Component
 
@@ -182,14 +188,14 @@ Button Margin:        SpacingMd (16px) on both sides
     Spacing="{StaticResource SpacingMd}"
     VerticalOptions="Center"
     HorizontalOptions="Center">
-    
+
     <!-- Icon -->
     <Label
         x:Name="IconLabel"
         FontSize="48"
         HorizontalOptions="Center"
         TextColor="{AppThemeBinding Light=#999999, Dark=#666666}" />
-    
+
     <!-- Heading -->
     <Label
         x:Name="HeadingLabel"
@@ -198,7 +204,7 @@ Button Margin:        SpacingMd (16px) on both sides
         HorizontalOptions="Center"
         TextColor="{AppThemeBinding Light=#000000, Dark=#FFFFFF}"
         Margin="0,8,0,0" />
-    
+
     <!-- Description -->
     <Label
         x:Name="DescriptionLabel"
@@ -208,7 +214,7 @@ Button Margin:        SpacingMd (16px) on both sides
         TextColor="{AppThemeBinding Light=#666666, Dark=#999999}"
         MaximumWidthRequest="300"
         Margin="0,0,0,24" />
-    
+
     <!-- Button -->
     <Button
         x:Name="ActionButton"
@@ -216,21 +222,22 @@ Button Margin:        SpacingMd (16px) on both sides
         CornerRadius="4"
         IsVisible="False" />
 </VerticalStackLayout>
-```
+````
 
 **Code-Behind:**
-```csharp
+
+````csharp
 public partial class EmptyStateView : ContentView
 {
-    public EmptyStateView(string icon, string heading, string description, 
+    public EmptyStateView(string icon, string heading, string description,
                          string? buttonLabel = null)
     {
         InitializeComponent();
-        
+
         IconLabel.Text = icon;
         HeadingLabel.Text = heading;
         DescriptionLabel.Text = description;
-        
+
         if (!string.IsNullOrEmpty(buttonLabel))
         {
             ActionButton.Text = buttonLabel;
@@ -238,16 +245,17 @@ public partial class EmptyStateView : ContentView
         }
     }
 }
-```
+```text
 
 **Usage:**
+
 ```xaml
 <local:EmptyStateView
     Icon="📋"
     Heading="No requests yet"
     Description="Create your first request to get started"
     ButtonLabel="Create Request" />
-```
+````
 
 ---
 
@@ -259,11 +267,11 @@ Loading states indicate that a request is in progress. They reassure users that 
 
 Loading indicators should vary based on expected wait time:
 
-| Duration | Strategy | Indicator |
-|----------|----------|-----------|
-| **Quick** (<1s) | Suppress indicator (show immediately if >500ms) | None or subtle spinner |
-| **Normal** (1–3s) | Show standard spinner | Animated spinner + optional text |
-| **Long** (>3s) | Show progress bar or detailed status | Spinner + "Taking longer than expected..." message |
+| Duration          | Strategy                                        | Indicator                                          |
+| ----------------- | ----------------------------------------------- | -------------------------------------------------- |
+| **Quick** (<1s)   | Suppress indicator (show immediately if >500ms) | None or subtle spinner                             |
+| **Normal** (1–3s) | Show standard spinner                           | Animated spinner + optional text                   |
+| **Long** (>3s)    | Show progress bar or detailed status            | Spinner + "Taking longer than expected..." message |
 
 ### Indicators
 
@@ -271,7 +279,7 @@ Loading indicators should vary based on expected wait time:
 
 Best for: General loading without progress tracking
 
-```
+```text
 Visual: Rotating circle or dots
 Duration: 200ms per rotation (smooth, not jarring)
 Color: ColorAccent
@@ -279,7 +287,8 @@ Size: 24px–40px depending on context
 ```
 
 **Blazor:**
-```razor
+
+````razor
 <div class="spinner">
     <div class="spinner__ring"></div>
 </div>
@@ -305,28 +314,30 @@ Size: 24px–40px depending on context
   to { transform: rotate(360deg); }
 }
 </style>
-```
+```text
 
 **MAUI:**
+
 ```xaml
 <ActivityIndicator
     IsRunning="True"
     IsVisible="True"
     Color="{StaticResource ColorAccent}"
     Scale="1.5" />
-```
+````
 
 #### 2. **Skeleton Screens**
 
 Best for: List/table layouts where layout shift should be minimized
 
-```
+```text
 Visual: Placeholder shapes matching content layout
 Duration: Subtle pulse or shimmer animation (300–500ms cycle)
 ```
 
 **Blazor:**
-```razor
+
+````razor
 <div class="skeleton-item">
     <div class="skeleton-avatar"></div>
     <div class="skeleton-text skeleton-text--title"></div>
@@ -372,60 +383,67 @@ Duration: Subtle pulse or shimmer animation (300–500ms cycle)
   100% { background-position: -200% 0; }
 }
 </style>
-```
+```text
 
 #### 3. **Progress Bar**
 
 Best for: Long-running operations with measurable progress (e.g., large file uploads)
 
-```
+````
+
 Visual: Horizontal bar with percentage fill
 Duration: Smooth animation (200ms per % increment)
-```
+
+```text
 
 ---
 
-### Loading State Variants
+##### Loading State Variants
 
-#### Full-Screen Loading
+###### Full-Screen Loading
 Display when loading initial page/section data.
 
 ```
+
 ┌─────────────────────────────┐
-│                             │
-│                             │
-│         [Spinner]           │
-│        "Loading..."         │
-│                             │
-│                             │
+│ │
+│ │
+│ [Spinner] │
+│ "Loading..." │
+│ │
+│ │
 └─────────────────────────────┘
-```
+
+```text
 
 #### Overlay Loading
 Display when performing action within existing content.
 
 ```
+
 ┌─────────────────────────────┐
-│  Existing Content           │
-│  [Semi-transparent overlay] │
-│      [Spinner]              │
-│     "Please wait..."        │
+│ Existing Content │
+│ [Semi-transparent overlay] │
+│ [Spinner] │
+│ "Please wait..." │
 └─────────────────────────────┘
-```
+
+```text
 
 #### Inline Loading
+
 Display within components during refresh.
 
-```
+```text
 List Item 1
 List Item 2
 [Item 3 with spinner] ← Loading update
 List Item 4
 ```
 
-### Implementation Examples
+#### Loading State Implementation Examples
 
-#### Blazor Loading Overlay
+##### Blazor Loading Overlay
 
 ```razor
 @* LoadingOverlay.razor *@
@@ -444,14 +462,15 @@ List Item 4
 @code {
     [Parameter]
     public bool IsVisible { get; set; }
-    
+
     [Parameter]
     public string Message { get; set; } = "Loading...";
 }
-```
+````
 
 **Styling:**
-```scss
+
+````scss
 .loading-overlay {
   position: fixed;
   top: 0;
@@ -463,7 +482,7 @@ List Item 4
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  
+
   &__content {
     display: flex;
     flex-direction: column;
@@ -473,28 +492,28 @@ List Item 4
     padding: var(--spacing-lg);
     border-radius: var(--radius-lg);
   }
-  
+
   &__text {
     @include typography-body;
     color: var(--color-text-primary);
   }
 }
-```
+```text
 
-#### MAUI Loading Indicator
+##### MAUI Loading Indicator
 
 ```xaml
 <Grid IsVisible="{Binding IsLoading}" Opacity="0.7">
     <Grid.GestureRecognizers>
         <TapGestureRecognizer NumberOfTapsRequired="1" />
     </Grid.GestureRecognizers>
-    
+
     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center">
         <ActivityIndicator IsRunning="{Binding IsLoading}" />
         <Label Text="Loading..." HorizontalOptions="Center" />
     </VerticalStackLayout>
 </Grid>
-```
+````
 
 ---
 
@@ -507,35 +526,40 @@ Error states communicate that something went wrong and provide a path to recover
 Errors should be categorized and handled consistently:
 
 #### 1. **Validation Error** (User Fault)
+
 - **Message:** Points to specific input or field
 - **Action:** User corrects and retries
 - **Example:** "Email address is invalid"
 
-#### 2. **Network Error** (Connectivity Issue)
+##### 2. **Network Error** (Connectivity Issue)
+
 - **Message:** Clear statement of connectivity problem
 - **Action:** "Retry" button, suggests checking connection
 - **Example:** "No internet connection. Check your network and try again."
 
-#### 3. **Server Error** (Backend Issue)
+##### 3. **Server Error** (Backend Issue)
+
 - **Message:** Generic message + error code (for support)
 - **Action:** "Retry" or "Contact Support"
 - **Example:** "Something went wrong. Error #500. Please try again or contact support."
 
-#### 4. **Permission Error** (Authorization Issue)
+##### 4. **Permission Error** (Authorization Issue)
+
 - **Message:** Clear but don't expose implementation details
 - **Action:** Suggest alternative or contacting admin
 - **Example:** "You don't have permission to view this. Contact your administrator."
 
-#### 5. **Not Found Error** (Resource Missing)
+##### 5. **Not Found Error** (Resource Missing)
+
 - **Message:** Clarify what's missing
 - **Action:** Navigate back or search
 - **Example:** "This request no longer exists or has been deleted."
 
-### Visual Treatment
+#### Error State Visual Treatment
 
 Error states consist of four elements:
 
-```
+```text
 ┌─────────────────────────────────┐
 │    [Error Icon]                 │
 │   (Red/status-error color)      │
@@ -553,14 +577,16 @@ Error states consist of four elements:
 └─────────────────────────────────┘
 ```
 
-#### Element Specifications
+#### Error State Element Specifications
 
-##### Icon
+##### Error State Icon
+
 - **Size:** 48px (xl) on web, 40dp on mobile
 - **Color:** `ColorStatusError` (red, #EF4444)
 - **Icon:** `status-error` or similar X/alert icon
 
-##### Heading
+##### Error State Heading
+
 - **Typography:** H3 or H4
 - **Color:** `ColorTextPrimary`
 - **Examples:**
@@ -569,6 +595,7 @@ Error states consist of four elements:
   - "Connection failed"
 
 ##### Message
+
 - **Typography:** Body or Body Small
 - **Color:** `ColorTextMuted`
 - **Length:** 1–2 lines, actionable and specific
@@ -580,13 +607,15 @@ Error states consist of four elements:
   - ✅ "Please check the email field and try again."
 
 ##### Actions
+
 - **Retry:** Always available for transient errors
 - **Details:** Link to error code or logs (for technical users)
 - **Back/Home:** Navigation escape routes
 - **Contact Support:** For unrecoverable errors
 
-#### Spacing
-```
+#### Error State Spacing
+
+```text
 Container Padding:    SpacingMd (16px) or SpacingLg (24px)
 Icon to Heading:      SpacingMd (16px)
 Heading to Message:   SpacingSm (8px)
@@ -594,21 +623,21 @@ Message to Actions:   SpacingLg (24px)
 Action Button Gap:    SpacingSm (8px)
 ```
 
-### Implementation Examples
+#### Error State Implementation Examples
 
-#### Blazor Component
+##### Error State Blazor Component
 
-```razor
+````razor
 @* ErrorState.razor *@
 <div class="error-state">
     <div class="error-state__icon">
         <IconSprite Name="status-error" Size="xl" />
     </div>
-    
+
     <h3 class="error-state__heading">@Heading</h3>
-    
+
     <p class="error-state__message">@Message</p>
-    
+
     <div class="error-state__actions">
         @if (OnRetry.HasDelegate)
         {
@@ -616,14 +645,14 @@ Action Button Gap:    SpacingSm (8px)
                 Retry
             </Button>
         }
-        
+
         @if (!string.IsNullOrEmpty(ErrorCode))
         {
             <Button Variant="ghost" @onclick="ShowDetails">
                 Details (Error: @ErrorCode)
             </Button>
         }
-        
+
         @if (OnBack.HasDelegate)
         {
             <Button Variant="secondary" @onclick="OnBack">
@@ -636,27 +665,28 @@ Action Button Gap:    SpacingSm (8px)
 @code {
     [Parameter]
     public string Heading { get; set; } = "Something went wrong";
-    
+
     [Parameter]
     public string Message { get; set; } = "";
-    
+
     [Parameter]
     public string? ErrorCode { get; set; }
-    
+
     [Parameter]
     public EventCallback OnRetry { get; set; }
-    
+
     [Parameter]
     public EventCallback OnBack { get; set; }
-    
+
     private async Task ShowDetails()
     {
         // Open error details modal or log viewer
     }
 }
-```
+```text
 
 **Styling:**
+
 ```scss
 .error-state {
   display: flex;
@@ -666,25 +696,25 @@ Action Button Gap:    SpacingSm (8px)
   padding: var(--spacing-lg);
   text-align: center;
   min-height: 300px;
-  
+
   &__icon {
     margin-bottom: var(--spacing-md);
     color: var(--color-status-error);
   }
-  
+
   &__heading {
     @include typography-h3;
     margin-bottom: var(--spacing-sm);
     color: var(--color-text-primary);
   }
-  
+
   &__message {
     @include typography-body;
     margin-bottom: var(--spacing-lg);
     color: var(--color-text-muted);
     max-width: 360px;
   }
-  
+
   &__actions {
     display: flex;
     gap: var(--spacing-sm);
@@ -692,22 +722,22 @@ Action Button Gap:    SpacingSm (8px)
     justify-content: center;
   }
 }
-```
+````
 
 #### MAUI Component
 
-```xaml
+````xaml
 <VerticalStackLayout
     Padding="{StaticResource SpacingLg}"
     Spacing="{StaticResource SpacingMd}"
     VerticalOptions="Center"
     HorizontalOptions="Center">
-    
+
     <Label
         FontSize="48"
         HorizontalOptions="Center"
         TextColor="{StaticResource ColorStatusError}">❌</Label>
-    
+
     <Label
         FontSize="20"
         FontAttributes="Bold"
@@ -715,20 +745,20 @@ Action Button Gap:    SpacingSm (8px)
         TextColor="{AppThemeBinding Light=#000000, Dark=#FFFFFF}">
         @((string)BindingContext)
     </Label>
-    
+
     <Label
         FontSize="14"
         LineBreakMode="WordWrap"
         HorizontalOptions="Center"
         TextColor="{AppThemeBinding Light=#666666, Dark=#999999}"
         MaximumWidthRequest="300" />
-    
+
     <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
         <Button Text="Retry" />
         <Button Text="Go Back" />
     </HorizontalStackLayout>
 </VerticalStackLayout>
-```
+```text
 
 ---
 
@@ -738,52 +768,56 @@ Action Button Gap:    SpacingSm (8px)
 
 #### Typical Data Load Flow
 
-```
+````
+
 Initial State
-    ↓
+↓
 [Trigger] User navigates to list
-    ↓
+↓
 Loading State (show spinner)
-    ├─→ Success State (display data)
-    │      ↓
-    │   [User Action: Refresh]
-    │      ↓
-    │   Loading State (inline spinner)
-    │      ↓
-    │   Success State (updated data)
-    │
-    └─→ Error State (show error message)
-           ↓
-        [User Action: Retry]
-           ↓
-        Loading State
-           ↓
-        Success/Error State
-```
+├─→ Success State (display data)
+│ ↓
+│ [User Action: Refresh]
+│ ↓
+│ Loading State (inline spinner)
+│ ↓
+│ Success State (updated data)
+│
+└─→ Error State (show error message)
+↓
+[User Action: Retry]
+↓
+Loading State
+↓
+Success/Error State
+
+```text
 
 #### Form Submission Flow
 
 ```
+
 User Fills Form
-    ↓
+↓
 [Click Submit]
-    ↓
+↓
 Loading State (button disabled, spinner visible)
-    ├─→ Success State (confirmation message)
-    │      ↓
-    │   [Auto-navigate or close]
-    │
-    └─→ Validation Error (highlight fields)
-    └─→ Network Error (retry option)
-    └─→ Server Error (retry or contact support)
-```
+├─→ Success State (confirmation message)
+│ ↓
+│ [Auto-navigate or close]
+│
+└─→ Validation Error (highlight fields)
+└─→ Network Error (retry option)
+└─→ Server Error (retry or contact support)
+
+````text
 
 ### Transition Timing
 
 Use duration tokens for consistency:
 
 | Transition | Duration | Easing |
-|-----------|----------|--------|
+| ----------- | ---------- | -------- |
 | Fade in spinner | `DurationFast` (100ms) | ease-out |
 | Fade out loading | `DurationNormal` (200ms) | ease-in-out |
 | Slide in error banner | `DurationNormal` (200ms) | ease-out |
@@ -797,6 +831,7 @@ Use duration tokens for consistency:
 4. **Accessibility:** Don't rely solely on animation to communicate state; include text labels
 
 **CSS Example:**
+
 ```scss
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -813,7 +848,7 @@ Use duration tokens for consistency:
   from { opacity: 0; }
   to { opacity: 1; }
 }
-```
+````
 
 ---
 
@@ -823,7 +858,7 @@ Use duration tokens for consistency:
 
 **Scenario:** User opens Requests page for first time
 
-```
+```text
 1. Initial Render
    - Show loading spinner centered in list area
    - "Fetching requests..."
@@ -853,7 +888,7 @@ Use duration tokens for consistency:
 
 **Scenario:** User submits a new request form
 
-```
+```text
 1. User Clicks Submit
    - Button text: "Submitting..."
    - Button disabled (pointer-events: none)
@@ -882,7 +917,7 @@ Use duration tokens for consistency:
 
 **Scenario:** User's network times out during data load
 
-```
+```text
 1. Initial Load
    - Spinner shows, message: "Loading..."
 
@@ -922,78 +957,34 @@ Use duration tokens for consistency:
 
 Use live regions to announce state changes:
 
-```html
+````html
 <!-- Blazor -->
 <div aria-live="polite" aria-atomic="true" role="status">
-    @if (IsLoading)
-    {
-        <span>Loading requests, please wait...</span>
-    }
-    else if (IsError)
-    {
-        <span>Error: Unable to load requests. Please try again.</span>
-    }
+  @if (IsLoading) {
+  <span>Loading requests, please wait...</span>
+  } else if (IsError) {
+  <span>Error: Unable to load requests. Please try again.</span>
+  }
 </div>
-```
-
-### Keyboard Navigation
-
-- **Loading overlay:** Does not block keyboard escape (can close if appropriate)
-- **Error actions:** Retry button is focusable and activated with Enter/Space
-- **Empty state CTA:** Button receives focus naturally when page loads
-
-### Color Not Alone
-
-- **Don't:** Use only red to indicate an error
-- **Do:** Use red + icon (X or alert) + text label
-
----
-
-## Best Practices
-
-1. **Minimize Perceived Wait Time:**
-   - Show loading indicator after 500ms (don't flash for quick loads)
-   - Display skeleton screens for predictable layouts
-   - Show progress for long operations
-
-2. **Clarity Over Cleverness:**
-   - Use straightforward language in error messages
-   - Avoid technical jargon
-   - Provide actionable next steps
-
-3. **Consistency:**
-   - Empty, loading, and error states follow the same layout structure
-   - Colors, icons, and spacing are consistent across all states
-   - messaging tone is consistent (professional, helpful, never blaming)
-
-4. **Context Matters:**
-   - Network error in list: Show retry
-   - Validation error in form: Highlight field + message
-   - Permission error: Suggest reaching out to admin
-   - Not found: Provide navigation options
-
-5. **Test with Real Networks:**
-   - Simulate slow connections (3G, 4G)
-   - Test timeout scenarios
-   - Verify error recovery workflows
-
----
-
-## Future Enhancements
-
-1. **Optimistic Updates:** Update UI immediately, rollback on failure
-2. **Progressive Loading:** Show partial data while fetching remainder
-3. **Offline Support:** Distinguish network errors from server errors
-4. **Retry Logic:** Exponential backoff with jitter for failed retries
-5. **Error Analytics:** Track error frequency and types for improvements
-6. **Contextual Help:** Link errors to knowledge base or support
-
----
-
-## Related Resources
-
-- Design Tokens: [DESIGN_TOKENS.md](DESIGN_TOKENS.md)
-- Component Naming: [COMPONENT_NAMING.md](COMPONENT_NAMING.md)
-- Typography System: [TYPOGRAPHY.md](TYPOGRAPHY.md)
-- Spacing System: [SPACING.md](SPACING.md)
-- Icon Strategy: [ICON_STRATEGY.md](ICON_STRATEGY.md)
+```text ### Keyboard Navigation - **Loading overlay:** Does not block keyboard escape (can close if
+appropriate) - **Error actions:** Retry button is focusable and activated with Enter/Space - **Empty
+state CTA:** Button receives focus naturally when page loads ### Color Not Alone - **Don't:** Use
+only red to indicate an error - **Do:** Use red + icon (X or alert) + text label --- ## Best
+Practices 1. **Minimize Perceived Wait Time:** - Show loading indicator after 500ms (don't flash for
+quick loads) - Display skeleton screens for predictable layouts - Show progress for long operations
+2. **Clarity Over Cleverness:** - Use straightforward language in error messages - Avoid technical
+jargon - Provide actionable next steps 3. **Consistency:** - Empty, loading, and error states follow
+the same layout structure - Colors, icons, and spacing are consistent across all states - messaging
+tone is consistent (professional, helpful, never blaming) 4. **Context Matters:** - Network error in
+list: Show retry - Validation error in form: Highlight field + message - Permission error: Suggest
+reaching out to admin - Not found: Provide navigation options 5. **Test with Real Networks:** -
+Simulate slow connections (3G, 4G) - Test timeout scenarios - Verify error recovery workflows --- ##
+Future Enhancements 1. **Optimistic Updates:** Update UI immediately, rollback on failure 2.
+**Progressive Loading:** Show partial data while fetching remainder 3. **Offline Support:**
+Distinguish network errors from server errors 4. **Retry Logic:** Exponential backoff with jitter
+for failed retries 5. **Error Analytics:** Track error frequency and types for improvements 6.
+**Contextual Help:** Link errors to knowledge base or support --- ## Related Resources - Design
+Tokens: [DESIGN_TOKENS.md](DESIGN_TOKENS.md) - Component Naming:
+[COMPONENT_NAMING.md](COMPONENT_NAMING.md) - Typography System: [TYPOGRAPHY.md](TYPOGRAPHY.md) -
+Spacing System: [SPACING.md](SPACING.md) - Icon Strategy: [ICON_STRATEGY.md](ICON_STRATEGY.md)
+````

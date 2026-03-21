@@ -3,8 +3,10 @@
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@using GTEK.FSM.WebPortal.Services.Security
 
 @inject ResilientDataFetcher Fetcher
+@inject UiSecurityContext SecurityContext
 
 <PageTitle>Customer Care Assignments</PageTitle>
 
@@ -88,6 +90,12 @@
 			return;
 		}
 
+		if (!SecurityContext.HasAnyRole(PortalRole.Support, PortalRole.Manager, PortalRole.Admin)
+			|| !SecurityContext.CanAccessTenant(request.TenantId))
+		{
+			return;
+		}
+
 		await Task.Delay(120);
 
 		if (isReassignment && !string.IsNullOrWhiteSpace(request.AssignedWorker) && !string.Equals(request.AssignedWorker, worker.Name, StringComparison.Ordinal))
@@ -120,6 +128,7 @@
 			{
 				Reference = "ASN-221",
 				Customer = "Metro Hospital",
+				TenantId = "TENANT-01",
 				Stage = "Dispatch",
 				Priority = "Critical",
 				Summary = "Escalated outage requires immediate reassignment.",
@@ -135,6 +144,7 @@
 			{
 				Reference = "ASN-219",
 				Customer = "Northline Apartments",
+				TenantId = "TENANT-01",
 				Stage = "Assessment",
 				Priority = "High",
 				Summary = "Worker requested spare part verification.",
@@ -150,6 +160,7 @@
 			{
 				Reference = "ASN-217",
 				Customer = "Bay Distribution Hub",
+				TenantId = "TENANT-03",
 				Stage = "In Progress",
 				Priority = "Medium",
 				Summary = "On-site diagnostics active; ETA review pending.",
@@ -165,6 +176,7 @@
 			{
 				Reference = "ASN-214",
 				Customer = "Greenfield Towers",
+				TenantId = "TENANT-01",
 				Stage = "Intake",
 				Priority = "Low",
 				Summary = "New assignment candidate awaiting workload check.",

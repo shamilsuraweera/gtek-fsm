@@ -3,8 +3,10 @@
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@using GTEK.FSM.WebPortal.Services.Security
 
 @inject ResilientDataFetcher Fetcher
+@inject UiSecurityContext SecurityContext
 
 <PageTitle>Management Reports</PageTitle>
 
@@ -25,6 +27,16 @@
 		@if (ReportData is not null)
 		{
 			<section class="audit-shell">
+				@if (!SecurityContext.HasSensitiveAccess())
+				{
+					<p class="security-forbidden-message">Forbidden: sensitive audit decisions require manager or admin role.</p>
+				}
+
+				@if (!string.IsNullOrWhiteSpace(securityFeedback))
+				{
+					<p class="security-forbidden-message">@securityFeedback</p>
+				}
+
 				<section class="audit-summary-grid">
 					<article class="audit-summary-card">
 						<p class="audit-summary-label">Sensitive Actions (24h)</p>
@@ -60,16 +72,18 @@
 							<tbody>
 								@foreach (var evt in ReportData.Events)
 								{
+									var canView = CanViewEvent(evt);
+
 									<tr>
 										<td class="mono">@evt.Timestamp.ToLocalTime().ToString("MM-dd HH:mm")</td>
-										<td>@evt.Actor</td>
-										<td>@evt.Action</td>
+										<td>@(canView ? evt.Actor : "Restricted")</td>
+										<td>@(canView ? evt.Action : "Forbidden by tenant guard")</td>
 										<td>@evt.Tenant</td>
 										<td>
-											<span class="audit-pill @(evt.Outcome.Equals("Allow", StringComparison.OrdinalIgnoreCase) ? "allow" : "deny")">@evt.Outcome</span>
+											<span class="audit-pill @GetOutcomeClass(canView ? evt.Outcome : "Deny")">@(canView ? evt.Outcome : "Deny")</span>
 										</td>
 										<td>
-											<span class="audit-pill @(evt.Risk.Equals("High", StringComparison.OrdinalIgnoreCase) ? "high" : evt.Risk.Equals("Medium", StringComparison.OrdinalIgnoreCase) ? "medium" : "low")">@evt.Risk</span>
+											<span class="audit-pill @GetRiskClass(evt.Risk)">@evt.Risk</span>
 										</td>
 									</tr>
 								}
@@ -86,15 +100,20 @@
 					<div class="oversight-list">
 						@foreach (var review in ReportData.Reviews)
 						{
+							var canAct = CanTakeReviewAction(review);
 							<article class="oversight-item">
 								<div>
 									<p class="oversight-title">@review.Title</p>
-									<p class="audit-muted">@review.Context</p>
+									<p class="audit-muted">@review.Context (Tenant: @review.Tenant)</p>
 								</div>
 								<div class="oversight-actions">
 									<span class="audit-pill high">@review.Priority</span>
-									<button class="btn-quick-action" @onclick='@(() => ResolveReview(review.Id, "Acknowledge"))'>Acknowledge</button>
-									<button class="btn-quick-action btn-warning" @onclick='@(() => ResolveReview(review.Id, "Escalate"))'>Escalate</button>
+									<button class="btn-quick-action" @onclick='@(() => ResolveReview(review.Id, "Acknowledge"))' disabled="@(!canAct)">Acknowledge</button>
+									<button class="btn-quick-action btn-warning" @onclick='@(() => ResolveReview(review.Id, "Escalate"))' disabled="@(!canAct)">Escalate</button>
+									@if (!canAct)
+									{
+										<span class="audit-muted">Forbidden in current tenant/role context.</span>
+									}
 								</div>
 							</article>
 						}
@@ -108,6 +127,7 @@
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
 	private FetchResult<AuditReportData> fetchState = new();
+	private string? securityFeedback;
 	private AuditReportData? ReportData => fetchState.Data;
 
 	protected override async Task OnInitializedAsync()
@@ -152,6 +172,15 @@
 			return;
 		}
 
+		var review = ReportData.Reviews.FirstOrDefault(x => x.Id == reviewId);
+		if ((review is null) || !CanTakeReviewAction(review))
+		{
+			securityFeedback = "Forbidden: review action blocked by role or tenant guardrails.";
+			return;
+		}
+
+		securityFeedback = null;
+
 		ReportData.Reviews.RemoveAll(x => x.Id == reviewId);
 		ReportData.Events.Insert(
 			0,
@@ -159,9 +188,39 @@
 				DateTime.UtcNow,
 				"Ops Manager",
 				$"Oversight review {decision}",
-				"TENANT-01",
+				review.Tenant,
 				"Allow",
 				"Low"));
+	}
+
+	private bool CanViewEvent(AuditEvent evt)
+	{
+		return SecurityContext.HasSensitiveAccess() && SecurityContext.CanAccessTenant(evt.Tenant);
+	}
+
+	private bool CanTakeReviewAction(OversightReview review)
+	{
+		return SecurityContext.HasSensitiveAccess() && SecurityContext.CanAccessTenant(review.Tenant);
+	}
+
+	private static string GetOutcomeClass(string outcome)
+	{
+		return outcome.Equals("Allow", StringComparison.OrdinalIgnoreCase) ? "allow" : "deny";
+	}
+
+	private static string GetRiskClass(string risk)
+	{
+		if (risk.Equals("High", StringComparison.OrdinalIgnoreCase))
+		{
+			return "high";
+		}
+
+		if (risk.Equals("Medium", StringComparison.OrdinalIgnoreCase))
+		{
+			return "medium";
+		}
+
+		return "low";
 	}
 
 	private static AuditReportData BuildSampleData()
@@ -180,9 +239,9 @@
 			],
 			Reviews =
 			[
-				new(Guid.NewGuid(), "Denied cross-tenant report export", "User requested data export spanning multiple tenants.", "P1"),
-				new(Guid.NewGuid(), "Repeated permission override failures", "Three denied override attempts in 15 minutes.", "P1"),
-				new(Guid.NewGuid(), "Unexpected role elevation path", "Temporary role assignment detected outside policy window.", "P2"),
+				new(Guid.NewGuid(), "Denied cross-tenant report export", "User requested data export spanning multiple tenants.", "P1", "TENANT-03"),
+				new(Guid.NewGuid(), "Repeated permission override failures", "Three denied override attempts in 15 minutes.", "P1", "TENANT-01"),
+				new(Guid.NewGuid(), "Unexpected role elevation path", "Temporary role assignment detected outside policy window.", "P2", "TENANT-02"),
 			],
 		};
 	}
@@ -199,7 +258,8 @@
 		Guid Id,
 		string Title,
 		string Context,
-		string Priority);
+		string Priority,
+		string Tenant);
 
 	private sealed class AuditReportData
 	{

@@ -31,12 +31,12 @@ Out of scope for this task:
 
 ### 1) `Tenants`
 
-| Column | Type | Null | Notes |
-|---|---|---|---|
-| `Id` | `uniqueidentifier` | No | Primary key |
-| `Code` | `nvarchar(32)` | No | Tenant code (domain max 32) |
-| `Name` | `nvarchar(120)` | No | Tenant name (domain max 120) |
-| `ActiveSubscriptionId` | `uniqueidentifier` | Yes | Optional link to current subscription |
+| Column                 | Type               | Null | Notes                                 |
+| ---------------------- | ------------------ | ---- | ------------------------------------- |
+| `Id`                   | `uniqueidentifier` | No   | Primary key                           |
+| `Code`                 | `nvarchar(32)`     | No   | Tenant code (domain max 32)           |
+| `Name`                 | `nvarchar(120)`    | No   | Tenant name (domain max 120)          |
+| `ActiveSubscriptionId` | `uniqueidentifier` | Yes  | Optional link to current subscription |
 
 Constraints:
 
@@ -45,12 +45,12 @@ Constraints:
 
 ### 2) `Users`
 
-| Column | Type | Null | Notes |
-|---|---|---|---|
-| `Id` | `uniqueidentifier` | No | Primary key |
-| `TenantId` | `uniqueidentifier` | No | Owner tenant |
-| `ExternalIdentity` | `nvarchar(128)` | No | External identity key (domain max 128) |
-| `DisplayName` | `nvarchar(120)` | No | Display name (domain max 120) |
+| Column             | Type               | Null | Notes                                  |
+| ------------------ | ------------------ | ---- | -------------------------------------- |
+| `Id`               | `uniqueidentifier` | No   | Primary key                            |
+| `TenantId`         | `uniqueidentifier` | No   | Owner tenant                           |
+| `ExternalIdentity` | `nvarchar(128)`    | No   | External identity key (domain max 128) |
+| `DisplayName`      | `nvarchar(120)`    | No   | Display name (domain max 120)          |
 
 Constraints:
 
@@ -60,14 +60,14 @@ Constraints:
 
 ### 3) `ServiceRequests`
 
-| Column | Type | Null | Notes |
-|---|---|---|---|
-| `Id` | `uniqueidentifier` | No | Primary key |
-| `TenantId` | `uniqueidentifier` | No | Owner tenant |
-| `CustomerUserId` | `uniqueidentifier` | No | User that created the request |
-| `Title` | `nvarchar(180)` | No | Request title (domain max 180) |
-| `Status` | `tinyint` | No | `ServiceRequestStatus` enum |
-| `ActiveJobId` | `uniqueidentifier` | Yes | Optional currently linked job |
+| Column           | Type               | Null | Notes                          |
+| ---------------- | ------------------ | ---- | ------------------------------ |
+| `Id`             | `uniqueidentifier` | No   | Primary key                    |
+| `TenantId`       | `uniqueidentifier` | No   | Owner tenant                   |
+| `CustomerUserId` | `uniqueidentifier` | No   | User that created the request  |
+| `Title`          | `nvarchar(180)`    | No   | Request title (domain max 180) |
+| `Status`         | `tinyint`          | No   | `ServiceRequestStatus` enum    |
+| `ActiveJobId`    | `uniqueidentifier` | Yes  | Optional currently linked job  |
 
 Constraints:
 
@@ -79,13 +79,13 @@ Constraints:
 
 ### 4) `Jobs`
 
-| Column | Type | Null | Notes |
-|---|---|---|---|
-| `Id` | `uniqueidentifier` | No | Primary key |
-| `TenantId` | `uniqueidentifier` | No | Owner tenant |
-| `ServiceRequestId` | `uniqueidentifier` | No | Parent service request |
-| `AssignmentStatus` | `tinyint` | No | `AssignmentStatus` enum |
-| `AssignedWorkerUserId` | `uniqueidentifier` | Yes | Optional assigned worker |
+| Column                 | Type               | Null | Notes                    |
+| ---------------------- | ------------------ | ---- | ------------------------ |
+| `Id`                   | `uniqueidentifier` | No   | Primary key              |
+| `TenantId`             | `uniqueidentifier` | No   | Owner tenant             |
+| `ServiceRequestId`     | `uniqueidentifier` | No   | Parent service request   |
+| `AssignmentStatus`     | `tinyint`          | No   | `AssignmentStatus` enum  |
+| `AssignedWorkerUserId` | `uniqueidentifier` | Yes  | Optional assigned worker |
 
 Constraints:
 
@@ -97,13 +97,13 @@ Constraints:
 
 ### 5) `Subscriptions`
 
-| Column | Type | Null | Notes |
-|---|---|---|---|
-| `Id` | `uniqueidentifier` | No | Primary key |
-| `TenantId` | `uniqueidentifier` | No | Owner tenant |
-| `PlanCode` | `nvarchar(32)` | No | Plan code (domain max 32) |
-| `StartsOnUtc` | `datetime2` | No | Subscription start |
-| `EndsOnUtc` | `datetime2` | Yes | Optional end |
+| Column        | Type               | Null | Notes                     |
+| ------------- | ------------------ | ---- | ------------------------- |
+| `Id`          | `uniqueidentifier` | No   | Primary key               |
+| `TenantId`    | `uniqueidentifier` | No   | Owner tenant              |
+| `PlanCode`    | `nvarchar(32)`     | No   | Plan code (domain max 32) |
+| `StartsOnUtc` | `datetime2`        | No   | Subscription start        |
+| `EndsOnUtc`   | `datetime2`        | Yes  | Optional end              |
 
 Constraints:
 
@@ -137,29 +137,29 @@ This avoids accidental cross-tenant links even if application-level checks regre
 Required indexes and uniqueness constraints for high-frequency lookups and integrity:
 
 - `Tenants`
-	- `UQ_Tenants_Code` unique on (`Code`)
-	- `IX_Tenants_ActiveSubscriptionId` on (`ActiveSubscriptionId`)
+  - `UQ_Tenants_Code` unique on (`Code`)
+  - `IX_Tenants_ActiveSubscriptionId` on (`ActiveSubscriptionId`)
 
 - `Users`
-	- `UQ_Users_TenantId_ExternalIdentity` unique on (`TenantId`, `ExternalIdentity`)
-	- `IX_Users_TenantId` on (`TenantId`)
-	- `IX_Users_TenantId_DisplayName` on (`TenantId`, `DisplayName`)
+  - `UQ_Users_TenantId_ExternalIdentity` unique on (`TenantId`, `ExternalIdentity`)
+  - `IX_Users_TenantId` on (`TenantId`)
+  - `IX_Users_TenantId_DisplayName` on (`TenantId`, `DisplayName`)
 
 - `ServiceRequests`
-	- `IX_ServiceRequests_TenantId_Status` on (`TenantId`, `Status`)
-	- `IX_ServiceRequests_TenantId_CustomerUserId` on (`TenantId`, `CustomerUserId`)
-	- `UQ_ServiceRequests_TenantId_ActiveJobId` unique on (`TenantId`, `ActiveJobId`) filtered where `ActiveJobId is not null`
+  - `IX_ServiceRequests_TenantId_Status` on (`TenantId`, `Status`)
+  - `IX_ServiceRequests_TenantId_CustomerUserId` on (`TenantId`, `CustomerUserId`)
+  - `UQ_ServiceRequests_TenantId_ActiveJobId` unique on (`TenantId`, `ActiveJobId`) filtered where `ActiveJobId is not null`
 
 - `Jobs`
-	- `IX_Jobs_TenantId_ServiceRequestId` on (`TenantId`, `ServiceRequestId`)
-	- `IX_Jobs_TenantId_AssignmentStatus` on (`TenantId`, `AssignmentStatus`)
-	- `IX_Jobs_TenantId_AssignedWorkerUserId_AssignmentStatus` on (`TenantId`, `AssignedWorkerUserId`, `AssignmentStatus`)
+  - `IX_Jobs_TenantId_ServiceRequestId` on (`TenantId`, `ServiceRequestId`)
+  - `IX_Jobs_TenantId_AssignmentStatus` on (`TenantId`, `AssignmentStatus`)
+  - `IX_Jobs_TenantId_AssignedWorkerUserId_AssignmentStatus` on (`TenantId`, `AssignedWorkerUserId`, `AssignmentStatus`)
 
 - `Subscriptions`
-	- `IX_Subscriptions_TenantId` on (`TenantId`)
-	- `IX_Subscriptions_TenantId_PlanCode` on (`TenantId`, `PlanCode`)
-	- `IX_Subscriptions_TenantId_StartsOnUtc` on (`TenantId`, `StartsOnUtc`)
-	- `IX_Subscriptions_TenantId_EndsOnUtc` on (`TenantId`, `EndsOnUtc`)
+  - `IX_Subscriptions_TenantId` on (`TenantId`)
+  - `IX_Subscriptions_TenantId_PlanCode` on (`TenantId`, `PlanCode`)
+  - `IX_Subscriptions_TenantId_StartsOnUtc` on (`TenantId`, `StartsOnUtc`)
+  - `IX_Subscriptions_TenantId_EndsOnUtc` on (`TenantId`, `EndsOnUtc`)
 
 These are implemented in EF Core configuration classes under:
 
@@ -179,11 +179,11 @@ All Phase 1 aggregate root tables include auditing columns and soft-delete capab
 
 Every table includes:
 
-| Column | Type | Details |
-|---|---|---|
-| `CreatedAtUtc` | `datetime2(3)` | Timestamp when record was created. Generated by SQL Server `GETUTCDATE()` on insert. Read-only after creation. |
+| Column         | Type           | Details                                                                                                                     |
+| -------------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `CreatedAtUtc` | `datetime2(3)` | Timestamp when record was created. Generated by SQL Server `GETUTCDATE()` on insert. Read-only after creation.              |
 | `UpdatedAtUtc` | `datetime2(3)` | Timestamp when record was last modified. Automatically updated by SQL Server on insert or update. Read-only to application. |
-| `IsDeleted` | `bit` | Soft-delete flag; defaults to `false` (0). Set to `true` (1) instead of physically removing records. |
+| `IsDeleted`    | `bit`          | Soft-delete flag; defaults to `false` (0). Set to `true` (1) instead of physically removing records.                        |
 
 ### Soft-Delete Strategy
 
@@ -227,11 +227,11 @@ This section validates naming consistency across schema artifacts and EF mapping
 
 - Source of truth: `config/naming-conventions.json`
 - EF mappings inspected:
-	- `backend/infrastructure/Persistence/Configurations/TenantConfiguration.cs`
-	- `backend/infrastructure/Persistence/Configurations/UserConfiguration.cs`
-	- `backend/infrastructure/Persistence/Configurations/ServiceRequestConfiguration.cs`
-	- `backend/infrastructure/Persistence/Configurations/JobConfiguration.cs`
-	- `backend/infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs`
+  - `backend/infrastructure/Persistence/Configurations/TenantConfiguration.cs`
+  - `backend/infrastructure/Persistence/Configurations/UserConfiguration.cs`
+  - `backend/infrastructure/Persistence/Configurations/ServiceRequestConfiguration.cs`
+  - `backend/infrastructure/Persistence/Configurations/JobConfiguration.cs`
+  - `backend/infrastructure/Persistence/Configurations/SubscriptionConfiguration.cs`
 
 ### Table and Column Naming
 

@@ -11,12 +11,13 @@
 - **VS Code** (recommended): [Download](https://code.visualstudio.com/)
 
 Verify installations:
-```bash
+
+````bash
 dotnet --version        # Should be 10.0+
 docker --version        # Should be 20.10+
 docker-compose --version  # Should be 2.0+
 git --version           # Any recent version
-```
+```text
 
 ### Clone & Setup (First Run Only)
 
@@ -36,7 +37,7 @@ code .env  # or nano .env
 dotnet restore GTEK.FSM.slnx
 
 # 5. Done! Skip to "Daily Development" section below
-```
+````
 
 ---
 
@@ -46,16 +47,18 @@ dotnet restore GTEK.FSM.slnx
 
 Start everything with one command:
 
-```bash
+````bash
 ./deploy/scripts/start-all.sh
-```
+```text
 
 This runs:
+
 - SQL Server in Docker
 - Backend API (localhost:5000)
 - Displays instructions for Web Portal and Mobile App
 
 **In separate terminals:**
+
 ```bash
 # Terminal 2: Web Portal (auto-reload)
 ./deploy/scripts/run-web-portal.sh
@@ -65,23 +68,25 @@ This runs:
 
 # Terminal 4: Watch logs
 ./deploy/scripts/dev-logs.sh
-```
+````
 
 **Access:**
-- Backend API: http://localhost:5000
-- API Health: http://localhost:5000/health
-- Web Portal: http://localhost:5001
+
+- Backend API: [http://localhost:5000](http://localhost:5000)
+- API Health: [http://localhost:5000/health](http://localhost:5000/health)
+- Web Portal: [http://localhost:5001](http://localhost:5001)
 - DB: localhost:1433 (via SQL client)
 
 ---
 
 ### Option 2: API + Database Only
 
-```bash
+````bash
 ./deploy/scripts/run-api-standalone.sh
-```
+```text
 
 This automatically:
+
 1. Starts SQL Server container
 2. Applies migrations
 3. Launches API on localhost:5000
@@ -92,7 +97,7 @@ This automatically:
 
 ```bash
 ./deploy/scripts/run-web-portal.sh
-```
+````
 
 - Blazor WebAssembly dev server
 - Hot-reload on file changes
@@ -106,7 +111,6 @@ This automatically:
 
 1. **C# Dev Kit** (`ms-dotnettools.csharp`)
    - Code completion, debugging, test runner
-   
 2. **EditorConfig** (`editorconfig.editorconfig`)
    - Auto-applies formatting rules
 
@@ -118,7 +122,7 @@ This automatically:
 
 ### Quick Start in VS Code
 
-```
+```text
 Ctrl+K Ctrl+O → Select gtek-fsm folder
 Ctrl+Shift+B → Build Solution
 Ctrl+Shift+D → Launch Debug Configuration (API)
@@ -141,7 +145,7 @@ All configuration options defined in [.env.example](.env.example):
 
 Three-tier hierarchy (most specific wins):
 
-```
+```text
 appsettings.json (base)
     ↓
 appsettings.{ASPNETCORE_ENVIRONMENT}.json (environment-specific)
@@ -150,13 +154,14 @@ Environment Variables (highest priority)
 ```
 
 **Example:**
-```bash
+
+````bash
 # In .env:
 ASPNETCORE_ENVIRONMENT=Development
 
 # loads: appsettings.json + appsettings.Development.json
 # Environment variables override both
-```
+```text
 
 ---
 
@@ -173,11 +178,11 @@ make dev-db-reset
 
 # Insert seed data (placeholder in Phase 0)
 make dev-db-seed
-```
+````
 
 ### Building
 
-```bash
+````bash
 # Build entire solution
 make build
 
@@ -186,7 +191,7 @@ make build-api
 
 # Build with release optimization
 dotnet build GTEK.FSM.slnx -c Release
-```
+```text
 
 ### Cleaning
 
@@ -199,22 +204,24 @@ make dev-reset
 
 # Full cleanup + rebuild
 make clean && make build
-```
+````
 
 ### Debugging
 
 **Visual Studio Code:**
+
 1. Set breakpoint (click line number)
 2. Press F5 or Ctrl+Shift+D
 3. Select ".NET Core: API (Launch)"
 4. Breakpoint hit: variables visible in sidebar
 
 **Command Line:**
-```bash
+
+````bash
 # Run with debug symbols
 dotnet build -c Debug
 dotnet run --project backend/api/GTEK.FSM.Backend.Api.csproj
-```
+```text
 
 ---
 
@@ -232,11 +239,11 @@ newgrp docker
 
 # Verify
 docker run hello-world
-```
+````
 
 ### Issue: Port already in use (5000, 5001, 1433)
 
-```bash
+````bash
 # Check what's using port 5000
 lsof -i :5000
 
@@ -245,7 +252,7 @@ kill -9 <PID>
 
 # Or use different port in .env
 API_PORT=5555
-```
+```text
 
 ### Issue: SQL Server container won't start
 
@@ -256,17 +263,17 @@ docker logs sqlserver
 # Common: Invalid SA_PASSWORD (< 8 chars, missing special chars)
 # Fix: Update SA_PASSWORD in .env to strong password
 # Restart: make dev-reset
-```
+````
 
 ### Issue: Solution won't build
 
-```bash
+````bash
 # Clear cache and rebuild
 rm -rf ~/.nuget/packages/*gtek* 2>/dev/null
 dotnet clean GTEK.FSM.slnx
 dotnet restore GTEK.FSM.slnx
 dotnet build GTEK.FSM.slnx
-```
+```text
 
 ### Issue: Web Portal shows blank screen
 
@@ -278,17 +285,17 @@ make build-portal
 # 3. Stop and restart
 Ctrl+C
 ./deploy/scripts/run-web-portal.sh
-```
+````
 
 ### Issue: Analyzer warnings block build (Phase 0.8.2)
 
-```bash
+````bash
 # Check CODE_QUALITY_BASELINE.md for warnings
 # Fix code or add justified suppression (see ANALYZER_SUPPRESSIONS_GUIDE.md)
 
 # Build with details
 dotnet build --verbosity detailed
-```
+```text
 
 ---
 
@@ -302,11 +309,12 @@ SA_PASSWORD=YourStrong!Passw0rd
 SQL_SERVER_HOST=sqlserver  # Docker service name
 API_PORT=5000
 FEATURE_REALTIME_PIPELINE=false  # Disabled in Phase 0
-```
+````
 
 ### Team CI/CD (GitHub Actions)
 
 Configured in `.github/workflows/ci.yml`:
+
 - Restores packages
 - Builds (Debug + Release)
 - Runs analyzers
@@ -317,23 +325,26 @@ No secrets needed for public repo; Phase 2 will add Key Vault integration.
 ### Production (Future Phase 11)
 
 Will use:
+
 - Azure Key Vault for secrets
 - Managed Identity for auth
 - Connection strings from Key Vault
 - Health checks & load balancing
 
 Example (not active yet):
-```bash
+
+````bash
 ASPNETCORE_ENVIRONMENT=Production
 # All secrets from Key Vault
 # Connection strings from managed identity
-```
+```text
 
 ---
 
 ## First-Time Team Onboarding
 
 1. **Clone & Setup** (5 min)
+
    ```bash
    git clone <repo>
    cd gtek-fsm
@@ -344,22 +355,25 @@ ASPNETCORE_ENVIRONMENT=Production
    - Open VS Code → Extensions → Install C# Dev Kit, EditorConfig
 
 3. **Verify Build** (2 min)
+
    ```bash
    dotnet restore
    dotnet build
    ```
 
 4. **Start Services** (1 min)
+
    ```bash
    ./deploy/scripts/start-all.sh
    ```
 
 5. **Test Access** (1 min)
+
    ```bash
    curl http://localhost:5000/health
    ```
 
-**Total: ~10 minutes to full development environment**
+### Total Time: ~10 minutes to full development environment
 
 ---
 
@@ -377,10 +391,10 @@ dotnet build
 
 The `.editorconfig` and `.stylecop.json` are automatically applied by VS Code. If violations appear on build:
 
-```bash
+````bash
 # See config/CODE_QUALITY_BASELINE.md for guidance
 # Fix violations or add justified suppressions
-```
+```text
 
 ### When Migrations Are Added (Phase 1+)
 
@@ -388,7 +402,7 @@ The `.editorconfig` and `.stylecop.json` are automatically applied by VS Code. I
 git pull
 make dev-db-reset
 make dev-db-init
-```
+````
 
 ---
 
@@ -405,7 +419,7 @@ make dev-db-init
 
 Domain models and database schema will be defined. You'll:
 
-```bash
+````bash
 # Generate new migrations
 dotnet ef migrations add NewFeature \
   --project backend/infrastructure \
@@ -414,20 +428,22 @@ dotnet ef migrations add NewFeature \
 
 # Apply to database
 make dev-db-init
-```
+```text
 
 ---
 
 ## Getting Help
 
 **Questions?**
+
 1. Check troubleshooting section above
 2. Review referenced documentation files
 3. Check `backend/api/Program.cs` for DI setup
 4. VS Code: F1 → "Developer: Show Extension Output" for error details
 
 **Reporting Issues:**
+
 - Include error message + stack trace
 - Mention your OS and .NET version
 - Attach your .env (with passwords redacted)
-
+````

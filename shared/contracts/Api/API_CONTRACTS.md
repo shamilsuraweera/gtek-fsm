@@ -10,7 +10,7 @@ All API contracts are defined in the shared contracts library (`GTEK.FSM.Shared.
 
 ## Folder Structure
 
-```
+```text
 Api/
 ├── Requests/
 │   └── [Common request base classes and utilities]
@@ -86,7 +86,8 @@ Api/
 All list endpoints follow this pattern:
 
 **Request:**
-```csharp
+
+````csharp
 public class GetRequestsRequest
 {
     public int Offset { get; set; } = 0;
@@ -95,9 +96,10 @@ public class GetRequestsRequest
     public string? SortDirection { get; set; }
     // Optional filters
 }
-```
+```text
 
 **Response (single item):**
+
 ```csharp
 public class GetRequestsResponse
 {
@@ -105,10 +107,11 @@ public class GetRequestsResponse
     // ... fields specific to request summary
     public PaginationMetadata? Pagination { get; set; }
 }
-```
+````
 
 **Backend Controller:**
-```csharp
+
+````csharp
 [HttpGet]
 public async Task<ApiResponse<List<GetRequestsResponse>>> GetRequests(
     [FromQuery] GetRequestsRequest request)
@@ -121,11 +124,12 @@ public async Task<ApiResponse<List<GetRequestsResponse>>> GetRequests(
         Message = "Requests retrieved successfully"
     };
 }
-```
+```text
 
 ### 2. Create/Update Pattern
 
 **Request:**
+
 ```csharp
 public class CreateRequestRequest
 {
@@ -133,37 +137,40 @@ public class CreateRequestRequest
     public string? Description { get; set; }
     // ... required fields for creation
 }
-```
+````
 
 **Response:**
-```csharp
+
+````csharp
 public class CreateRequestResponse
 {
     public string? RequestId { get; set; }
     public DateTime CreatedUtc { get; set; }
     // ... confirmation fields
 }
-```
+```text
 
 ### 3. Detail/Get Pattern
 
 **Request:**
+
 ```csharp
 public class GetRequestDetailRequest
 {
     public string? RequestId { get; set; }
 }
-```
+````
 
 **Response:**
-```csharp
+
+````csharp
 public class GetRequestDetailResponse
 {
     public string? RequestId { get; set; }
     // ... all fields for full request details
     public List<object>? RelatedJobs { get; set; }
 }
-```
+```text
 
 ---
 
@@ -179,7 +186,7 @@ public class ApiResponse<T>
     public T? Data { get; set; }                  // Typed payload
     public DateTime TimestampUtc { get; set; }   // Response timestamp
 }
-```
+````
 
 **Backend middleware automatically wraps all responses** so clients always receive this consistent envelope shape.
 
@@ -196,7 +203,7 @@ Request and response DTOs frequently reference shared vocabulary enums:
 
 When filtering or exposing role/stage/tier/status, store as `string?` property and reference the enum value by name in documentation:
 
-```csharp
+````csharp
 public class GetRequestsRequest
 {
     /// <summary>
@@ -205,7 +212,7 @@ public class GetRequestsRequest
     /// </summary>
     public string? StageFilter { get; set; }
 }
-```
+```text
 
 ---
 
@@ -213,20 +220,23 @@ public class GetRequestsRequest
 
 Each feature (Requests, Jobs, Users, etc.) is organized in its own folder:
 
-```
+````
+
 Api/Contracts/[FeatureName]/
 ├── Requests/
-│   ├── Get[Feature]Request.cs
-│   ├── Create[Feature]Request.cs
-│   ├── Update[Feature]Request.cs
-│   └── ...
+│ ├── Get[Feature]Request.cs
+│ ├── Create[Feature]Request.cs
+│ ├── Update[Feature]Request.cs
+│ └── ...
 └── Responses/
-    ├── Get[Feature]Response.cs
-    ├── Create[Feature]Response.cs
-    ├── ...
-```
+├── Get[Feature]Response.cs
+├── Create[Feature]Response.cs
+├── ...
+
+````text
 
 This structure:
+
 - **Scales**: New features can be added without impacting existing structure
 - **Reduces naming conflicts**: Each feature has its own query/action request/response pairs
 - **Simplifies discovery**: Clients know exactly where to find contracts for a given feature
@@ -255,11 +265,11 @@ if (response?.IsSuccess == true)
         Console.WriteLine($"{item.Summary} - {item.Stage}");
     }
 }
-```
+````
 
 ### Mobile App (.NET MAUI)
 
-```csharp
+````csharp
 // Same DTOs, same response shape
 var response = await _httpClient.GetFromJsonAsync<ApiResponse<List<GetJobsResponse>>>(
     "api/v1/jobs");
@@ -271,7 +281,7 @@ if (response?.IsSuccess == true)
         displayItems.Add(job);
     }
 }
-```
+```text
 
 ---
 
@@ -284,6 +294,7 @@ As the platform grows, new features will follow this pattern consistently:
 - **Phase 3 Features:** Notifications, Reports, Webhooks
 
 Each feature adds its own:
+
 - `Contracts/[FeatureName]/Requests/` folder with request DTOs
 - `Contracts/[FeatureName]/Responses/` folder with response DTOs
 - Documentation in the feature's README or architecture guide
@@ -317,26 +328,29 @@ Each feature adds its own:
 When adding a new feature (e.g., `Support Tickets`):
 
 1. Create folders:
-   ```
-   Api/Contracts/SupportTickets/Requests/
-   Api/Contracts/SupportTickets/Responses/
-   ```
+
+```text
+Api/Contracts/SupportTickets/Requests/
+Api/Contracts/SupportTickets/Responses/
+```
 
 2. Add request DTOs following naming convention:
-   ```csharp
-   public class GetSupportTicketsRequest { ... }
-   public class CreateSupportTicketRequest { ... }
-   ```
 
-3. Add response DTOs matching each request:
+```csharp
+public class GetSupportTicketsRequest { ... }
+public class CreateSupportTicketRequest { ... }
+```
+
+2. Add response DTOs matching each request:
+
    ```csharp
    public class GetSupportTicketsResponse { ... }
    public class CreateSupportTicketResponse { ... }
    ```
 
-4. Include unit tests in backend to verify deserialization.
+3. Include unit tests in backend to verify deserialization.
 
-5. Update this guide with the new feature section.
+4. Update this guide with the new feature section.
 
 ---
 
