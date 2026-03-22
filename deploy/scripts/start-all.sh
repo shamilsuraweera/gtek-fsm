@@ -21,11 +21,21 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# Resolve Docker Compose command for broad compatibility.
+if docker compose version > /dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose > /dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo "❌ Docker Compose is not available. Install Docker Compose v2 or docker-compose."
+    exit 1
+fi
+
 # 1. Start infrastructure (SQL + API)
 echo "📦 Phase 1: Starting infrastructure (SQL Server + API)..."
-echo "   Command: docker-compose up -d"
+echo "   Command: $COMPOSE_CMD up -d"
 echo ""
-docker-compose up -d
+$COMPOSE_CMD up -d
 
 echo ""
 echo "⏳ Waiting for services to be ready..."
