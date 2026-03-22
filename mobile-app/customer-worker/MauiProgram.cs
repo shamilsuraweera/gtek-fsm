@@ -1,6 +1,8 @@
 ﻿namespace GTEK.FSM.MobileApp;
 
 using GTEK.FSM.MobileApp.Configuration;
+using GTEK.FSM.MobileApp.Services.Api;
+using GTEK.FSM.MobileApp.Services.Identity;
 using GTEK.FSM.MobileApp.State;
 
 public static class MauiProgram
@@ -23,6 +25,18 @@ public static class MauiProgram
 
 		// Environment-aware API configuration
 		builder.Services.AddSingleton<ApiEndpointConfiguration>();
+		builder.Services.AddSingleton<IIdentityTokenProvider, EnvironmentIdentityTokenProvider>();
+		builder.Services.AddSingleton<IAuthenticatedApiProbeService>(serviceProvider =>
+		{
+			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
+			var tokenProvider = serviceProvider.GetRequiredService<IIdentityTokenProvider>();
+			var httpClient = new HttpClient
+			{
+				BaseAddress = new Uri(config.ApiBaseUrl),
+			};
+
+			return new AuthenticatedApiProbeService(httpClient, tokenProvider);
+		});
 
 		return builder.Build();
 	}
