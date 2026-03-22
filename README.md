@@ -56,3 +56,37 @@ Notes:
 
 - `backend/api/.env.auth.local` is gitignored.
 - Do not commit real signing keys to repository-tracked files.
+
+## Mobile Development Prerequisites (Phase 6)
+
+For Linux/Ubuntu mobile development, use Android target builds.
+
+Required:
+
+- .NET 10 SDK
+- MAUI workload: `dotnet workload install maui`
+- Android SDK (API 21+) and Java SDK
+- Android emulator (or physical Android device)
+
+Environment setup (Linux):
+
+- Set Android SDK path in your shell profile:
+  - `export ANDROID_SDK_ROOT=/path/to/Android/Sdk`
+  - `export ANDROID_HOME=$ANDROID_SDK_ROOT`
+- Optional Java SDK override if auto-detection is restricted:
+  - `export JavaSdkDirectory=/path/to/jdk`
+
+Optional `.env` entries for mobile:
+
+- `MOBILE_ENSURE_BACKEND=1` to auto-start `sqlserver` and `backend-api` when running mobile script
+- `GTEK_FSM_API_BASE_URL` to fully override API base URL used by mobile app
+- `GTEK_FSM_API_PORT` to override debug local API port (default `5000`)
+
+Run mobile build/start script:
+
+- `./deploy/scripts/run-mobile-app.sh`
+
+Then run app on emulator/device from project root:
+
+- Emulator: `dotnet maui run -f net10.0-android -c Debug`
+- Device: `dotnet maui run -f net10.0-android -c Debug --device <device-id>`
