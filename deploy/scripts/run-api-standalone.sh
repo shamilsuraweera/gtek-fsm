@@ -19,10 +19,20 @@ if ! docker info > /dev/null 2>&1; then
     exit 1
 fi
 
+# Resolve Docker Compose command for broad compatibility.
+if docker compose version > /dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose > /dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+else
+    echo "❌ Docker Compose is not available. Install Docker Compose v2 or docker-compose."
+    exit 1
+fi
+
 # Ensure SQL Server container is running
 if ! docker ps --filter "name=sqlserver" --quiet | grep -q .; then
     echo "🐳 Starting SQL Server container..."
-    docker-compose up -d sqlserver
+    $COMPOSE_CMD up -d sqlserver
     echo "⏳ Waiting for SQL Server to be healthy..."
     sleep 15
 fi
