@@ -8,10 +8,32 @@ set -e
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
+# Detect Docker Compose command (v2: `docker compose`, v1: `docker-compose`).
+if docker compose version > /dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+elif command -v docker-compose > /dev/null 2>&1; then
+    COMPOSE_CMD="docker-compose"
+else
+    COMPOSE_CMD=""
+fi
+
 echo "=========================================="
 echo "Building Mobile App"
 echo "=========================================="
 echo ""
+
+# Optional helper: start backend dependencies for end-to-end mobile testing.
+if [[ "${MOBILE_ENSURE_BACKEND:-0}" == "1" ]]; then
+    if [[ -n "$COMPOSE_CMD" ]]; then
+        echo "🐳 Starting backend dependencies (sqlserver + backend-api)..."
+        $COMPOSE_CMD up -d sqlserver backend-api
+        echo ""
+    else
+        echo "⚠️  Docker Compose not found. Skipping backend dependency startup."
+        echo "   Install Docker Compose or run backend services manually."
+        echo ""
+    fi
+fi
 
 # Detect platform
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
@@ -41,6 +63,7 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "✅ Mobile app built successfully!"
     echo "   To run on emulator: dotnet maui run -f net10.0-android -c Debug"
     echo "   To run on device: dotnet maui run -f net10.0-android -c Debug --device <device-id>"
+    echo "   Optional backend bootstrap: MOBILE_ENSURE_BACKEND=1 ./deploy/scripts/run-mobile-app.sh"
     
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo "🍎 macOS detected - can build for iOS, macOS, and Android"
@@ -57,6 +80,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
     echo ""
     echo "✅ Mobile app built for iOS!"
     echo "   To run on simulator: dotnet maui run -f net10.0-ios -c Debug"
+    echo "   Optional backend bootstrap: MOBILE_ENSURE_BACKEND=1 ./deploy/scripts/run-mobile-app.sh"
     
 else
     echo "❌ Unsupported platform: $OSTYPE"
