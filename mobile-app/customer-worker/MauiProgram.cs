@@ -2,6 +2,7 @@
 
 using GTEK.FSM.MobileApp.Configuration;
 using GTEK.FSM.MobileApp.Services.Api;
+using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
 using GTEK.FSM.MobileApp.State;
 
@@ -23,21 +24,24 @@ public static class MauiProgram
 		builder.Services.AddSingleton<TenantContextState>();
 		builder.Services.AddSingleton<ThemePreferenceState>();
 		builder.Services.AddSingleton<ConnectivityRecoveryState>();
+		builder.Services.AddSingleton<MobileDiagnosticsState>();
 
 		// Environment-aware API configuration
 		builder.Services.AddSingleton<ApiEndpointConfiguration>();
+		builder.Services.AddSingleton<IMobileDiagnosticsLogger, MobileDiagnosticsLogger>();
 		builder.Services.AddSingleton<IIdentityTokenProvider, EnvironmentIdentityTokenProvider>();
 		builder.Services.AddSingleton<ITenantContextInitializer, JwtTenantContextInitializer>();
 		builder.Services.AddSingleton<IAuthenticatedApiProbeService>(serviceProvider =>
 		{
 			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
 			var tokenProvider = serviceProvider.GetRequiredService<IIdentityTokenProvider>();
+			var diagnostics = serviceProvider.GetRequiredService<IMobileDiagnosticsLogger>();
 			var httpClient = new HttpClient
 			{
 				BaseAddress = new Uri(config.ApiBaseUrl),
 			};
 
-			return new AuthenticatedApiProbeService(httpClient, tokenProvider);
+			return new AuthenticatedApiProbeService(httpClient, tokenProvider, diagnostics);
 		});
 
 		builder.Services.AddSingleton<ITenantOwnershipProbeService>(serviceProvider =>
@@ -45,12 +49,13 @@ public static class MauiProgram
 			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
 			var tokenProvider = serviceProvider.GetRequiredService<IIdentityTokenProvider>();
 			var tenantContextState = serviceProvider.GetRequiredService<TenantContextState>();
+			var diagnostics = serviceProvider.GetRequiredService<IMobileDiagnosticsLogger>();
 			var httpClient = new HttpClient
 			{
 				BaseAddress = new Uri(config.ApiBaseUrl),
 			};
 
-			return new TenantOwnershipProbeService(httpClient, tokenProvider, tenantContextState);
+			return new TenantOwnershipProbeService(httpClient, tokenProvider, tenantContextState, diagnostics);
 		});
 
 		builder.Services.AddSingleton<IConnectivityRecoveryService, ConnectivityRecoveryService>();
