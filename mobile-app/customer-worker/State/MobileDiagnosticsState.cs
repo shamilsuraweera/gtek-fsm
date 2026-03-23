@@ -29,4 +29,9 @@ public sealed class MobileDiagnosticsState
             _events.Dequeue();
         }
     }
+
+    public void Clear()
+    {
+        _events.Clear();
+    }
 }

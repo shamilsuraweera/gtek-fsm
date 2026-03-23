@@ -65,4 +65,13 @@ public sealed class ConnectivityRecoveryState
         CurrentState = MobileFetchState.Failed;
         Message = message;
     }
+
+    public void Clear()
+    {
+        CurrentState = MobileFetchState.Idle;
+        Message = string.Empty;
+        RetryAttempts = 0;
+        MaxRetries = 0;
+        LastSuccessUtc = null;
+    }
 }

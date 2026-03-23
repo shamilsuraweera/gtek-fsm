@@ -9,5 +9,8 @@
                HorizontalOptions="Center" />
         <Label Text="Placeholder — content will be added in Phase 6."
                HorizontalOptions="Center" />
+        <Button Text="Log Out"
+                Margin="0,24,0,0"
+                Clicked="OnLogoutClicked" />
     </VerticalStackLayout>
 </ContentPage>

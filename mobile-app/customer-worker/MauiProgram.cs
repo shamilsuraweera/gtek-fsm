@@ -4,6 +4,7 @@ using GTEK.FSM.MobileApp.Configuration;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
+using GTEK.FSM.MobileApp.Services.Security;
 using GTEK.FSM.MobileApp.State;
 
 public static class MauiProgram
@@ -29,6 +30,7 @@ public static class MauiProgram
 		// Environment-aware API configuration
 		builder.Services.AddSingleton<ApiEndpointConfiguration>();
 		builder.Services.AddSingleton<IMobileDiagnosticsLogger, MobileDiagnosticsLogger>();
+		builder.Services.AddSingleton<IMobileSecurityLifecycleService, MobileSecurityLifecycleService>();
 		builder.Services.AddSingleton<IIdentityTokenProvider, EnvironmentIdentityTokenProvider>();
 		builder.Services.AddSingleton<ITenantContextInitializer, JwtTenantContextInitializer>();
 		builder.Services.AddSingleton<IAuthenticatedApiProbeService>(serviceProvider =>
