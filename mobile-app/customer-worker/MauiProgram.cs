@@ -26,6 +26,7 @@ public static class MauiProgram
 		// Environment-aware API configuration
 		builder.Services.AddSingleton<ApiEndpointConfiguration>();
 		builder.Services.AddSingleton<IIdentityTokenProvider, EnvironmentIdentityTokenProvider>();
+		builder.Services.AddSingleton<ITenantContextInitializer, JwtTenantContextInitializer>();
 		builder.Services.AddSingleton<IAuthenticatedApiProbeService>(serviceProvider =>
 		{
 			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
@@ -36,6 +37,19 @@ public static class MauiProgram
 			};
 
 			return new AuthenticatedApiProbeService(httpClient, tokenProvider);
+		});
+
+		builder.Services.AddSingleton<ITenantOwnershipProbeService>(serviceProvider =>
+		{
+			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
+			var tokenProvider = serviceProvider.GetRequiredService<IIdentityTokenProvider>();
+			var tenantContextState = serviceProvider.GetRequiredService<TenantContextState>();
+			var httpClient = new HttpClient
+			{
+				BaseAddress = new Uri(config.ApiBaseUrl),
+			};
+
+			return new TenantOwnershipProbeService(httpClient, tokenProvider, tenantContextState);
 		});
 
 		return builder.Build();
