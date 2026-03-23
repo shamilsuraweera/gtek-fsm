@@ -22,6 +22,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<SessionContextState>();
 		builder.Services.AddSingleton<TenantContextState>();
 		builder.Services.AddSingleton<ThemePreferenceState>();
+		builder.Services.AddSingleton<ConnectivityRecoveryState>();
 
 		// Environment-aware API configuration
 		builder.Services.AddSingleton<ApiEndpointConfiguration>();
@@ -51,6 +52,8 @@ public static class MauiProgram
 
 			return new TenantOwnershipProbeService(httpClient, tokenProvider, tenantContextState);
 		});
+
+		builder.Services.AddSingleton<IConnectivityRecoveryService, ConnectivityRecoveryService>();
 
 		return builder.Build();
 	}

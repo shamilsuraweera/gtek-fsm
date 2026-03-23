@@ -9,9 +9,8 @@ public partial class App : Application
 	public App(
 		ThemePreferenceState themePreferenceState,
 		IIdentityTokenProvider tokenProvider,
-		IAuthenticatedApiProbeService authenticatedApiProbeService,
-		ITenantContextInitializer tenantContextInitializer,
-		ITenantOwnershipProbeService tenantOwnershipProbeService)
+		IConnectivityRecoveryService connectivityRecoveryService,
+		ITenantContextInitializer tenantContextInitializer)
 	{
 		InitializeComponent();
 
@@ -27,13 +26,8 @@ public partial class App : Application
 		// Fire-and-forget probe to validate JWT-authenticated mobile-to-API connectivity when a token is provided.
 		if (!string.IsNullOrWhiteSpace(tokenProvider.GetAccessToken()))
 		{
-			var tenantInitialized = tenantContextInitializer.TryInitializeFromToken();
-			_ = authenticatedApiProbeService.ProbeAuthenticatedAsync();
-
-			if (tenantInitialized)
-			{
-				_ = tenantOwnershipProbeService.ProbeReadBoundaryAsync();
-			}
+			tenantContextInitializer.TryInitializeFromToken();
+			_ = connectivityRecoveryService.EvaluateStartupConnectivityAsync();
 		}
 	}
 }
