@@ -60,6 +60,21 @@ public static class MauiProgram
 			return new TenantOwnershipProbeService(httpClient, tokenProvider, tenantContextState, diagnostics);
 		});
 
+		builder.Services.AddSingleton<OperationalDataQueryService>(serviceProvider =>
+		{
+			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
+			var tokenProvider = serviceProvider.GetRequiredService<IIdentityTokenProvider>();
+			var diagnostics = serviceProvider.GetRequiredService<IMobileDiagnosticsLogger>();
+			var httpClient = new HttpClient
+			{
+				BaseAddress = new Uri(config.ApiBaseUrl),
+			};
+
+			return new OperationalDataQueryService(httpClient, tokenProvider, diagnostics);
+		});
+		builder.Services.AddSingleton<IRequestQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+		builder.Services.AddSingleton<IJobQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+
 		builder.Services.AddSingleton<IConnectivityRecoveryService, ConnectivityRecoveryService>();
 
 		return builder.Build();

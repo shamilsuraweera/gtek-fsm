@@ -43,6 +43,23 @@
                                                     TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
                                           <Label x:Name="SelectedRequestMetaLabel" FontSize="12" />
 
+                                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                                  <Button Text="Escalate"
+                                                         FontSize="12"
+                                                         Padding="8,6"
+                                                         Clicked="OnEscalateRequestClicked" />
+                                                  <Button Grid.Column="1"
+                                                         Text="Refresh ETA"
+                                                         FontSize="12"
+                                                         Padding="8,6"
+                                                         Clicked="OnRefreshEtaClicked" />
+                                                  <Button Grid.Column="2"
+                                                         Text="Message Tech"
+                                                         FontSize="12"
+                                                         Padding="8,6"
+                                                         Clicked="OnMessageTechnicianClicked" />
+                                            </Grid>
+
                                           <Label Text="Status Tracking" FontSize="15" FontAttributes="Bold" Margin="0,6,0,0" />
                                           <VerticalStackLayout x:Name="StatusTimelineLayout" Spacing="6" />
                                    </VerticalStackLayout>

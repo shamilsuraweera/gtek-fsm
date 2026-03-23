@@ -44,6 +44,28 @@
                             </VerticalStackLayout>
                      </Border>
 
+                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <VerticalStackLayout Spacing="8">
+                                   <Label Text="Quick Actions" FontSize="16" FontAttributes="Bold" />
+                                   <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                          <Button Text="Track Job"
+                                                  FontSize="12"
+                                                  Padding="8,6"
+                                                  Clicked="OnTrackActiveJobClicked" />
+                                          <Button Grid.Column="1"
+                                                  Text="Approve Quote"
+                                                  FontSize="12"
+                                                  Padding="8,6"
+                                                  Clicked="OnApproveQuoteClicked" />
+                                          <Button Grid.Column="2"
+                                                  Text="Contact Support"
+                                                  FontSize="12"
+                                                  Padding="8,6"
+                                                  Clicked="OnContactSupportClicked" />
+                                   </Grid>
+                            </VerticalStackLayout>
+                     </Border>
+
                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                             <Button Text="View Requests" Clicked="OnViewRequestsClicked" />
                             <Button Grid.Column="1" Text="Edit Profile" Clicked="OnEditProfileClicked" />

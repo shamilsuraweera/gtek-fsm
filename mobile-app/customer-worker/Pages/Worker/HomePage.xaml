@@ -41,6 +41,28 @@
                             </VerticalStackLayout>
                      </Border>
 
+                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <VerticalStackLayout Spacing="8">
+                                   <Label Text="Quick Actions" FontSize="16" FontAttributes="Bold" />
+                                   <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                          <Button Text="Accept Top"
+                                                  FontSize="12"
+                                                  Padding="8,6"
+                                                  Clicked="OnAcceptTopJobClicked" />
+                                          <Button Grid.Column="1"
+                                                  Text="Update Status"
+                                                  FontSize="12"
+                                                  Padding="8,6"
+                                                  Clicked="OnUpdateStatusClicked" />
+                                          <Button Grid.Column="2"
+                                                  Text="Call Dispatch"
+                                                  FontSize="12"
+                                                  Padding="8,6"
+                                                  Clicked="OnCallDispatchClicked" />
+                                   </Grid>
+                            </VerticalStackLayout>
+                     </Border>
+
                      <Button Text="Open Jobs Workspace" Clicked="OnOpenJobsWorkspaceClicked" />
               </VerticalStackLayout>
        </ScrollView>

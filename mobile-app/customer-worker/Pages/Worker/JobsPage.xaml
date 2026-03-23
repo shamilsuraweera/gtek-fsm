@@ -47,6 +47,23 @@
                                                  <Button Grid.Column="1" Text="Open Map" Clicked="OnOpenMapClicked" />
                                           </Grid>
 
+                                            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                                  <Button Text="Start Travel"
+                                                         FontSize="12"
+                                                         Padding="8,6"
+                                                         Clicked="OnStartTravelClicked" />
+                                                  <Button Grid.Column="1"
+                                                         Text="Mark On-Site"
+                                                         FontSize="12"
+                                                         Padding="8,6"
+                                                         Clicked="OnMarkOnSiteClicked" />
+                                                  <Button Grid.Column="2"
+                                                         Text="Complete"
+                                                         FontSize="12"
+                                                         Padding="8,6"
+                                                         Clicked="OnCompleteJobClicked" />
+                                            </Grid>
+
                                           <Label Text="Status Update" FontSize="15" FontAttributes="Bold" Margin="0,4,0,0" />
                                           <Picker x:Name="StatusPicker" Title="Select new status" />
                                           <Button Text="Publish Status" Clicked="OnPublishStatusClicked" />

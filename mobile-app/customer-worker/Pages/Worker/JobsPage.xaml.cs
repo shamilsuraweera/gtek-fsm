@@ -1,10 +1,13 @@
 namespace GTEK.FSM.MobileApp.Pages.Worker;
 
 using System.Collections.ObjectModel;
+using GTEK.FSM.MobileApp.Services.Api;
+using Microsoft.Extensions.DependencyInjection;
 
 public partial class JobsPage : ContentPage
 {
     private readonly ObservableCollection<WorkerJobViewModel> _jobs;
+    private readonly IJobQueryService _jobQueryService;
     private WorkerJobViewModel _selectedJob;
 
     public JobsPage()
@@ -13,6 +16,7 @@ public partial class JobsPage : ContentPage
 
         StatusPicker.ItemsSource = new[]
         {
+            "Available",
             "Accepted",
             "On Route",
             "On Site",
@@ -57,6 +61,9 @@ public partial class JobsPage : ContentPage
         JobsCollectionView.ItemsSource = _jobs;
         JobsCollectionView.SelectedItem = _jobs[0];
         RenderSelectedJob(_jobs[0]);
+
+        _jobQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IJobQueryService>();
+        _ = LoadLiveJobsAsync();
     }
 
     private void OnJobSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -124,6 +131,21 @@ public partial class JobsPage : ContentPage
         await DisplayAlertAsync("Navigation", $"Map launch placeholder for {_selectedJob.Location}.", "OK");
     }
 
+    private void OnStartTravelClicked(object sender, EventArgs e)
+    {
+        ApplyQuickStatus("On Route");
+    }
+
+    private void OnMarkOnSiteClicked(object sender, EventArgs e)
+    {
+        ApplyQuickStatus("On Site");
+    }
+
+    private void OnCompleteJobClicked(object sender, EventArgs e)
+    {
+        ApplyQuickStatus("Completed");
+    }
+
     private void RenderSelectedJob(WorkerJobViewModel selected)
     {
         _selectedJob = selected;
@@ -151,6 +173,108 @@ public partial class JobsPage : ContentPage
             "On Route" => Color.FromArgb("#B45309"),
             "Accepted" => Color.FromArgb("#166534"),
             _ => Color.FromArgb("#6B7280"),
+        };
+    }
+
+    private void ApplyQuickStatus(string quickStatus)
+    {
+        if (_selectedJob is null)
+        {
+            return;
+        }
+
+        _selectedJob.StatusLabel = quickStatus;
+        _selectedJob.StatusColor = ResolveStatusColor(quickStatus);
+
+        if (quickStatus == "Accepted")
+        {
+            _selectedJob.Accepted = true;
+        }
+
+        StatusPicker.SelectedItem = quickStatus;
+        StatusResultLabel.Text = $"Quick action applied: '{quickStatus}' for {_selectedJob.Id} at {DateTime.Now:t}.";
+        RefreshJobsList();
+        RenderSelectedJob(_selectedJob);
+    }
+
+    private async Task LoadLiveJobsAsync()
+    {
+        if (_jobQueryService is null)
+        {
+            return;
+        }
+
+        var result = await _jobQueryService.QueryJobsAsync();
+        if (!result.IsLive || result.Items.Count == 0)
+        {
+            return;
+        }
+
+        _jobs.Clear();
+        foreach (var item in result.Items)
+        {
+            var status = NormalizeStatus(item.Status);
+            _jobs.Add(new WorkerJobViewModel(
+                id: item.JobId ?? "JOB-UNKNOWN",
+                title: item.Title ?? "Untitled Job",
+                description: BuildDescription(item),
+                location: BuildLocation(item),
+                priorityLabel: "Live",
+                priorityColor: Color.FromArgb("#0F6ABD"),
+                statusLabel: status,
+                statusColor: ResolveStatusColor(status),
+                accepted: IsAcceptedStatus(status)));
+        }
+
+        if (_jobs.Count > 0)
+        {
+            JobsCollectionView.SelectedItem = _jobs[0];
+            RenderSelectedJob(_jobs[0]);
+        }
+    }
+
+    private static string BuildDescription(GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses.GetJobsResponse item)
+    {
+        var requestReference = string.IsNullOrWhiteSpace(item.RequestId) ? "N/A" : item.RequestId;
+        return $"Linked request: {requestReference}";
+    }
+
+    private static string BuildLocation(GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses.GetJobsResponse item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.AssignedTo))
+        {
+            return $"Assigned to {item.AssignedTo}";
+        }
+
+        return "Field location unavailable";
+    }
+
+    private static bool IsAcceptedStatus(string status)
+    {
+        return status is "Accepted" or "On Route" or "On Site" or "In Progress" or "Completed";
+    }
+
+    private static string NormalizeStatus(string status)
+    {
+        if (string.IsNullOrWhiteSpace(status))
+        {
+            return "Available";
+        }
+
+        var normalized = status.Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "new" => "Available",
+            "pending" => "Available",
+            "accepted" => "Accepted",
+            "onroute" => "On Route",
+            "on_route" => "On Route",
+            "onsite" => "On Site",
+            "on_site" => "On Site",
+            "inprogress" => "In Progress",
+            "in_progress" => "In Progress",
+            "completed" => "Completed",
+            _ => status,
         };
     }
 }
