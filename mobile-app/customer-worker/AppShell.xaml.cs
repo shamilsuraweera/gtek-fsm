@@ -5,6 +5,7 @@ using CustomerRequestsPage = GTEK.FSM.MobileApp.Pages.Customer.RequestsPage;
 using CustomerJobsPage = GTEK.FSM.MobileApp.Pages.Customer.JobsPage;
 using CustomerProfilePage = GTEK.FSM.MobileApp.Pages.Customer.ProfilePage;
 using CustomerSettingsPage = GTEK.FSM.MobileApp.Pages.Customer.SettingsPage;
+using GTEK.FSM.MobileApp.Navigation;
 using GTEK.FSM.MobileApp.State;
 using WorkerHomePage = GTEK.FSM.MobileApp.Pages.Worker.HomePage;
 using WorkerRequestsPage = GTEK.FSM.MobileApp.Pages.Worker.RequestsPage;
@@ -43,10 +44,9 @@ public partial class AppShell : Shell
     private void ApplyRoleGate(SessionContextState sessionContextState)
     {
         var role = (sessionContextState.Role ?? string.Empty).Trim();
-        var isWorker = ContainsRole(role, "worker");
-        var isCustomer = ContainsRole(role, "customer");
+        var visibility = RoleGateResolver.Resolve(role);
 
-        if (isWorker && !isCustomer)
+        if (visibility == MobileSectionVisibility.WorkerOnly)
         {
             CustomerTab.IsVisible = false;
             WorkerTab.IsVisible = true;
@@ -54,7 +54,7 @@ public partial class AppShell : Shell
             return;
         }
 
-        if (isCustomer && !isWorker)
+        if (visibility == MobileSectionVisibility.CustomerOnly)
         {
             WorkerTab.IsVisible = false;
             CustomerTab.IsVisible = true;
@@ -64,16 +64,5 @@ public partial class AppShell : Shell
 
         CustomerTab.IsVisible = true;
         WorkerTab.IsVisible = true;
-    }
-
-    private static bool ContainsRole(string rawRole, string expectedRole)
-    {
-        if (string.IsNullOrWhiteSpace(rawRole))
-        {
-            return false;
-        }
-
-        var tokens = rawRole.Split(new[] { ',', ';', ' ', '|' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        return tokens.Any(token => string.Equals(token, expectedRole, StringComparison.OrdinalIgnoreCase));
     }
 }
