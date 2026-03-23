@@ -99,3 +99,11 @@ Recovery-focused notes:
 - Emulator down: use `--start-emulator-if-down` and set `MOBILE_EMULATOR_NAME=<avd-name>`.
 - API port conflict: with `MOBILE_ENSURE_BACKEND=1`, recovery mode (`MOBILE_RECOVER=1`, default) skips backend startup if port is busy and keeps using the existing API endpoint.
 - Stale build cache: use `--clear-cache` or rely on automatic single retry recovery when a build fails.
+
+Detailed mobile setup and troubleshooting runbook:
+
+- `mobile-app/MOBILE_APP_DEVELOPMENT_RUNBOOK.md`
+
+Phase completion and handoff document:
+
+- `mobile-app/PHASE6_COMPLETION_HANDOFF.md`
