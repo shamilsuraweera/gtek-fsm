@@ -6,4 +6,14 @@ public partial class HomePage : ContentPage
     {
         InitializeComponent();
     }
+
+    private async void OnViewRequestsClicked(object sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("//CustomerRequests");
+    }
+
+    private async void OnEditProfileClicked(object sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("//CustomerProfile");
+    }
 }

@@ -6,4 +6,9 @@ public partial class HomePage : ContentPage
     {
         InitializeComponent();
     }
+
+    private async void OnOpenJobsWorkspaceClicked(object sender, EventArgs e)
+    {
+        await Shell.Current.GoToAsync("//WorkerJobs");
+    }
 }
