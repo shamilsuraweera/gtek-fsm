@@ -11,6 +11,7 @@ public partial class App : Application
 
 	public App(
 		ThemePreferenceState themePreferenceState,
+		SessionContextState sessionContextState,
 		IIdentityTokenProvider tokenProvider,
 		IConnectivityRecoveryService connectivityRecoveryService,
 		ITenantContextInitializer tenantContextInitializer,
@@ -26,8 +27,6 @@ public partial class App : Application
 			_ => AppTheme.Unspecified
 		};
 
-		MainPage = new AppShell();
-
 		// Fire-and-forget probe to validate JWT-authenticated mobile-to-API connectivity when a token is provided.
 		if (!string.IsNullOrWhiteSpace(tokenProvider.GetAccessToken()))
 		{
@@ -40,6 +39,8 @@ public partial class App : Application
 			tenantContextInitializer.TryInitializeFromToken();
 			_ = connectivityRecoveryService.EvaluateStartupConnectivityAsync();
 		}
+
+		MainPage = new AppShell(sessionContextState);
 	}
 
 	protected override void OnSleep()

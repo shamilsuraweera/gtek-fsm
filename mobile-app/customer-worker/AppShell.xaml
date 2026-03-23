@@ -10,7 +10,7 @@
 
     <TabBar Route="RootTabs">
         <!-- Customer section -->
-        <Tab Title="Customer" Route="CustomerSection">
+        <Tab x:Name="CustomerTab" Title="Customer" Route="CustomerSection">
             <ShellContent
                 Title="Home"
                 ContentTemplate="{DataTemplate customer:HomePage}"
@@ -34,7 +34,7 @@
         </Tab>
 
         <!-- Worker section -->
-        <Tab Title="Worker" Route="WorkerSection">
+        <Tab x:Name="WorkerTab" Title="Worker" Route="WorkerSection">
             <ShellContent
                 Title="Home"
                 ContentTemplate="{DataTemplate worker:HomePage}"

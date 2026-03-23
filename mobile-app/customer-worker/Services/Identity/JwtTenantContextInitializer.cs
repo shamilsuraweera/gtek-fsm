@@ -53,13 +53,47 @@ public sealed class JwtTenantContextInitializer : ITenantContextInitializer
             ? subProperty.GetString() ?? string.Empty
             : string.Empty;
 
-        var role = payload.TryGetProperty("role", out var roleProperty)
-            ? roleProperty.GetString() ?? string.Empty
-            : string.Empty;
+        var role = ResolveRole(payload);
 
         _tenantContextState.Update(tenantId, "JWT tenant context");
         _sessionContextState.Update(userId, role, isSessionActive: true);
         return true;
+    }
+
+    private static string ResolveRole(JsonElement payload)
+    {
+        if (payload.TryGetProperty("role", out var roleProperty))
+        {
+            var role = TryReadRoleProperty(roleProperty);
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                return role;
+            }
+        }
+
+        if (payload.TryGetProperty("roles", out var rolesProperty))
+        {
+            var role = TryReadRoleProperty(rolesProperty);
+            if (!string.IsNullOrWhiteSpace(role))
+            {
+                return role;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static string TryReadRoleProperty(JsonElement property)
+    {
+        return property.ValueKind switch
+        {
+            JsonValueKind.String => property.GetString() ?? string.Empty,
+            JsonValueKind.Array => string.Join(",", property.EnumerateArray()
+                .Where(element => element.ValueKind == JsonValueKind.String)
+                .Select(element => element.GetString())
+                .Where(value => !string.IsNullOrWhiteSpace(value))),
+            _ => string.Empty,
+        };
     }
 
     private static bool TryReadPayload(string jwt, out JsonElement payload)
