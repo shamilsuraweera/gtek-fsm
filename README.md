@@ -85,8 +85,17 @@ Optional `.env` entries for mobile:
 Run mobile build/start script:
 
 - `./deploy/scripts/run-mobile-app.sh`
+- Preflight only (idempotent environment checks): `./deploy/scripts/run-mobile-app.sh --preflight-only`
+- Build + run on Android with recovery enabled: `./deploy/scripts/run-mobile-app.sh --run`
+- Force stale-cache cleanup before build: `./deploy/scripts/run-mobile-app.sh --clear-cache`
 
 Then run app on emulator/device from project root:
 
 - Emulator: `dotnet maui run -f net10.0-android -c Debug`
 - Device: `dotnet maui run -f net10.0-android -c Debug --device <device-id>`
+
+Recovery-focused notes:
+
+- Emulator down: use `--start-emulator-if-down` and set `MOBILE_EMULATOR_NAME=<avd-name>`.
+- API port conflict: with `MOBILE_ENSURE_BACKEND=1`, recovery mode (`MOBILE_RECOVER=1`, default) skips backend startup if port is busy and keeps using the existing API endpoint.
+- Stale build cache: use `--clear-cache` or rely on automatic single retry recovery when a build fails.
