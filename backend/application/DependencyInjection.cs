@@ -1,5 +1,6 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.ServiceRequests;
+using GTEK.FSM.Backend.Application.Subscriptions;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,6 +18,8 @@ public static class DependencyInjection
         services.AddScoped<IServiceRequestAssignmentService, ServiceRequestAssignmentService>();
         services.AddScoped<IServiceRequestQueryService, ServiceRequestQueryService>();
         services.AddScoped<IJobQueryService, JobQueryService>();
+        services.AddScoped<ISubscriptionQueryService, SubscriptionQueryService>();
+        services.AddScoped<ISubscriptionManagementService, SubscriptionManagementService>();
 
         return services;
     }

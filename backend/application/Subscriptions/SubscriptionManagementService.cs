@@ -1,0 +1,115 @@
+using GTEK.FSM.Backend.Application.Identity;
+using GTEK.FSM.Backend.Application.Persistence.Repositories;
+using GTEK.FSM.Backend.Application.Persistence.Transactions;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
+
+namespace GTEK.FSM.Backend.Application.Subscriptions;
+
+internal sealed class SubscriptionManagementService : ISubscriptionManagementService
+{
+    private static readonly HashSet<string> AllowedPlans =
+        new(StringComparer.OrdinalIgnoreCase) { "FREE", "PRO", "ENTERPRISE" };
+
+    private readonly ISubscriptionRepository subscriptionRepository;
+    private readonly IUserRepository userRepository;
+    private readonly IUnitOfWork unitOfWork;
+
+    public SubscriptionManagementService(
+        ISubscriptionRepository subscriptionRepository,
+        IUserRepository userRepository,
+        IUnitOfWork unitOfWork)
+    {
+        this.subscriptionRepository = subscriptionRepository;
+        this.userRepository = userRepository;
+        this.unitOfWork = unitOfWork;
+    }
+
+    public async Task<OrganizationSubscriptionQueryResult> UpdateOrganizationAsync(
+        AuthenticatedPrincipal principal,
+        UpdateOrganizationSubscriptionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        if (!IsManagementRole(principal))
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                "Role is not authorized to update subscription management.",
+                "AUTH_FORBIDDEN_ROLE",
+                403);
+        }
+
+        var normalizedPlanCode = request.PlanCode?.Trim();
+        if (string.IsNullOrWhiteSpace(normalizedPlanCode) || !AllowedPlans.Contains(normalizedPlanCode))
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                "planCode must be one of FREE, PRO, ENTERPRISE.",
+                "VALIDATION_PLAN_CODE_INVALID",
+                400);
+        }
+
+        if (!request.UserLimit.HasValue)
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                "userLimit is required.",
+                "VALIDATION_USER_LIMIT_REQUIRED",
+                400);
+        }
+
+        var subscription = await this.subscriptionRepository.GetActiveForUpdateByTenantAsync(principal.TenantId, cancellationToken);
+        if (subscription is null)
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                "Active subscription was not found for tenant.",
+                "SUBSCRIPTION_NOT_FOUND",
+                404);
+        }
+
+        var users = await this.userRepository.ListByTenantAsync(principal.TenantId, cancellationToken);
+        var activeUsers = users.Count;
+        if (request.UserLimit.Value < activeUsers)
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                "userLimit cannot be less than current active tenant users.",
+                "SUBSCRIPTION_USER_LIMIT_CONFLICT",
+                409);
+        }
+
+        try
+        {
+            subscription.ChangePlan(normalizedPlanCode.ToUpperInvariant());
+            subscription.ChangeUserLimit(request.UserLimit.Value);
+            this.subscriptionRepository.Update(subscription);
+            await this.unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                ex.Message,
+                "VALIDATION_USER_LIMIT_INVALID",
+                400);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                ex.Message,
+                "SUBSCRIPTION_UPDATE_INVALID",
+                400);
+        }
+
+        return OrganizationSubscriptionQueryResult.Success(
+            new QueriedOrganizationSubscription(
+                SubscriptionId: subscription.Id,
+                TenantId: subscription.TenantId,
+                PlanCode: subscription.PlanCode,
+                UserLimit: subscription.UserLimit,
+                ActiveUsers: activeUsers,
+                AvailableUserSlots: Math.Max(0, subscription.UserLimit - activeUsers),
+                StartsOnUtc: subscription.StartsOnUtc,
+                EndsOnUtc: subscription.EndsOnUtc),
+            "Subscription updated.");
+    }
+
+    private static bool IsManagementRole(AuthenticatedPrincipal principal)
+    {
+        return principal.IsInRole("Manager") || principal.IsInRole("Admin");
+    }
+}

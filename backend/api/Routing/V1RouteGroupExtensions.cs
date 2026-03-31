@@ -1,11 +1,14 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.ServiceRequests;
+using GTEK.FSM.Backend.Application.Subscriptions;
 using Microsoft.AspNetCore.Http;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
 
 namespace GTEK.FSM.Backend.Api.Routing;
@@ -371,6 +374,159 @@ public static class V1RouteGroupExtensions
             return Results.Ok(envelope);
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
+
+        v1.MapGet("/management/subscriptions/organization", async (
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            ISubscriptionQueryService subscriptionQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await subscriptionQueryService.GetOrganizationAsync(principal, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "SUBSCRIPTION_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetOrganizationSubscriptionResponse
+            {
+                SubscriptionId = query.Payload.SubscriptionId.ToString(),
+                TenantId = query.Payload.TenantId.ToString(),
+                PlanCode = query.Payload.PlanCode,
+                UserLimit = query.Payload.UserLimit,
+                ActiveUsers = query.Payload.ActiveUsers,
+                AvailableUserSlots = query.Payload.AvailableUserSlots,
+                StartsOnUtc = query.Payload.StartsOnUtc,
+                EndsOnUtc = query.Payload.EndsOnUtc,
+            };
+
+            return Results.Ok(ApiResponse<GetOrganizationSubscriptionResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPatch("/management/subscriptions/organization", async (
+            UpdateOrganizationSubscriptionRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            ISubscriptionManagementService subscriptionManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var update = await subscriptionManagementService.UpdateOrganizationAsync(principal, request, cancellationToken);
+            if (!update.IsSuccess || update.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    update.StatusCode ?? StatusCodes.Status400BadRequest,
+                    update.ErrorCode ?? "SUBSCRIPTION_UPDATE_FAILED",
+                    update.Message);
+            }
+
+            var payload = new GetOrganizationSubscriptionResponse
+            {
+                SubscriptionId = update.Payload.SubscriptionId.ToString(),
+                TenantId = update.Payload.TenantId.ToString(),
+                PlanCode = update.Payload.PlanCode,
+                UserLimit = update.Payload.UserLimit,
+                ActiveUsers = update.Payload.ActiveUsers,
+                AvailableUserSlots = update.Payload.AvailableUserSlots,
+                StartsOnUtc = update.Payload.StartsOnUtc,
+                EndsOnUtc = update.Payload.EndsOnUtc,
+            };
+
+            return Results.Ok(ApiResponse<GetOrganizationSubscriptionResponse>.Ok(
+                data: payload,
+                message: update.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapGet("/management/subscriptions/users", async (
+            [AsParameters] GetSubscriptionUsersRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            ISubscriptionQueryService subscriptionQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await subscriptionQueryService.GetUsersAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "SUBSCRIPTION_USERS_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetSubscriptionUsersListResponse
+            {
+                Items = query.Payload.Items
+                    .Select(x => new GetSubscriptionUserResponse
+                    {
+                        UserId = x.UserId.ToString(),
+                        DisplayName = x.DisplayName,
+                        ExternalIdentity = x.ExternalIdentity,
+                        IsWithinCurrentPlanLimit = x.IsWithinCurrentPlanLimit,
+                    })
+                    .ToArray(),
+                Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
+                {
+                    Offset = (query.Payload.Page - 1) * query.Payload.PageSize,
+                    Limit = query.Payload.PageSize,
+                    Total = query.Payload.Total,
+                },
+            };
+
+            return Results.Ok(ApiResponse<GetSubscriptionUsersListResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (

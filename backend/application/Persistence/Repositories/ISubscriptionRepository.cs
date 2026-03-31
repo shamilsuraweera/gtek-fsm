@@ -9,6 +9,8 @@ public interface ISubscriptionRepository : IRepository<Subscription>
 
     Task<Subscription?> GetActiveByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
+    Task<Subscription?> GetActiveForUpdateByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<Subscription>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Subscription>> QueryAsync(SubscriptionQuerySpecification specification, CancellationToken cancellationToken = default);
