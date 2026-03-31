@@ -1,109 +1,338 @@
 # GTEK FSM
 
-GTEK FSM is a multi-tenant Facility Service Management platform with:
+GTEK FSM is a multi-tenant Facility Service Management system built on .NET.
+It includes:
 
-- Mobile app for Customers and Workers
-- Web portal for Management and Customer Care
-- Shared .NET and MS SQL backend
+- Backend API (ASP.NET Core)
+- Web Portal (Blazor)
+- Mobile App (MAUI)
+- SQL Server database
 
-## Current Status
+This guide is an operational manual for local setup, run, and testing.
 
-This repository is in early scaffolding stage (Phase 0).
+## Project Layout
 
-## Repository Structure
+- `backend/` - API, domain, application, and infrastructure layers
+- `web-portal/` - management and customer-care web UI
+- `mobile-app/` - customer/worker MAUI app and tests
+- `database/` - migration and seed scripts
+- `deploy/` - local orchestration scripts
+- `shared/` - shared contracts
+- `config/` - architecture, tenancy, and conventions docs
 
-- `backend/` - API and backend services
-- `web-portal/` - management and customer care web app
-- `mobile-app/` - customer and worker mobile app
-- `shared/` - shared contracts, models, and design assets
-- `database/` - database assets and migration strategy
-- `deploy/` - deployment and runtime orchestration assets
-- `config/` - environment and configuration templates
+## Prerequisites
 
-## Project Boundaries
+Install the following:
 
-- `backend/domain/` - domain entities, value objects, and domain rules
-- `backend/application/` - use cases and application orchestration
-- `backend/infrastructure/` - persistence and external integrations
-- `backend/api/` - HTTP host and transport layer
-- `shared/contracts/` - shared API and cross-client contracts
-- `web-portal/customer-care/` and `web-portal/management/` - web client areas
-- `mobile-app/customer-worker/` - shared mobile client area for customer and worker flows
+- .NET SDK 10+
+- Docker + Docker Compose
+- SQL Server client tools (`sqlcmd`) for seed/verify scripts
+- Git
 
-## Naming Conventions
+For mobile development on Linux:
 
-Naming conventions are defined in `config/naming-conventions.json`.
+- MAUI workload: `dotnet workload install maui`
+- Android SDK + adb + emulator
+- Java SDK
 
-## Tenancy and Architecture Rules
+## One-Time Setup
 
-- Tenancy approach is defined in `config/tenancy-approach.json`.
-- Baseline layering and dependency rules are defined in `config/architecture-rules.json`.
+### 1. Clone and enter the repository
 
-## Roadmap
+```bash
+git clone https://github.com/shamil-suraweera/gtek-fsm.git
+cd gtek-fsm
+```
 
-See `roadmap.txt` for the phase-by-phase plan.
+### 2. Create local environment file
 
-## Local Auth Token Validation (Phase 2)
+```bash
+cp .env.example .env
+```
 
-- Copy `backend/api/.env.auth.example` to `backend/api/.env.auth.local` and set local values.
-- Start API with matching JWT env values (or local appsettings overrides).
-- Generate a token for local/dev checks:
-  - `./backend/api/scripts/dev-auth-token.sh`
-- Run bootstrap auth probe checks (`401`, `403`, `200` paths):
-  - `./backend/api/scripts/dev-auth-bootstrap-check.sh`
+### 3. Set at least these values in `.env`
+
+- `ASPNETCORE_ENVIRONMENT=Development`
+- `SA_PASSWORD=YourStrong!Passw0rd`
+- `SQL_SERVER_PORT=1433`
+- `SQL_DATABASE=GTEK_FSM_Local`
+- `API_PORT=5000`
+- `WEB_PORTAL_PORT=5001`
+
+### 4. Restore dependencies
+
+```bash
+dotnet restore GTEK.FSM.slnx
+```
+
+## Run The System
+
+### Option A: Full Stack Helper
+
+Starts SQL Server + API in Docker and prints the next commands for portal/mobile.
+
+```bash
+./deploy/scripts/start-all.sh
+```
+
+Then in separate terminals:
+
+```bash
+./deploy/scripts/run-web-portal.sh
+./deploy/scripts/run-mobile-app.sh
+./deploy/scripts/dev-logs.sh
+```
+
+### Option B: API + SQL Only
+
+Starts SQL container (if needed), applies migrations, then runs API locally.
+
+```bash
+./deploy/scripts/run-api-standalone.sh
+```
+
+### Option C: Docker Compose Infrastructure
+
+Start API + SQL in detached mode:
+
+```bash
+./deploy/scripts/dev-up.sh
+```
+
+Stop containers:
+
+```bash
+./deploy/scripts/dev-down.sh
+```
+
+Reset containers and volumes:
+
+```bash
+./deploy/scripts/dev-reset.sh
+```
+
+Follow logs:
+
+```bash
+./deploy/scripts/dev-logs.sh
+```
+
+## Database Workflow
+
+Apply migrations:
+
+```bash
+./database/scripts/dev-db-init.sh
+```
+
+Drop and recreate database:
+
+```bash
+./database/scripts/dev-db-reset.sh
+```
+
+Apply SQL seed files from `database/seeds/`:
+
+```bash
+./database/scripts/dev-db-seed.sh
+```
+
+Verify required schema tables and baseline data counts:
+
+```bash
+./database/scripts/dev-db-verify.sh
+```
+
+Do a full refresh (reset + init + seed + verify):
+
+```bash
+./database/scripts/dev-db-refresh.sh
+```
 
 Notes:
 
-- `backend/api/.env.auth.local` is gitignored.
-- Do not commit real signing keys to repository-tracked files.
+- `dev-db-seed.sh` and `dev-db-verify.sh` require `sqlcmd` and a valid `SA_PASSWORD`/`SQL_PASSWORD`.
+- Verification checks tables such as `Tenants`, `Users`, `ServiceRequests`, `Jobs`, and `Subscriptions`.
 
-## Mobile Development Prerequisites (Phase 6)
+## Web Portal
 
-For Linux/Ubuntu mobile development, use Android target builds.
+Run with watch mode and hot reload:
 
-Required:
+```bash
+./deploy/scripts/run-web-portal.sh
+```
 
-- .NET 10 SDK
-- MAUI workload: `dotnet workload install maui`
-- Android SDK (API 21+) and Java SDK
-- Android emulator (or physical Android device)
+Default URL: `http://localhost:5001`
 
-Environment setup (Linux):
+## Mobile App
 
-- Set Android SDK path in your shell profile:
-  - `export ANDROID_SDK_ROOT=/path/to/Android/Sdk`
-  - `export ANDROID_HOME=$ANDROID_SDK_ROOT`
-- Optional Java SDK override if auto-detection is restricted:
-  - `export JavaSdkDirectory=/path/to/jdk`
+Build mobile app:
 
-Optional `.env` entries for mobile:
+```bash
+./deploy/scripts/run-mobile-app.sh
+```
 
-- `MOBILE_ENSURE_BACKEND=1` to auto-start `sqlserver` and `backend-api` when running mobile script
-- `GTEK_FSM_API_BASE_URL` to fully override API base URL used by mobile app
-- `GTEK_FSM_API_PORT` to override debug local API port (default `5000`)
+Preflight only:
 
-Run mobile build/start script:
+```bash
+./deploy/scripts/run-mobile-app.sh --preflight-only
+```
 
-- `./deploy/scripts/run-mobile-app.sh`
-- Preflight only (idempotent environment checks): `./deploy/scripts/run-mobile-app.sh --preflight-only`
-- Build + run on Android with recovery enabled: `./deploy/scripts/run-mobile-app.sh --run`
-- Force stale-cache cleanup before build: `./deploy/scripts/run-mobile-app.sh --clear-cache`
+Build and run (Android):
 
-Then run app on emulator/device from project root:
+```bash
+./deploy/scripts/run-mobile-app.sh --run
+```
 
-- Emulator: `dotnet maui run -f net10.0-android -c Debug`
-- Device: `dotnet maui run -f net10.0-android -c Debug --device <device-id>`
+If your SDK does not expose the `dotnet maui` command, use:
 
-Recovery-focused notes:
+```bash
+dotnet build -t:Run -f net10.0-android -c Debug mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj
+```
 
-- Emulator down: use `--start-emulator-if-down` and set `MOBILE_EMULATOR_NAME=<avd-name>`.
-- API port conflict: with `MOBILE_ENSURE_BACKEND=1`, recovery mode (`MOBILE_RECOVER=1`, default) skips backend startup if port is busy and keeps using the existing API endpoint.
-- Stale build cache: use `--clear-cache` or rely on automatic single retry recovery when a build fails.
+Useful flags:
 
-Detailed mobile setup and troubleshooting runbook:
+- `--device <id>`
+- `--start-emulator-if-down`
+- `--clear-cache`
+- `--api-port <port>`
 
+Useful environment variables:
+
+- `MOBILE_ENSURE_BACKEND=1` (auto-start backend dependencies via compose)
+- `MOBILE_EMULATOR_NAME=<avd-name>`
+- `MOBILE_RECOVER=1` (auto-recover stale cache)
+- `GTEK_FSM_API_BASE_URL=<url>`
+
+## Build Commands
+
+Build everything:
+
+```bash
+dotnet build GTEK.FSM.slnx -c Debug
+```
+
+Build API only:
+
+```bash
+dotnet build backend/api/GTEK.FSM.Backend.Api.csproj -c Debug
+```
+
+Build Web Portal:
+
+```bash
+dotnet build web-portal/GTEK.FSM.WebPortal.csproj -c Debug
+```
+
+Build Mobile Android target:
+
+```bash
+dotnet build mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj -f net10.0-android -c Debug
+```
+
+Equivalent Make targets are available:
+
+```bash
+make build
+make build-api
+make build-portal
+make build-mobile
+```
+
+## Test Commands
+
+Run all tests in solution:
+
+```bash
+dotnet test GTEK.FSM.slnx -c Debug
+```
+
+Run test projects individually:
+
+```bash
+dotnet test backend/domain.tests/GTEK.FSM.Backend.Domain.Tests.csproj -c Debug
+dotnet test backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj -c Debug
+dotnet test web-portal.tests/GTEK.FSM.WebPortal.Tests.csproj -c Debug
+dotnet test mobile-app/customer-worker.tests/GTEK.FSM.MobileApp.Tests.csproj -c Debug
+```
+
+Auth bootstrap probe checks:
+
+```bash
+./backend/api/scripts/dev-auth-bootstrap-check.sh
+```
+
+Generate local token for auth checks:
+
+```bash
+./backend/api/scripts/dev-auth-token.sh
+```
+
+## Service Endpoints
+
+- API base: `http://localhost:5000`
+- API health: `http://localhost:5000/health`
+- Web portal: `http://localhost:5001`
+- SQL Server: `localhost:1433`
+
+## VS Code Task Labels
+
+If you use the VS Code Task Runner, these are mapped already:
+
+- `Build: Solution (restore + build)`
+- `Build: API Only`
+- `Build: Web Portal`
+- `Build: Mobile App (Android)`
+- `Run: API (Standalone - SQL Server in Docker)`
+- `Run: API + SQL Server (Docker Compose)`
+- `Run: Web Portal (Watch + Dev Server)`
+- `Run: Mobile App (Android - Debug)`
+- `Run: All (API + Portal + Mobile)`
+- `Stop: All Services`
+- `Database: Init (Apply Migrations)`
+- `Database: Reset (Drop + Recreate)`
+- `Database: Seed`
+- `Database: Refresh (Reset + Init + Seed + Verify)`
+- `Database: Verify Schema & Data`
+
+## Troubleshooting
+
+Docker not running:
+
+```bash
+docker info
+```
+
+If this fails, start Docker and retry.
+
+Port conflict check:
+
+```bash
+ss -ltnp | grep -E ':5000|:5001|:1433'
+```
+
+Clean build outputs:
+
+```bash
+make clean
+```
+
+Linux debugger attach permission error (`vsdbg has insufficient privileges`):
+
+```bash
+echo 0 | sudo tee /proc/sys/kernel/yama/ptrace_scope
+```
+
+To persist across reboot, configure `kernel.yama.ptrace_scope=0` in `/etc/sysctl.d/`.
+
+MAUI run command not found (`dotnet-maui does not exist`):
+
+```bash
+dotnet build -t:Run -f net10.0-android -c Debug mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj
+```
+
+## Additional Guides
+
+- `LOCAL_SETUP_GUIDE.md`
+- `DOCKER_SETUP_GUIDE.md`
 - `mobile-app/MOBILE_APP_DEVELOPMENT_RUNBOOK.md`
-
-Phase completion and handoff document:
-
-- `mobile-app/PHASE6_COMPLETION_HANDOFF.md`

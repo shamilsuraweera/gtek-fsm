@@ -254,6 +254,28 @@ start_backend_if_requested() {
     echo ""
 }
 
+run_maui_target() {
+    local target_framework="$1"
+    local target_device="${2:-}"
+
+    if dotnet maui --help >/dev/null 2>&1; then
+        if [[ -n "$target_device" ]]; then
+            dotnet maui run -f "$target_framework" -c Debug --device "$target_device"
+        else
+            dotnet maui run -f "$target_framework" -c Debug
+        fi
+        return 0
+    fi
+
+    # Newer SDK installations may not expose the `dotnet maui` verb.
+    # `dotnet build -t:Run` is the compatible CLI fallback.
+    if [[ -n "$target_device" ]]; then
+        export ANDROID_SERIAL="$target_device"
+    fi
+
+    dotnet build -t:Run -f "$target_framework" -c Debug
+}
+
 echo "=========================================="
 echo "Building Mobile App"
 echo "=========================================="
@@ -302,16 +324,17 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
         if [[ -n "$TARGET_DEVICE" ]]; then
             echo "🚀 Running app on device/emulator '$TARGET_DEVICE'..."
-            dotnet maui run -f net10.0-android -c Debug --device "$TARGET_DEVICE"
+            run_maui_target net10.0-android "$TARGET_DEVICE"
         else
             echo "🚀 Running app on default Android target..."
-            dotnet maui run -f net10.0-android -c Debug
+            run_maui_target net10.0-android
         fi
     else
         echo ""
         echo "✅ Mobile app built successfully!"
-        echo "   To run on emulator: dotnet maui run -f net10.0-android -c Debug"
-        echo "   To run on device: dotnet maui run -f net10.0-android -c Debug --device <device-id>"
+        echo "   To run on emulator: ./deploy/scripts/run-mobile-app.sh --run"
+        echo "   To run on device: ./deploy/scripts/run-mobile-app.sh --run --device <device-id>"
+        echo "   CLI fallback if dotnet maui is unavailable: dotnet build -t:Run -f net10.0-android -c Debug mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj"
         echo "   Optional backend bootstrap: MOBILE_ENSURE_BACKEND=1 ./deploy/scripts/run-mobile-app.sh"
         echo "   Recovery mode: MOBILE_RECOVER=1 ./deploy/scripts/run-mobile-app.sh --run"
     fi
@@ -334,7 +357,7 @@ elif [[ "$OSTYPE" == "darwin"* ]]; then
 
     echo ""
     echo "✅ Mobile app built for iOS!"
-    echo "   To run on simulator: dotnet maui run -f net10.0-ios -c Debug"
+    echo "   To run on simulator: dotnet build -t:Run -f net10.0-ios -c Debug"
     echo "   Optional backend bootstrap: MOBILE_ENSURE_BACKEND=1 ./deploy/scripts/run-mobile-app.sh"
 else
     echo "❌ Unsupported platform: $OSTYPE"
