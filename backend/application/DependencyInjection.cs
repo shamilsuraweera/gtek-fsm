@@ -15,6 +15,8 @@ public static class DependencyInjection
         services.AddScoped<IServiceRequestCreationService, ServiceRequestCreationService>();
         services.AddScoped<IServiceRequestLifecycleService, ServiceRequestLifecycleService>();
         services.AddScoped<IServiceRequestAssignmentService, ServiceRequestAssignmentService>();
+        services.AddScoped<IServiceRequestQueryService, ServiceRequestQueryService>();
+        services.AddScoped<IJobQueryService, JobQueryService>();
 
         return services;
     }

@@ -10,9 +10,9 @@ namespace GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Requests;
 /// </summary>
 public class GetJobsRequest
 {
-    public int Page { get; set; } = 1;
+    public int? Page { get; set; }
 
-    public int PageSize { get; set; } = 25;
+    public int? PageSize { get; set; }
 
     /// <summary>
     /// Optional filter by job status (e.g., "Pending", "InProgress", "Completed").

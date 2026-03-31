@@ -401,6 +401,12 @@ public class ServiceRequestAssignmentIntegrationTests
             return Task.FromResult(result);
         }
 
+        public Task<int> CountAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default)
+        {
+            var count = this.items.Count(x => x.TenantId == specification.TenantId);
+            return Task.FromResult(count);
+        }
+
         public void Update(ServiceRequest aggregate)
         {
             // No-op for in-memory store.
@@ -455,6 +461,12 @@ public class ServiceRequestAssignmentIntegrationTests
         {
             IReadOnlyList<Job> result = this.items.Where(x => x.TenantId == specification.TenantId).ToList();
             return Task.FromResult(result);
+        }
+
+        public Task<int> CountAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default)
+        {
+            var count = this.items.Count(x => x.TenantId == specification.TenantId);
+            return Task.FromResult(count);
         }
 
         public void Update(Job aggregate)

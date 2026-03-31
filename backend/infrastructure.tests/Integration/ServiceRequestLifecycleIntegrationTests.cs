@@ -357,6 +357,30 @@ public class ServiceRequestLifecycleIntegrationTests
             return Task.FromResult(result);
         }
 
+        public Task<int> CountAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default)
+        {
+            var query = this.items
+                .Where(x => x.TenantId == specification.TenantId)
+                .AsEnumerable();
+
+            if (specification.CustomerUserId.HasValue)
+            {
+                query = query.Where(x => x.CustomerUserId == specification.CustomerUserId.Value);
+            }
+
+            if (specification.Status.HasValue)
+            {
+                query = query.Where(x => x.Status == specification.Status.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(specification.SearchText))
+            {
+                query = query.Where(x => x.Title.Contains(specification.SearchText, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return Task.FromResult(query.Count());
+        }
+
         public void Update(ServiceRequest aggregate)
         {
             // Aggregate instance is already in-memory; no explicit action is required.

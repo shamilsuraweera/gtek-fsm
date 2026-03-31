@@ -21,9 +21,9 @@ namespace GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 /// </summary>
 public class GetRequestsRequest
 {
-    public int Page { get; set; } = 1;
+    public int? Page { get; set; }
 
-    public int PageSize { get; set; } = 25;
+    public int? PageSize { get; set; }
 
     /// <summary>
     /// Optional filter by request stage (maps to RequestStage enum values).

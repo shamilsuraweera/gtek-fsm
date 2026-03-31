@@ -1,5 +1,9 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.ServiceRequests;
+using Microsoft.AspNetCore.Http;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
@@ -244,6 +248,129 @@ public static class V1RouteGroupExtensions
             return Results.Ok(envelope);
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.SupportFlow);
+
+        v1.MapGet("/requests", async (
+            [AsParameters] GetRequestsRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IServiceRequestQueryService requestQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await requestQueryService.QueryAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "REQUEST_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var page = query.Payload;
+            var response = new GetRequestsListResponse
+            {
+                Items = page.Items
+                    .Select(x => new GetRequestsResponse
+                    {
+                        RequestId = x.RequestId.ToString(),
+                        Stage = x.Status,
+                        Summary = x.Summary,
+                        TenantId = x.TenantId.ToString(),
+                        CreatedByRole = "Customer",
+                        CreatedUtc = x.CreatedAtUtc,
+                        UpdatedUtc = x.UpdatedAtUtc,
+                    })
+                    .ToArray(),
+                Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
+                {
+                    Offset = (page.Page - 1) * page.PageSize,
+                    Limit = page.PageSize,
+                    Total = page.Total,
+                },
+            };
+
+            var envelope = ApiResponse<GetRequestsListResponse>.Ok(
+                data: response,
+                message: query.Message,
+                traceId: context.TraceIdentifier);
+
+            return Results.Ok(envelope);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
+
+        v1.MapGet("/jobs", async (
+            [AsParameters] GetJobsRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IJobQueryService jobQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await jobQueryService.QueryAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "JOB_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var page = query.Payload;
+            var response = new GetJobsListResponse
+            {
+                Items = page.Items
+                    .Select(x => new GetJobsResponse
+                    {
+                        JobId = x.JobId.ToString(),
+                        Title = x.Title,
+                        Status = x.Status,
+                        RequestId = x.RequestId.ToString(),
+                        AssignedTo = x.AssignedTo?.ToString(),
+                        AssignedUtc = x.AssignedUtc,
+                    })
+                    .ToArray(),
+                Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
+                {
+                    Offset = (page.Page - 1) * page.PageSize,
+                    Limit = page.PageSize,
+                    Total = page.Total,
+                },
+            };
+
+            var envelope = ApiResponse<GetJobsListResponse>.Ok(
+                data: response,
+                message: query.Message,
+                traceId: context.TraceIdentifier);
+
+            return Results.Ok(envelope);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
 
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (
