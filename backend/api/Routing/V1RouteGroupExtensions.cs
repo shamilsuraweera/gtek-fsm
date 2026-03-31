@@ -133,6 +133,118 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.CustomerFlow);
 
+        v1.MapPost("/requests/{requestId:guid}/assign", async (
+            Guid requestId,
+            AssignServiceRequestRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IServiceRequestAssignmentService assignmentService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            if (!principal.IsInRole("Support") && !principal.IsInRole("Manager") && !principal.IsInRole("Admin"))
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "AUTH_FORBIDDEN_ROLE", "Only customer care roles can assign workers.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var assignment = await assignmentService.AssignAsync(principal, requestId, request.WorkerUserId, cancellationToken);
+            if (!assignment.IsSuccess || assignment.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    assignment.StatusCode ?? StatusCodes.Status400BadRequest,
+                    assignment.ErrorCode ?? "REQUEST_ASSIGNMENT_FAILED",
+                    assignment.Message);
+            }
+
+            var payload = new ServiceRequestAssignmentResponse
+            {
+                RequestId = assignment.Payload.RequestId.ToString(),
+                TenantId = assignment.Payload.TenantId.ToString(),
+                JobId = assignment.Payload.JobId.ToString(),
+                PreviousWorkerUserId = assignment.Payload.PreviousWorkerUserId?.ToString(),
+                CurrentWorkerUserId = assignment.Payload.CurrentWorkerUserId.ToString(),
+                AssignmentStatus = assignment.Payload.AssignmentStatus,
+                UpdatedAtUtc = assignment.Payload.UpdatedAtUtc,
+            };
+
+            var envelope = ApiResponse<ServiceRequestAssignmentResponse>.Ok(
+                data: payload,
+                message: assignment.Message,
+                traceId: context.TraceIdentifier);
+
+            return Results.Ok(envelope);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SupportFlow);
+
+        v1.MapPost("/requests/{requestId:guid}/reassign", async (
+            Guid requestId,
+            ReassignServiceRequestRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IServiceRequestAssignmentService assignmentService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            if (!principal.IsInRole("Support") && !principal.IsInRole("Manager") && !principal.IsInRole("Admin"))
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "AUTH_FORBIDDEN_ROLE", "Only customer care roles can reassign workers.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var assignment = await assignmentService.ReassignAsync(principal, requestId, request.WorkerUserId, cancellationToken);
+            if (!assignment.IsSuccess || assignment.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    assignment.StatusCode ?? StatusCodes.Status400BadRequest,
+                    assignment.ErrorCode ?? "REQUEST_REASSIGNMENT_FAILED",
+                    assignment.Message);
+            }
+
+            var payload = new ServiceRequestAssignmentResponse
+            {
+                RequestId = assignment.Payload.RequestId.ToString(),
+                TenantId = assignment.Payload.TenantId.ToString(),
+                JobId = assignment.Payload.JobId.ToString(),
+                PreviousWorkerUserId = assignment.Payload.PreviousWorkerUserId?.ToString(),
+                CurrentWorkerUserId = assignment.Payload.CurrentWorkerUserId.ToString(),
+                AssignmentStatus = assignment.Payload.AssignmentStatus,
+                UpdatedAtUtc = assignment.Payload.UpdatedAtUtc,
+            };
+
+            var envelope = ApiResponse<ServiceRequestAssignmentResponse>.Ok(
+                data: payload,
+                message: assignment.Message,
+                traceId: context.TraceIdentifier);
+
+            return Results.Ok(envelope);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SupportFlow);
+
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (
             HttpContext context,

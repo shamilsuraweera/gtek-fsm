@@ -14,6 +14,7 @@ public static class DependencyInjection
         services.AddScoped<ITenantOwnershipGuard, TenantOwnershipGuard>();
         services.AddScoped<IServiceRequestCreationService, ServiceRequestCreationService>();
         services.AddScoped<IServiceRequestLifecycleService, ServiceRequestLifecycleService>();
+        services.AddScoped<IServiceRequestAssignmentService, ServiceRequestAssignmentService>();
 
         return services;
     }

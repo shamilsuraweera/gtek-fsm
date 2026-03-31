@@ -18,6 +18,12 @@ internal sealed class JobRepository : EfRepository<Job>, IJobRepository
             .FirstOrDefaultAsync(x => x.Id == jobId, cancellationToken);
     }
 
+    public Task<Job?> GetForUpdateAsync(Guid tenantId, Guid jobId, CancellationToken cancellationToken = default)
+    {
+        return ApplyTenantFilter(this.Queryable(), tenantId)
+            .FirstOrDefaultAsync(x => x.Id == jobId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Job>> ListByServiceRequestAsync(Guid tenantId, Guid serviceRequestId, CancellationToken cancellationToken = default)
     {
         return await ApplyTenantFilter(this.Queryable().AsNoTracking(), tenantId)
