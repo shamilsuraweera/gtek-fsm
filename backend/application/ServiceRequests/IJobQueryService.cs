@@ -19,4 +19,16 @@ public interface IJobQueryService
         AuthenticatedPrincipal principal,
         GetJobsRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves job detail for the authenticated principal.
+    /// </summary>
+    /// <param name="principal">The authenticated principal used for tenant and role scoping.</param>
+    /// <param name="jobId">The target job id.</param>
+    /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+    /// <returns>A result envelope containing detail payload or failure details.</returns>
+    Task<JobDetailQueryResult> GetDetailAsync(
+        AuthenticatedPrincipal principal,
+        Guid jobId,
+        CancellationToken cancellationToken = default);
 }

@@ -119,6 +119,125 @@ public class QueryEndpointsIntegrationTests
         Assert.Contains("AUTH_FORBIDDEN_ROLE", body);
     }
 
+    [Fact]
+    public async Task GetRequestDetail_CustomerOwnRequest_ReturnsDetailAndTimeline()
+    {
+        var tenantId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var workerId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var request = new ServiceRequest(Guid.NewGuid(), tenantId, customerId, "Leaking sink");
+        request.TransitionTo(ServiceRequestStatus.Assigned);
+        requestStore.Seed(request);
+
+        var jobStore = new InMemoryJobStore();
+        var job = new Job(Guid.NewGuid(), tenantId, request.Id);
+        job.AssignWorker(workerId);
+        jobStore.Seed(job);
+        request.LinkJob(job.Id);
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        using var client = app.GetTestClient();
+
+        using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/requests/{request.Id}", "Customer", tenantId, customerId);
+        var response = await client.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<GetServiceRequestDetailResponse>>();
+        Assert.NotNull(envelope);
+        Assert.True(envelope!.Success);
+        Assert.NotNull(envelope.Data);
+        Assert.Equal(request.Id.ToString(), envelope.Data!.RequestId);
+        Assert.Equal(job.Id.ToString(), envelope.Data.ActiveJobId);
+        Assert.NotEmpty(envelope.Data.Timeline);
+        Assert.All(envelope.Data.Timeline, x => Assert.False(string.IsNullOrWhiteSpace(x.EventType)));
+    }
+
+    [Fact]
+    public async Task GetRequestDetail_CustomerOtherRequest_ReturnsNotFound()
+    {
+        var tenantId = Guid.NewGuid();
+        var ownerCustomerId = Guid.NewGuid();
+        var otherCustomerId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var request = new ServiceRequest(Guid.NewGuid(), tenantId, ownerCustomerId, "Private request");
+        requestStore.Seed(request);
+
+        var jobStore = new InMemoryJobStore();
+        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        using var client = app.GetTestClient();
+
+        using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/requests/{request.Id}", "Customer", tenantId, otherCustomerId);
+        var response = await client.SendAsync(httpRequest);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("REQUEST_NOT_FOUND", body);
+    }
+
+    [Fact]
+    public async Task GetJobDetail_WorkerOwnJob_ReturnsDetail()
+    {
+        var tenantId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
+        var workerId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var request = new ServiceRequest(Guid.NewGuid(), tenantId, customerId, "HVAC repair");
+        requestStore.Seed(request);
+
+        var jobStore = new InMemoryJobStore();
+        var job = new Job(Guid.NewGuid(), tenantId, request.Id);
+        job.AssignWorker(workerId);
+        jobStore.Seed(job);
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        using var client = app.GetTestClient();
+
+        using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/jobs/{job.Id}", "Worker", tenantId, workerId);
+        var response = await client.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<GetJobDetailResponse>>();
+        Assert.NotNull(envelope);
+        Assert.True(envelope!.Success);
+        Assert.NotNull(envelope.Data);
+        Assert.Equal(job.Id.ToString(), envelope.Data!.JobId);
+        Assert.Equal(workerId.ToString(), envelope.Data.AssignedWorkerUserId);
+        Assert.NotEmpty(envelope.Data.Timeline);
+    }
+
+    [Fact]
+    public async Task GetJobDetail_WorkerOtherJob_ReturnsNotFound()
+    {
+        var tenantId = Guid.NewGuid();
+        var workerA = Guid.NewGuid();
+        var workerB = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var request = new ServiceRequest(Guid.NewGuid(), tenantId, Guid.NewGuid(), "Job request");
+        requestStore.Seed(request);
+
+        var jobStore = new InMemoryJobStore();
+        var job = new Job(Guid.NewGuid(), tenantId, request.Id);
+        job.AssignWorker(workerA);
+        jobStore.Seed(job);
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        using var client = app.GetTestClient();
+
+        using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/jobs/{job.Id}", "Worker", tenantId, workerB);
+        var response = await client.SendAsync(httpRequest);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("JOB_NOT_FOUND", body);
+    }
+
     private static HttpRequestMessage CreateAuthenticatedRequest(HttpMethod method, string route, string role, Guid tenantId, Guid userId)
     {
         var request = new HttpRequestMessage(method, route);

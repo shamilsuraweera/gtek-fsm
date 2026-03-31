@@ -1,6 +1,7 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
+using GTEK.FSM.Backend.Domain.Aggregates;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 
@@ -138,6 +139,123 @@ internal sealed class ServiceRequestQueryService : IServiceRequestQueryService
                 Page: page.NormalizedPageNumber,
                 PageSize: page.NormalizedPageSize,
                 Total: total));
+    }
+
+    public async Task<ServiceRequestDetailQueryResult> GetDetailAsync(
+        AuthenticatedPrincipal principal,
+        Guid requestId,
+        CancellationToken cancellationToken = default)
+    {
+        if (requestId == Guid.Empty)
+        {
+            return ServiceRequestDetailQueryResult.Failure(
+                message: "requestId must be a valid GUID.",
+                errorCode: "VALIDATION_REQUEST_ID_INVALID",
+                statusCode: 400);
+        }
+
+        var request = await this.serviceRequestRepository.GetByIdAsync(principal.TenantId, requestId, cancellationToken);
+        if (request is null)
+        {
+            return ServiceRequestDetailQueryResult.Failure(
+                message: "Service request was not found.",
+                errorCode: "REQUEST_NOT_FOUND",
+                statusCode: 404);
+        }
+
+        if (principal.IsInRole("Customer") && request.CustomerUserId != principal.UserId)
+        {
+            return ServiceRequestDetailQueryResult.Failure(
+                message: "Service request was not found.",
+                errorCode: "REQUEST_NOT_FOUND",
+                statusCode: 404);
+        }
+
+        Job? activeJob = null;
+        if (request.ActiveJobId.HasValue)
+        {
+            activeJob = await this.jobRepository.GetByIdAsync(principal.TenantId, request.ActiveJobId.Value, cancellationToken);
+        }
+
+        if (principal.IsInRole("Worker"))
+        {
+            if (activeJob?.AssignedWorkerUserId != principal.UserId)
+            {
+                return ServiceRequestDetailQueryResult.Failure(
+                    message: "Service request was not found.",
+                    errorCode: "REQUEST_NOT_FOUND",
+                    statusCode: 404);
+            }
+        }
+        else if (!principal.IsInRole("Customer")
+            && !principal.IsInRole("Support")
+            && !principal.IsInRole("Manager")
+            && !principal.IsInRole("Admin"))
+        {
+            return ServiceRequestDetailQueryResult.Failure(
+                message: "Role is not authorized to query request detail.",
+                errorCode: "AUTH_FORBIDDEN_ROLE",
+                statusCode: 403);
+        }
+
+        var timeline = BuildRequestTimeline(request, activeJob);
+
+        return ServiceRequestDetailQueryResult.Success(
+            new QueriedServiceRequestDetail(
+                RequestId: request.Id,
+                TenantId: request.TenantId,
+                CustomerUserId: request.CustomerUserId,
+                Title: request.Title,
+                Status: request.Status.ToString(),
+                CreatedAtUtc: request.CreatedAtUtc,
+                UpdatedAtUtc: request.UpdatedAtUtc,
+                ActiveJobId: request.ActiveJobId,
+                AssignedWorkerUserId: activeJob?.AssignedWorkerUserId,
+                ActiveJobStatus: activeJob?.AssignmentStatus.ToString(),
+                Timeline: timeline));
+    }
+
+    private static IReadOnlyList<QueriedTimelineItem> BuildRequestTimeline(ServiceRequest request, Job? activeJob)
+    {
+        var timeline = new List<QueriedTimelineItem>
+        {
+            new(
+                EventType: "REQUEST_CREATED",
+                Message: "Service request created.",
+                OccurredAtUtc: request.CreatedAtUtc,
+                ActorUserId: request.CustomerUserId),
+        };
+
+        if (activeJob is not null)
+        {
+            timeline.Add(new QueriedTimelineItem(
+                EventType: "JOB_CREATED",
+                Message: "Active job created for request.",
+                OccurredAtUtc: activeJob.CreatedAtUtc,
+                ActorUserId: null));
+
+            if (activeJob.AssignedWorkerUserId.HasValue)
+            {
+                timeline.Add(new QueriedTimelineItem(
+                    EventType: "JOB_ASSIGNED",
+                    Message: $"Job assignment status: {activeJob.AssignmentStatus}.",
+                    OccurredAtUtc: activeJob.UpdatedAtUtc,
+                    ActorUserId: activeJob.AssignedWorkerUserId));
+            }
+        }
+
+        if (request.UpdatedAtUtc > request.CreatedAtUtc)
+        {
+            timeline.Add(new QueriedTimelineItem(
+                EventType: "REQUEST_UPDATED",
+                Message: $"Request updated. Current status: {request.Status}.",
+                OccurredAtUtc: request.UpdatedAtUtc,
+                ActorUserId: null));
+        }
+
+        return timeline
+            .OrderByDescending(x => x.OccurredAtUtc)
+            .ToArray();
     }
 
     private static ServiceRequestSortField ParseSortField(string? sortBy)

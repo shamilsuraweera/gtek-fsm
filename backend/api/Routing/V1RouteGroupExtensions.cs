@@ -351,6 +351,66 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
 
+        v1.MapGet("/requests/{requestId:guid}", async (
+            Guid requestId,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IServiceRequestQueryService requestQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await requestQueryService.GetDetailAsync(principal, requestId, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "REQUEST_DETAIL_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetServiceRequestDetailResponse
+            {
+                RequestId = query.Payload.RequestId.ToString(),
+                TenantId = query.Payload.TenantId.ToString(),
+                CustomerUserId = query.Payload.CustomerUserId.ToString(),
+                Title = query.Payload.Title,
+                Status = query.Payload.Status,
+                CreatedAtUtc = query.Payload.CreatedAtUtc,
+                UpdatedAtUtc = query.Payload.UpdatedAtUtc,
+                ActiveJobId = query.Payload.ActiveJobId?.ToString(),
+                AssignedWorkerUserId = query.Payload.AssignedWorkerUserId?.ToString(),
+                ActiveJobStatus = query.Payload.ActiveJobStatus,
+                Timeline = query.Payload.Timeline
+                    .Select(x => new DetailTimelineItemResponse
+                    {
+                        EventType = x.EventType,
+                        Message = x.Message,
+                        OccurredAtUtc = x.OccurredAtUtc,
+                        ActorUserId = x.ActorUserId?.ToString(),
+                    })
+                    .ToArray(),
+            };
+
+            return Results.Ok(ApiResponse<GetServiceRequestDetailResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
+
         v1.MapGet("/jobs", async (
             [AsParameters] GetJobsRequest request,
             HttpContext context,
@@ -416,6 +476,65 @@ public static class V1RouteGroupExtensions
                 traceId: context.TraceIdentifier);
 
             return Results.Ok(envelope);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
+
+        v1.MapGet("/jobs/{jobId:guid}", async (
+            Guid jobId,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IJobQueryService jobQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await jobQueryService.GetDetailAsync(principal, jobId, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "JOB_DETAIL_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetJobDetailResponse
+            {
+                JobId = query.Payload.JobId.ToString(),
+                TenantId = query.Payload.TenantId.ToString(),
+                RequestId = query.Payload.ServiceRequestId.ToString(),
+                AssignmentStatus = query.Payload.AssignmentStatus,
+                AssignedWorkerUserId = query.Payload.AssignedWorkerUserId?.ToString(),
+                CreatedAtUtc = query.Payload.CreatedAtUtc,
+                UpdatedAtUtc = query.Payload.UpdatedAtUtc,
+                RequestTitle = query.Payload.RequestTitle,
+                RequestStatus = query.Payload.RequestStatus,
+                Timeline = query.Payload.Timeline
+                    .Select(x => new DetailTimelineItemResponse
+                    {
+                        EventType = x.EventType,
+                        Message = x.Message,
+                        OccurredAtUtc = x.OccurredAtUtc,
+                        ActorUserId = x.ActorUserId?.ToString(),
+                    })
+                    .ToArray(),
+            };
+
+            return Results.Ok(ApiResponse<GetJobDetailResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
 
