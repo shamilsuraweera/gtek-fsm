@@ -5,12 +5,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:customer="clr-namespace:GTEK.FSM.MobileApp.Pages.Customer"
     xmlns:worker="clr-namespace:GTEK.FSM.MobileApp.Pages.Worker"
-    Route="AppShell"
     Shell.FlyoutBehavior="Disabled">
 
     <TabBar Route="RootTabs">
         <!-- Customer section -->
-        <Tab Title="Customer" Route="CustomerSection">
+        <Tab x:Name="CustomerTab" Title="Customer" Route="CustomerSection">
             <ShellContent
                 Title="Home"
                 ContentTemplate="{DataTemplate customer:HomePage}"
@@ -34,7 +33,7 @@
         </Tab>
 
         <!-- Worker section -->
-        <Tab Title="Worker" Route="WorkerSection">
+        <Tab x:Name="WorkerTab" Title="Worker" Route="WorkerSection">
             <ShellContent
                 Title="Home"
                 ContentTemplate="{DataTemplate worker:HomePage}"

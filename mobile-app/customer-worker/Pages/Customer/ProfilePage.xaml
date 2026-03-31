@@ -3,11 +3,33 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="GTEK.FSM.MobileApp.Pages.Customer.ProfilePage"
              Title="Profile">
-    <VerticalStackLayout Padding="16">
-        <Label Text="Profile"
-               FontSize="24"
-               HorizontalOptions="Center" />
-        <Label Text="Placeholder — content will be added in Phase 6."
-               HorizontalOptions="Center" />
-    </VerticalStackLayout>
+       <ScrollView>
+              <VerticalStackLayout Padding="16" Spacing="12">
+                     <Label Text="Profile" FontSize="24" FontAttributes="Bold" />
+                     <Label Text="Keep your contact details updated for dispatch and support communication."
+                               TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
+
+                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <VerticalStackLayout Spacing="10">
+                                   <Label Text="Full Name" FontAttributes="Bold" FontSize="12" />
+                                   <Entry x:Name="FullNameEntry" Placeholder="Enter full name" />
+
+                                   <Label Text="Phone" FontAttributes="Bold" FontSize="12" />
+                                   <Entry x:Name="PhoneEntry" Placeholder="Enter phone number" Keyboard="Telephone" />
+
+                                   <Label Text="Email" FontAttributes="Bold" FontSize="12" />
+                                   <Entry x:Name="EmailEntry" Placeholder="Enter email address" Keyboard="Email" />
+
+                                   <Label Text="Address" FontAttributes="Bold" FontSize="12" />
+                                   <Editor x:Name="AddressEditor" Placeholder="Enter service address" AutoSize="TextChanges" />
+
+                                   <Label Text="Preferred Contact" FontAttributes="Bold" FontSize="12" />
+                                   <Picker x:Name="PreferredContactPicker" Title="Select contact method" />
+
+                                   <Button Text="Save Profile" Margin="0,8,0,0" Clicked="OnSaveProfileClicked" />
+                                   <Label x:Name="SaveStatusLabel" FontSize="12" TextColor="{AppThemeBinding Light=#166534, Dark=#86EFAC}" />
+                            </VerticalStackLayout>
+                     </Border>
+              </VerticalStackLayout>
+       </ScrollView>
 </ContentPage>
