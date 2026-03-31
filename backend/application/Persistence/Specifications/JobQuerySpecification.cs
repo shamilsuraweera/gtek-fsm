@@ -13,6 +13,9 @@ public sealed record JobQuerySpecification(
     Guid? ServiceRequestId = null,
     Guid? AssignedWorkerUserId = null,
     AssignmentStatus? AssignmentStatus = null,
+    DateTime? ScheduledFromUtc = null,
+    DateTime? ScheduledToUtc = null,
+    string? SearchText = null,
     PageSpecification? Page = null,
     JobSortField SortBy = JobSortField.CreatedAtUtc,
     SortDirection SortDirection = SortDirection.Descending);

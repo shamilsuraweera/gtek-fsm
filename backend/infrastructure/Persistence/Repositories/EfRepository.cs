@@ -18,6 +18,12 @@ internal abstract class EfRepository<TAggregate> : IRepository<TAggregate>
         return this.dbContext.Set<TAggregate>();
     }
 
+    protected IQueryable<TEntity> Set<TEntity>()
+        where TEntity : class
+    {
+        return this.dbContext.Set<TEntity>();
+    }
+
     public Task AddAsync(TAggregate aggregate, CancellationToken cancellationToken = default)
     {
         return this.dbContext.Set<TAggregate>().AddAsync(aggregate, cancellationToken).AsTask();

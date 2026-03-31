@@ -17,7 +17,7 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.4")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -169,6 +169,11 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2(3)")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<int>("UserLimit")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(25);
+
                     b.HasKey("Id")
                         .HasName("PK_Subscriptions");
 
@@ -288,6 +293,44 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("UQ_Users_TenantId_ExternalIdentity");
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("GTEK.FSM.Backend.Domain.Audit.AuditLog", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("OccurredAtUtc")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.Job", b =>

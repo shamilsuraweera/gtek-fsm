@@ -23,6 +23,8 @@ public class GtekFsmDbContext : DbContext
 
     public DbSet<Subscription> Subscriptions => this.Set<Subscription>();
 
+    public DbSet<GTEK.FSM.Backend.Domain.Audit.AuditLog> AuditLogs => this.Set<GTEK.FSM.Backend.Domain.Audit.AuditLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -45,5 +47,15 @@ public class GtekFsmDbContext : DbContext
 
         modelBuilder.Entity<Subscription>()
             .HasQueryFilter(x => !x.IsDeleted);
+
+        // AuditLog configuration
+        modelBuilder.Entity<GTEK.FSM.Backend.Domain.Audit.AuditLog>(b =>
+        {
+            b.HasKey(x => x.Id);
+            b.Property(x => x.EntityType).IsRequired();
+            b.Property(x => x.Action).IsRequired();
+            b.Property(x => x.Outcome).IsRequired();
+            b.Property(x => x.OccurredAtUtc).IsRequired();
+        });
     }
 }

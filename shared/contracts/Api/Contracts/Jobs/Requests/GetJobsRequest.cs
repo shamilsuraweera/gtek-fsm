@@ -10,15 +10,9 @@ namespace GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Requests;
 /// </summary>
 public class GetJobsRequest
 {
-    /// <summary>
-    /// Zero-based offset for pagination. Default: 0.
-    /// </summary>
-    public int Offset { get; set; } = 0;
+    public int? Page { get; set; }
 
-    /// <summary>
-    /// Maximum number of results to return (page size). Default: 20.
-    /// </summary>
-    public int Limit { get; set; } = 20;
+    public int? PageSize { get; set; }
 
     /// <summary>
     /// Optional filter by job status (e.g., "Pending", "InProgress", "Completed").
@@ -26,19 +20,15 @@ public class GetJobsRequest
     /// </summary>
     public string? StatusFilter { get; set; }
 
-    /// <summary>
-    /// Optional filter by worker ID.
-    /// If null, jobs assigned to the current user/session context are returned.
-    /// </summary>
     public string? WorkerIdFilter { get; set; }
 
-    /// <summary>
-    /// Optional sort column. Default: "AssignedUtc".
-    /// </summary>
-    public string? SortBy { get; set; } = "AssignedUtc";
+    public DateTime? ScheduledFromUtc { get; set; }
 
-    /// <summary>
-    /// Sort direction: "asc" or "desc". Default: "asc".
-    /// </summary>
-    public string? SortDirection { get; set; } = "asc";
+    public DateTime? ScheduledToUtc { get; set; }
+
+    public string? SearchText { get; set; }
+
+    public string? SortBy { get; set; } = "createdAtUtc";
+
+    public string? SortDirection { get; set; } = "desc";
 }

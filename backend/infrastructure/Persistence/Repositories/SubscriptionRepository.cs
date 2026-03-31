@@ -28,6 +28,16 @@ internal sealed class SubscriptionRepository : EfRepository<Subscription>, ISubs
             .FirstOrDefaultAsync(cancellationToken);
     }
 
+    public Task<Subscription?> GetActiveForUpdateByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var utcNow = DateTime.UtcNow;
+
+        return ApplyTenantFilter(this.Queryable(), tenantId)
+            .Where(x => !x.EndsOnUtc.HasValue || x.EndsOnUtc.Value >= utcNow)
+            .OrderByDescending(x => x.StartsOnUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Subscription>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         return await ApplyTenantFilter(this.Queryable().AsNoTracking(), tenantId)

@@ -1,5 +1,5 @@
-using GTEK.FSM.Backend.Domain.Events;
 using GTEK.FSM.Backend.Domain.Enums;
+using GTEK.FSM.Backend.Domain.Events;
 using GTEK.FSM.Backend.Domain.Policies;
 using GTEK.FSM.Backend.Domain.Rules;
 

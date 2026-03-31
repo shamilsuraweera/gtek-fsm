@@ -26,6 +26,11 @@ public sealed class SubscriptionConfiguration : IEntityTypeConfiguration<Subscri
             .HasMaxLength(32)
             .IsRequired();
 
+        builder.Property(x => x.UserLimit)
+            .HasColumnType("int")
+            .HasDefaultValue(25)
+            .IsRequired();
+
         builder.Property(x => x.StartsOnUtc)
             .HasPrecision(3)
             .IsRequired();

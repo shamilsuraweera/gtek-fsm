@@ -18,6 +18,12 @@ internal sealed class ServiceRequestRepository : EfRepository<ServiceRequest>, I
             .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
     }
 
+    public Task<ServiceRequest?> GetForUpdateAsync(Guid tenantId, Guid requestId, CancellationToken cancellationToken = default)
+    {
+        return ApplyTenantFilter(this.Queryable(), tenantId)
+            .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ServiceRequest>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         return await ApplyTenantFilter(this.Queryable().AsNoTracking(), tenantId)
@@ -35,7 +41,29 @@ internal sealed class ServiceRequestRepository : EfRepository<ServiceRequest>, I
 
     public async Task<IReadOnlyList<ServiceRequest>> QueryAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default)
     {
-        var query = ApplyTenantFilter(this.Queryable().AsNoTracking(), specification.TenantId);
+        var query = ApplyFilters(this.Queryable().AsNoTracking(), specification);
+
+        query = ApplySorting(query, specification.SortBy, specification.SortDirection);
+
+        var page = specification.Page ?? new PageSpecification();
+
+        return await query
+            .Skip(page.Skip)
+            .Take(page.Take)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<int> CountAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default)
+    {
+        return ApplyFilters(this.Queryable().AsNoTracking(), specification)
+            .CountAsync(cancellationToken);
+    }
+
+    private IQueryable<ServiceRequest> ApplyFilters(
+        IQueryable<ServiceRequest> query,
+        ServiceRequestQuerySpecification specification)
+    {
+        query = ApplyTenantFilter(query, specification.TenantId);
 
         if (specification.CustomerUserId.HasValue)
         {
@@ -47,19 +75,32 @@ internal sealed class ServiceRequestRepository : EfRepository<ServiceRequest>, I
             query = query.Where(x => x.Status == specification.Status.Value);
         }
 
+        if (specification.CreatedFromUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAtUtc >= specification.CreatedFromUtc.Value);
+        }
+
+        if (specification.CreatedToUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAtUtc <= specification.CreatedToUtc.Value);
+        }
+
+        if (specification.AssignedWorkerUserId.HasValue)
+        {
+            var assignedWorkerUserId = specification.AssignedWorkerUserId.Value;
+            query =
+                from request in query
+                join job in this.Set<Job>().AsNoTracking() on request.ActiveJobId equals job.Id
+                where job.AssignedWorkerUserId == assignedWorkerUserId
+                select request;
+        }
+
         if (!string.IsNullOrWhiteSpace(specification.SearchText))
         {
             query = query.Where(x => x.Title.Contains(specification.SearchText));
         }
 
-        query = ApplySorting(query, specification.SortBy, specification.SortDirection);
-
-        var page = specification.Page ?? new PageSpecification();
-
-        return await query
-            .Skip(page.Skip)
-            .Take(page.Take)
-            .ToListAsync(cancellationToken);
+        return query;
     }
 
     private static IQueryable<ServiceRequest> ApplySorting(
