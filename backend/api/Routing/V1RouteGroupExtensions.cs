@@ -1,4 +1,7 @@
 using GTEK.FSM.Backend.Application.Identity;
+using GTEK.FSM.Backend.Application.ServiceRequests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
 
 namespace GTEK.FSM.Backend.Api.Routing;
@@ -20,6 +23,61 @@ public static class V1RouteGroupExtensions
         {
             throw new InvalidOperationException("Error test endpoint triggered.");
         });
+
+        v1.MapPost("/requests", async (
+            CreateServiceRequestRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IServiceRequestCreationService creationService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            if (!principal.IsInRole("Customer"))
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "AUTH_FORBIDDEN_ROLE", "Only customers can create service requests.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var creation = await creationService.CreateAsync(principal, request.Title, cancellationToken);
+            if (!creation.IsSuccess || creation.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    creation.ErrorCode ?? "VALIDATION_FAILED",
+                    creation.Message);
+            }
+
+            var payload = new CreateServiceRequestResponse
+            {
+                RequestId = creation.Payload.RequestId.ToString(),
+                TenantId = creation.Payload.TenantId.ToString(),
+                CustomerUserId = creation.Payload.CustomerUserId.ToString(),
+                Title = creation.Payload.Title,
+                Status = creation.Payload.Status,
+                CreatedAtUtc = creation.Payload.CreatedAtUtc,
+                UpdatedAtUtc = creation.Payload.UpdatedAtUtc,
+            };
+
+            var envelope = ApiResponse<CreateServiceRequestResponse>.Ok(
+                data: payload,
+                message: creation.Message,
+                traceId: context.TraceIdentifier);
+
+            return Results.Json(envelope, statusCode: StatusCodes.Status201Created);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.CustomerFlow);
 
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (

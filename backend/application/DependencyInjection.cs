@@ -1,4 +1,5 @@
 using GTEK.FSM.Backend.Application.Identity;
+using GTEK.FSM.Backend.Application.ServiceRequests;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -11,6 +12,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthorizationDecisionAuditSink, NoOpAuthorizationDecisionAuditSink>();
         services.AddScoped<IPrivilegedTenantOperationGuard, PrivilegedTenantOperationGuard>();
         services.AddScoped<ITenantOwnershipGuard, TenantOwnershipGuard>();
+        services.AddScoped<IServiceRequestCreationService, ServiceRequestCreationService>();
 
         return services;
     }
