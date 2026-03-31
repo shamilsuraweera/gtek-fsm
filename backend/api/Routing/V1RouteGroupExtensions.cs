@@ -79,6 +79,60 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.CustomerFlow);
 
+        v1.MapPatch("/requests/{requestId:guid}/status", async (
+            Guid requestId,
+            TransitionServiceRequestStatusRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IServiceRequestLifecycleService lifecycleService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var transition = await lifecycleService.TransitionAsync(
+                principal,
+                requestId,
+                request.NextStatus,
+                cancellationToken);
+
+            if (!transition.IsSuccess || transition.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    transition.StatusCode ?? StatusCodes.Status400BadRequest,
+                    transition.ErrorCode ?? "REQUEST_TRANSITION_FAILED",
+                    transition.Message);
+            }
+
+            var payload = new TransitionServiceRequestStatusResponse
+            {
+                RequestId = transition.Payload.RequestId.ToString(),
+                TenantId = transition.Payload.TenantId.ToString(),
+                PreviousStatus = transition.Payload.PreviousStatus,
+                CurrentStatus = transition.Payload.CurrentStatus,
+                UpdatedAtUtc = transition.Payload.UpdatedAtUtc,
+            };
+
+            var envelope = ApiResponse<TransitionServiceRequestStatusResponse>.Ok(
+                data: payload,
+                message: transition.Message,
+                traceId: context.TraceIdentifier);
+
+            return Results.Ok(envelope);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.CustomerFlow);
+
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (
             HttpContext context,

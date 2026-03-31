@@ -18,6 +18,12 @@ internal sealed class ServiceRequestRepository : EfRepository<ServiceRequest>, I
             .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
     }
 
+    public Task<ServiceRequest?> GetForUpdateAsync(Guid tenantId, Guid requestId, CancellationToken cancellationToken = default)
+    {
+        return ApplyTenantFilter(this.Queryable(), tenantId)
+            .FirstOrDefaultAsync(x => x.Id == requestId, cancellationToken);
+    }
+
     public async Task<IReadOnlyList<ServiceRequest>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         return await ApplyTenantFilter(this.Queryable().AsNoTracking(), tenantId)

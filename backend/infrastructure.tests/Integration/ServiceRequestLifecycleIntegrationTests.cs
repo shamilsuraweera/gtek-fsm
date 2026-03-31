@@ -31,89 +31,102 @@ using Xunit;
 
 namespace GTEK.FSM.Backend.Infrastructure.Tests.Integration;
 
-public class CreateServiceRequestIntegrationTests
+public class ServiceRequestLifecycleIntegrationTests
 {
     [Fact]
-    public async Task CreateRequest_CustomerWithValidPayload_ReturnsCreatedAndPersistsTenantScopedRequest()
+    public async Task TransitionStatus_LegalTransition_ReturnsOkAndUpdatesStatus()
     {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
         var store = new InMemoryServiceRequestStore();
+        store.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Water leak in lobby"));
+
         var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
-        var tenantId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
-
         using var request = CreateAuthenticatedRequest(
-            method: HttpMethod.Post,
-            route: "/api/v1/requests",
+            method: HttpMethod.Patch,
+            route: $"/api/v1/requests/{requestId}/status",
             role: "Customer",
             tenantId: tenantId,
-            userId: userId,
-            body: new CreateServiceRequestRequest { Title = "Leaking sink in unit B" });
+            userId: Guid.NewGuid(),
+            body: new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
 
         var response = await client.SendAsync(request);
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<CreateServiceRequestResponse>>();
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<TransitionServiceRequestStatusResponse>>();
         Assert.NotNull(envelope);
         Assert.True(envelope!.Success);
         Assert.NotNull(envelope.Data);
-        Assert.Equal("Leaking sink in unit B", envelope.Data!.Title);
-        Assert.Equal("New", envelope.Data.Status);
-        Assert.Equal(tenantId.ToString(), envelope.Data.TenantId);
-        Assert.Equal(userId.ToString(), envelope.Data.CustomerUserId);
+        Assert.Equal("New", envelope.Data!.PreviousStatus);
+        Assert.Equal("Assigned", envelope.Data.CurrentStatus);
 
-        Assert.Single(store.Items);
-        Assert.Equal(tenantId, store.Items[0].TenantId);
-        Assert.Equal(userId, store.Items[0].CustomerUserId);
-        Assert.Equal("Leaking sink in unit B", store.Items[0].Title);
+        var stored = await store.GetByIdAsync(tenantId, requestId);
+        Assert.NotNull(stored);
+        Assert.Equal(ServiceRequestStatus.Assigned, stored!.Status);
     }
 
     [Fact]
-    public async Task CreateRequest_EmptyTitle_ReturnsBadRequestValidationError()
+    public async Task TransitionStatus_IllegalTransition_ReturnsBadRequest()
     {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
         var store = new InMemoryServiceRequestStore();
+        store.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Power outage in level 2"));
+
         var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
-            method: HttpMethod.Post,
-            route: "/api/v1/requests",
+            method: HttpMethod.Patch,
+            route: $"/api/v1/requests/{requestId}/status",
             role: "Customer",
-            tenantId: Guid.NewGuid(),
+            tenantId: tenantId,
             userId: Guid.NewGuid(),
-            body: new CreateServiceRequestRequest { Title = "   " });
+            body: new TransitionServiceRequestStatusRequest { NextStatus = "Completed" });
 
         var response = await client.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("VALIDATION_TITLE_REQUIRED", body);
-        Assert.Empty(store.Items);
+        Assert.Contains("REQUEST_TRANSITION_INVALID", body);
+
+        var stored = await store.GetByIdAsync(tenantId, requestId);
+        Assert.NotNull(stored);
+        Assert.Equal(ServiceRequestStatus.New, stored!.Status);
     }
 
     [Fact]
-    public async Task CreateRequest_NonCustomerRole_ReturnsForbidden()
+    public async Task TransitionStatus_CrossTenantLookup_ReturnsNotFound()
     {
+        var requestTenant = Guid.NewGuid();
+        var callerTenant = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
         var store = new InMemoryServiceRequestStore();
+        store.Seed(new ServiceRequest(requestId, requestTenant, Guid.NewGuid(), "HVAC maintenance"));
+
         var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
-            method: HttpMethod.Post,
-            route: "/api/v1/requests",
-            role: "Support",
-            tenantId: Guid.NewGuid(),
+            method: HttpMethod.Patch,
+            route: $"/api/v1/requests/{requestId}/status",
+            role: "Customer",
+            tenantId: callerTenant,
             userId: Guid.NewGuid(),
-            body: new CreateServiceRequestRequest { Title = "Do not allow support to create customer requests" });
+            body: new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
 
         var response = await client.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Contains("AUTH_FORBIDDEN_ROLE", body);
-        Assert.Empty(store.Items);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Contains("REQUEST_NOT_FOUND", body);
+
+        var stored = await store.GetByIdAsync(requestTenant, requestId);
+        Assert.NotNull(stored);
+        Assert.Equal(ServiceRequestStatus.New, stored!.Status);
     }
 
     private static HttpRequestMessage CreateAuthenticatedRequest(
@@ -122,7 +135,7 @@ public class CreateServiceRequestIntegrationTests
         string role,
         Guid tenantId,
         Guid userId,
-        CreateServiceRequestRequest body)
+        TransitionServiceRequestStatusRequest body)
     {
         var request = new HttpRequestMessage(method, route);
         request.Headers.Authorization = new AuthenticationHeaderValue(TestAuthHandler.SchemeName, "ok");
@@ -279,7 +292,10 @@ public class CreateServiceRequestIntegrationTests
     {
         private readonly List<ServiceRequest> items = new();
 
-        public IReadOnlyList<ServiceRequest> Items => this.items;
+        public void Seed(ServiceRequest request)
+        {
+            this.items.Add(request);
+        }
 
         public Task AddAsync(ServiceRequest aggregate, CancellationToken cancellationToken = default)
         {
@@ -343,7 +359,7 @@ public class CreateServiceRequestIntegrationTests
 
         public void Update(ServiceRequest aggregate)
         {
-            // No-op in in-memory test store.
+            // Aggregate instance is already in-memory; no explicit action is required.
         }
 
         public void Remove(ServiceRequest aggregate)
