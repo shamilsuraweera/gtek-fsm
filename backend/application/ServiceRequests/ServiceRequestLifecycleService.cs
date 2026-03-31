@@ -5,17 +5,24 @@ using GTEK.FSM.Backend.Domain.Enums;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
 
+
+using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Domain.Audit;
+
 internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleService
 {
     private readonly IServiceRequestRepository serviceRequestRepository;
     private readonly IUnitOfWork unitOfWork;
+    private readonly IAuditLogWriter auditLogWriter;
 
     public ServiceRequestLifecycleService(
         IServiceRequestRepository serviceRequestRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLogWriter auditLogWriter)
     {
         this.serviceRequestRepository = serviceRequestRepository;
         this.unitOfWork = unitOfWork;
+        this.auditLogWriter = auditLogWriter;
     }
 
     public async Task<TransitionServiceRequestResult> TransitionAsync(
@@ -65,6 +72,21 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
 
         this.serviceRequestRepository.Update(request);
         await this.unitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Write audit log
+        var auditLog = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            ActorUserId = principal.UserId,
+            TenantId = principal.TenantId,
+            EntityType = "ServiceRequest",
+            EntityId = request.Id,
+            Action = $"StatusTransition:{previousStatus}->{request.Status}",
+            Outcome = "Success",
+            OccurredAtUtc = DateTimeOffset.UtcNow,
+            Details = null
+        };
+        await this.auditLogWriter.WriteAsync(auditLog, cancellationToken);
 
         return TransitionServiceRequestResult.Success(
             new TransitionedServiceRequestPayload(

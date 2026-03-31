@@ -6,23 +6,30 @@ using GTEK.FSM.Backend.Domain.Enums;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
 
+
+using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Domain.Audit;
+
 internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmentService
 {
     private readonly IServiceRequestRepository serviceRequestRepository;
     private readonly IJobRepository jobRepository;
     private readonly IUserRepository userRepository;
     private readonly IUnitOfWork unitOfWork;
+    private readonly IAuditLogWriter auditLogWriter;
 
     public ServiceRequestAssignmentService(
         IServiceRequestRepository serviceRequestRepository,
         IJobRepository jobRepository,
         IUserRepository userRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLogWriter auditLogWriter)
     {
         this.serviceRequestRepository = serviceRequestRepository;
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
         this.unitOfWork = unitOfWork;
+        this.auditLogWriter = auditLogWriter;
     }
 
     public async Task<ServiceRequestAssignmentResult> AssignAsync(
@@ -92,6 +99,21 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
 
             await this.unitOfWork.SaveChangesAsync(cancellationToken);
             await tx.CommitAsync(cancellationToken);
+
+            // Write audit log
+            var auditLog = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = principal.UserId,
+                TenantId = principal.TenantId,
+                EntityType = "ServiceRequest",
+                EntityId = request.Id,
+                Action = $"AssignWorker:{parsedWorkerId}",
+                Outcome = "Success",
+                OccurredAtUtc = DateTimeOffset.UtcNow,
+                Details = null
+            };
+            await this.auditLogWriter.WriteAsync(auditLog, cancellationToken);
 
             return ServiceRequestAssignmentResult.Success(
                 payload: BuildPayload(request, job, previousWorkerUserId: null, parsedWorkerId),

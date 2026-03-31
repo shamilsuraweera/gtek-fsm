@@ -5,6 +5,10 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
 
 namespace GTEK.FSM.Backend.Application.Subscriptions;
 
+
+using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Domain.Audit;
+
 internal sealed class SubscriptionManagementService : ISubscriptionManagementService
 {
     private static readonly HashSet<string> AllowedPlans =
@@ -13,15 +17,18 @@ internal sealed class SubscriptionManagementService : ISubscriptionManagementSer
     private readonly ISubscriptionRepository subscriptionRepository;
     private readonly IUserRepository userRepository;
     private readonly IUnitOfWork unitOfWork;
+    private readonly IAuditLogWriter auditLogWriter;
 
     public SubscriptionManagementService(
         ISubscriptionRepository subscriptionRepository,
         IUserRepository userRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAuditLogWriter auditLogWriter)
     {
         this.subscriptionRepository = subscriptionRepository;
         this.userRepository = userRepository;
         this.unitOfWork = unitOfWork;
+        this.auditLogWriter = auditLogWriter;
     }
 
     public async Task<OrganizationSubscriptionQueryResult> UpdateOrganizationAsync(
@@ -79,6 +86,21 @@ internal sealed class SubscriptionManagementService : ISubscriptionManagementSer
             subscription.ChangeUserLimit(request.UserLimit.Value);
             this.subscriptionRepository.Update(subscription);
             await this.unitOfWork.SaveChangesAsync(cancellationToken);
+
+            // Write audit log
+            var auditLog = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = principal.UserId,
+                TenantId = principal.TenantId,
+                EntityType = "Subscription",
+                EntityId = subscription.Id,
+                Action = $"UpdatePlan:{subscription.PlanCode},UserLimit:{subscription.UserLimit}",
+                Outcome = "Success",
+                OccurredAtUtc = DateTimeOffset.UtcNow,
+                Details = null
+            };
+            await this.auditLogWriter.WriteAsync(auditLog, cancellationToken);
         }
         catch (ArgumentOutOfRangeException ex)
         {

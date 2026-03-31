@@ -46,6 +46,9 @@ public static class DependencyInjection
         services.AddScoped<IAuthenticatedPrincipalAccessor, HttpContextAuthenticatedPrincipalAccessor>();
         services.AddScoped<ITenantContextAccessor, HttpContextTenantContextAccessor>();
 
+        // Register audit log writer
+        services.AddScoped<GTEK.FSM.Backend.Application.Audit.IAuditLogWriter, GTEK.FSM.Backend.Infrastructure.Audit.EfAuditLogWriter>();
+
         return services;
     }
 }
