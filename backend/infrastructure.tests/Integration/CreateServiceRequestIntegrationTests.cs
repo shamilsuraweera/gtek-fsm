@@ -89,7 +89,7 @@ public class CreateServiceRequestIntegrationTests
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-        Assert.Contains("VALIDATION_TITLE_REQUIRED", body);
+        Assert.Contains("VALIDATION_FAILED", body);
         Assert.Empty(store.Items);
     }
 

@@ -1,6 +1,8 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
+using FluentValidation;
+using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
@@ -36,6 +38,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<CreateServiceRequestRequest> validator,
             IServiceRequestCreationService creationService,
             CancellationToken cancellationToken) =>
         {
@@ -54,6 +57,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var creation = await creationService.CreateAsync(principal, request.Title, cancellationToken);
@@ -92,6 +101,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<TransitionServiceRequestStatusRequest> validator,
             IServiceRequestLifecycleService lifecycleService,
             CancellationToken cancellationToken) =>
         {
@@ -105,6 +115,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var transition = await lifecycleService.TransitionAsync(
@@ -146,6 +162,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<AssignServiceRequestRequest> validator,
             IServiceRequestAssignmentService assignmentService,
             CancellationToken cancellationToken) =>
         {
@@ -164,6 +181,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var assignment = await assignmentService.AssignAsync(principal, requestId, request.WorkerUserId, cancellationToken);
@@ -202,6 +225,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<ReassignServiceRequestRequest> validator,
             IServiceRequestAssignmentService assignmentService,
             CancellationToken cancellationToken) =>
         {
@@ -220,6 +244,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var assignment = await assignmentService.ReassignAsync(principal, requestId, request.WorkerUserId, cancellationToken);
@@ -257,6 +287,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<GetRequestsRequest> validator,
             IServiceRequestQueryService requestQueryService,
             CancellationToken cancellationToken) =>
         {
@@ -270,6 +301,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var query = await requestQueryService.QueryAsync(principal, request, cancellationToken);
@@ -319,6 +356,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<GetJobsRequest> validator,
             IJobQueryService jobQueryService,
             CancellationToken cancellationToken) =>
         {
@@ -332,6 +370,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var query = await jobQueryService.QueryAsync(principal, request, cancellationToken);
@@ -428,6 +472,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<UpdateOrganizationSubscriptionRequest> validator,
             ISubscriptionManagementService subscriptionManagementService,
             CancellationToken cancellationToken) =>
         {
@@ -441,6 +486,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var update = await subscriptionManagementService.UpdateOrganizationAsync(principal, request, cancellationToken);
@@ -477,6 +528,7 @@ public static class V1RouteGroupExtensions
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
             ITenantContextAccessor tenantContextAccessor,
+            IValidator<GetSubscriptionUsersRequest> validator,
             ISubscriptionQueryService subscriptionQueryService,
             CancellationToken cancellationToken) =>
         {
@@ -490,6 +542,12 @@ public static class V1RouteGroupExtensions
             if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
             {
                 return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
             }
 
             var query = await subscriptionQueryService.GetUsersAsync(principal, request, cancellationToken);
@@ -648,6 +706,27 @@ public static class V1RouteGroupExtensions
     {
         var payload = ApiResponse<object>.Fail(message: message, errorCode: errorCode, traceId: context.TraceIdentifier);
         return Results.Json(payload, statusCode: statusCode);
+    }
+
+    private static async Task<IResult?> BuildValidationFailureAsync<TRequest>(
+        TRequest request,
+        IValidator<TRequest> validator,
+        HttpContext context,
+        CancellationToken cancellationToken)
+    {
+        ValidationResult validationResult = await validator.ValidateAsync(request, cancellationToken);
+        if (validationResult.IsValid)
+        {
+            return null;
+        }
+
+        var message = string.Join(
+            "; ",
+            validationResult.Errors
+                .Select(x => $"{x.PropertyName}: {x.ErrorMessage}")
+                .Distinct(StringComparer.Ordinal));
+
+        return BuildFailure(context, StatusCodes.Status400BadRequest, "VALIDATION_FAILED", message);
     }
 
 }
