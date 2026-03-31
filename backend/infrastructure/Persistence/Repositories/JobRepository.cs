@@ -42,7 +42,29 @@ internal sealed class JobRepository : EfRepository<Job>, IJobRepository
 
     public async Task<IReadOnlyList<Job>> QueryAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default)
     {
-        var query = ApplyTenantFilter(this.Queryable().AsNoTracking(), specification.TenantId);
+        var query = ApplyFilters(this.Queryable().AsNoTracking(), specification);
+
+        query = ApplySorting(query, specification.SortBy, specification.SortDirection);
+
+        var page = specification.Page ?? new PageSpecification();
+
+        return await query
+            .Skip(page.Skip)
+            .Take(page.Take)
+            .ToListAsync(cancellationToken);
+    }
+
+    public Task<int> CountAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default)
+    {
+        return ApplyFilters(this.Queryable().AsNoTracking(), specification)
+            .CountAsync(cancellationToken);
+    }
+
+    private static IQueryable<Job> ApplyFilters(
+        IQueryable<Job> query,
+        JobQuerySpecification specification)
+    {
+        query = ApplyTenantFilter(query, specification.TenantId);
 
         if (specification.ServiceRequestId.HasValue)
         {
@@ -59,14 +81,24 @@ internal sealed class JobRepository : EfRepository<Job>, IJobRepository
             query = query.Where(x => x.AssignmentStatus == specification.AssignmentStatus.Value);
         }
 
-        query = ApplySorting(query, specification.SortBy, specification.SortDirection);
+        if (specification.ScheduledFromUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAtUtc >= specification.ScheduledFromUtc.Value);
+        }
 
-        var page = specification.Page ?? new PageSpecification();
+        if (specification.ScheduledToUtc.HasValue)
+        {
+            query = query.Where(x => x.CreatedAtUtc <= specification.ScheduledToUtc.Value);
+        }
 
-        return await query
-            .Skip(page.Skip)
-            .Take(page.Take)
-            .ToListAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(specification.SearchText)
+            && Guid.TryParse(specification.SearchText.Trim(), out var parsedIdentifier)
+            && parsedIdentifier != Guid.Empty)
+        {
+            query = query.Where(x => x.Id == parsedIdentifier || x.ServiceRequestId == parsedIdentifier || x.AssignedWorkerUserId == parsedIdentifier);
+        }
+
+        return query;
     }
 
     private static IQueryable<Job> ApplySorting(IQueryable<Job> query, JobSortField sortBy, SortDirection sortDirection)

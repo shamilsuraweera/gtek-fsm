@@ -21,36 +21,25 @@ namespace GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 /// </summary>
 public class GetRequestsRequest
 {
-    /// <summary>
-    /// Zero-based offset for pagination. Default: 0.
-    /// </summary>
-    public int Offset { get; set; } = 0;
+    public int Page { get; set; } = 1;
 
-    /// <summary>
-    /// Maximum number of results to return (page size). Default: 10. Max: 100.
-    /// </summary>
-    public int Limit { get; set; } = 10;
+    public int PageSize { get; set; } = 25;
 
     /// <summary>
     /// Optional filter by request stage (maps to RequestStage enum values).
     /// If null, requests of all stages are returned.
     /// </summary>
-    public string? StageFilter { get; set; }
+    public string? StatusFilter { get; set; }
 
-    /// <summary>
-    /// Optional filter by tenant ID.
-    /// If null, requests from all accessible tenants are returned.
-    /// </summary>
-    public string? TenantIdFilter { get; set; }
+    public DateTime? CreatedFromUtc { get; set; }
 
-    /// <summary>
-    /// Optional sort order column name (e.g., "CreatedUtc", "UpdatedUtc", "Stage").
-    /// Default: "CreatedUtc".
-    /// </summary>
-    public string? SortBy { get; set; } = "CreatedUtc";
+    public DateTime? CreatedToUtc { get; set; }
 
-    /// <summary>
-    /// Sort direction: "asc" or "desc". Default: "desc".
-    /// </summary>
+    public string? AssignedWorkerUserIdFilter { get; set; }
+
+    public string? SearchText { get; set; }
+
+    public string? SortBy { get; set; } = "createdAtUtc";
+
     public string? SortDirection { get; set; } = "desc";
 }

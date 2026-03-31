@@ -14,4 +14,6 @@ public interface IServiceRequestRepository : IRepository<ServiceRequest>
     Task<IReadOnlyList<ServiceRequest>> ListByCustomerAsync(Guid tenantId, Guid customerUserId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<ServiceRequest>> QueryAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default);
+
+    Task<int> CountAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default);
 }

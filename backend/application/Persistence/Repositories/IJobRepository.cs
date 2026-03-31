@@ -14,4 +14,6 @@ public interface IJobRepository : IRepository<Job>
     Task<IReadOnlyList<Job>> ListByWorkerAsync(Guid tenantId, Guid workerUserId, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<Job>> QueryAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default);
+
+    Task<int> CountAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default);
 }
