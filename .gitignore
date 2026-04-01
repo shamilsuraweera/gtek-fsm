@@ -521,5 +521,6 @@ web-build/
 .DS_Store
 Thumbs.db
 
-Task Tracker
+Task Tracker and Planning
 tracker.txt
+planning.txt
