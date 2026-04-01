@@ -1,0 +1,24 @@
+@namespace GTEK.FSM.WebPortal.Components
+
+@using GTEK.FSM.WebPortal.Services.Realtime
+
+<p class="realtime-status-badge" data-realtime-state="@State.ToString().ToLowerInvariant()">
+    Live updates: @GetLabel(State)
+</p>
+
+@code {
+    [Parameter]
+    public OperationalRealtimeConnectionState State { get; set; } = OperationalRealtimeConnectionState.Disabled;
+
+    private static string GetLabel(OperationalRealtimeConnectionState state) => state switch
+    {
+        OperationalRealtimeConnectionState.Connected => "connected",
+        OperationalRealtimeConnectionState.Connecting => "connecting",
+        OperationalRealtimeConnectionState.Reconnecting => "reconnecting",
+        OperationalRealtimeConnectionState.AuthenticationRequired => "authentication required",
+        OperationalRealtimeConnectionState.Faulted => "offline",
+        OperationalRealtimeConnectionState.Disconnected => "disconnected",
+        OperationalRealtimeConnectionState.Disabled => "disabled",
+        _ => "unknown",
+    };
+}

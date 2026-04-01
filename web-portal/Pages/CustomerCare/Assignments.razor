@@ -3,14 +3,20 @@
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@using GTEK.FSM.WebPortal.Services.Realtime
 @using GTEK.FSM.WebPortal.Services.Security
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime
 
 @inject ResilientDataFetcher Fetcher
+@inject IOperationalRealtimeClient RealtimeClient
 @inject UiSecurityContext SecurityContext
+
+@implements IDisposable
 
 <PageTitle>Customer Care Assignments</PageTitle>
 
 <h1>Customer Care Assignments</h1>
+<OperationalRealtimeStatusBadge State="@realtimeConnectionState" />
 
 <ResilienceErrorBoundary @ref="errorBoundary">
 	<DataFetchStateDisplay
@@ -33,6 +39,8 @@
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
 	private FetchResult<List<OperationalQueueItem>> fetchState = new();
+	private IDisposable? assignmentSubscription;
+	private OperationalRealtimeConnectionState realtimeConnectionState;
 
 	private readonly List<AssignmentWorkerOption> workerOptions =
 	[
@@ -45,6 +53,10 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		realtimeConnectionState = RealtimeClient.ConnectionState;
+		assignmentSubscription = RealtimeClient.SubscribeToAssignmentUpdates(HandleAssignmentUpdatedAsync);
+		RealtimeClient.ConnectionStateChanged += HandleConnectionStateChanged;
+		await EnsureRealtimeConnectedAsync();
 		await FetchAssignmentData();
 	}
 
@@ -76,6 +88,12 @@
 	private void HandleDismiss()
 	{
 		fetchState.State = FetchState.Idle;
+	}
+
+	public void Dispose()
+	{
+		assignmentSubscription?.Dispose();
+		RealtimeClient.ConnectionStateChanged -= HandleConnectionStateChanged;
 	}
 
 	private async Task HandleDecision((string requestReference, string workerId, bool isReassignment) decision)
@@ -126,6 +144,7 @@
 		[
 			new OperationalQueueItem
 			{
+				RequestId = "ASN-221",
 				Reference = "ASN-221",
 				Customer = "Metro Hospital",
 				TenantId = "TENANT-01",
@@ -138,10 +157,12 @@
 				AgeMinutes = 185,
 				IsEscalated = true,
 				IsSLABreach = true,
+				AssignedWorkerId = "W-101",
 				AssignedWorker = "Bob Silva",
 			},
 			new OperationalQueueItem
 			{
+				RequestId = "ASN-219",
 				Reference = "ASN-219",
 				Customer = "Northline Apartments",
 				TenantId = "TENANT-01",
@@ -154,10 +175,12 @@
 				AgeMinutes = 122,
 				IsEscalated = false,
 				IsSLABreach = false,
+				AssignedWorkerId = null,
 				AssignedWorker = "",
 			},
 			new OperationalQueueItem
 			{
+				RequestId = "ASN-217",
 				Reference = "ASN-217",
 				Customer = "Bay Distribution Hub",
 				TenantId = "TENANT-03",
@@ -170,10 +193,12 @@
 				AgeMinutes = 81,
 				IsEscalated = false,
 				IsSLABreach = false,
+				AssignedWorkerId = "W-102",
 				AssignedWorker = "Carol Lopez",
 			},
 			new OperationalQueueItem
 			{
+				RequestId = "ASN-214",
 				Reference = "ASN-214",
 				Customer = "Greenfield Towers",
 				TenantId = "TENANT-01",
@@ -186,8 +211,65 @@
 				AgeMinutes = 52,
 				IsEscalated = false,
 				IsSLABreach = false,
+				AssignedWorkerId = null,
 				AssignedWorker = "",
 			},
 		];
+	}
+
+	private async Task EnsureRealtimeConnectedAsync()
+	{
+		try
+		{
+			await RealtimeClient.EnsureConnectedAsync();
+		}
+		catch
+		{
+			realtimeConnectionState = RealtimeClient.ConnectionState;
+		}
+	}
+
+	private Task HandleAssignmentUpdatedAsync(JobAssignmentUpdatedEvent payload)
+	{
+		return InvokeAsync(() =>
+		{
+			var request = fetchState.Data?.FirstOrDefault(item => string.Equals(item.RequestId, payload.RequestId, StringComparison.Ordinal));
+			if (request is null)
+			{
+				return;
+			}
+
+			if (!string.IsNullOrWhiteSpace(payload.PreviousWorkerUserId))
+			{
+				var previousWorker = workerOptions.FirstOrDefault(worker => string.Equals(worker.Id, payload.PreviousWorkerUserId, StringComparison.Ordinal));
+				if (previousWorker is not null && previousWorker.ActiveAssignments > 0)
+				{
+					previousWorker.ActiveAssignments--;
+				}
+			}
+
+			var currentWorker = workerOptions.FirstOrDefault(worker => string.Equals(worker.Id, payload.CurrentWorkerUserId, StringComparison.Ordinal));
+			if (currentWorker is not null)
+			{
+				currentWorker.ActiveAssignments++;
+			}
+
+			request.AssignedWorkerId = payload.CurrentWorkerUserId;
+			request.AssignedWorker = currentWorker?.Name ?? payload.CurrentWorkerUserId;
+			request.Status = OperationalRealtimeMapper.MapAssignmentStatus(payload.AssignmentStatus);
+			request.Stage = OperationalRealtimeMapper.MapWorkspaceStage(request.Status);
+			request.UpdatedAtUtc = payload.UpdatedAtUtc;
+			fetchState.LastSuccessFetchedAt = payload.UpdatedAtUtc;
+			StateHasChanged();
+		});
+	}
+
+	private void HandleConnectionStateChanged(OperationalRealtimeConnectionState newState)
+	{
+		_ = InvokeAsync(() =>
+		{
+			realtimeConnectionState = newState;
+			StateHasChanged();
+		});
 	}
 }

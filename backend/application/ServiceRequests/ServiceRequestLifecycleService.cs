@@ -1,28 +1,30 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Transactions;
+using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Domain.Enums;
+using GTEK.FSM.Backend.Domain.Audit;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
-
-
-using GTEK.FSM.Backend.Application.Audit;
-using GTEK.FSM.Backend.Domain.Audit;
 
 internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleService
 {
     private readonly IServiceRequestRepository serviceRequestRepository;
     private readonly IUnitOfWork unitOfWork;
     private readonly IAuditLogWriter auditLogWriter;
+    private readonly IOperationalUpdatePublisher operationalUpdatePublisher;
 
     public ServiceRequestLifecycleService(
         IServiceRequestRepository serviceRequestRepository,
         IUnitOfWork unitOfWork,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        IOperationalUpdatePublisher operationalUpdatePublisher)
     {
         this.serviceRequestRepository = serviceRequestRepository;
         this.unitOfWork = unitOfWork;
         this.auditLogWriter = auditLogWriter;
+        this.operationalUpdatePublisher = operationalUpdatePublisher;
     }
 
     public async Task<TransitionServiceRequestResult> TransitionAsync(
@@ -103,18 +105,21 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
             Action = $"StatusTransition:{previousStatus}->{request.Status}",
             Outcome = "Success",
             OccurredAtUtc = DateTimeOffset.UtcNow,
-            Details = null
+            Details = null,
         };
         await this.auditLogWriter.WriteAsync(auditLog, cancellationToken);
 
-        return TransitionServiceRequestResult.Success(
-            new TransitionedServiceRequestPayload(
-                RequestId: request.Id,
-                TenantId: request.TenantId,
-                PreviousStatus: previousStatus.ToString(),
-                CurrentStatus: request.Status.ToString(),
-                UpdatedAtUtc: request.UpdatedAtUtc,
-                RowVersion: Convert.ToBase64String(request.RowVersion)));
+        var payload = new TransitionedServiceRequestPayload(
+            RequestId: request.Id,
+            TenantId: request.TenantId,
+            PreviousStatus: previousStatus.ToString(),
+            CurrentStatus: request.Status.ToString(),
+            UpdatedAtUtc: request.UpdatedAtUtc,
+            RowVersion: Convert.ToBase64String(request.RowVersion));
+
+        await this.operationalUpdatePublisher.PublishServiceRequestStatusUpdatedAsync(payload, cancellationToken);
+
+        return TransitionServiceRequestResult.Success(payload);
     }
 
     private static bool TryValidateRowVersion(

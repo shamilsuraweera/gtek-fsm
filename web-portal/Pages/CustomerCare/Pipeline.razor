@@ -3,12 +3,18 @@
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@using GTEK.FSM.WebPortal.Services.Realtime
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime
 
 @inject ResilientDataFetcher Fetcher
+@inject IOperationalRealtimeClient RealtimeClient
+
+@implements IDisposable
 
 <PageTitle>Customer Care Pipeline</PageTitle>
 
 <h1>Customer Care Pipeline</h1>
+<OperationalRealtimeStatusBadge State="@realtimeConnectionState" />
 
 <ResilienceErrorBoundary @ref="errorBoundary">
 	<DataFetchStateDisplay
@@ -31,35 +37,41 @@
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
 	private FetchResult<List<OperationsBoardColumn>> fetchState = new();
+	private IDisposable? statusSubscription;
+	private OperationalRealtimeConnectionState realtimeConnectionState;
 	private readonly IReadOnlyList<OperationsBoardColumn> samplePipelineColumns =
 	[
 		new(
 			"Intake",
 			[
-				new("REQ-1043", "Electrical inspection pending", "High", "N. Perera", DateTime.UtcNow.AddMinutes(-12)),
-				new("REQ-1041", "Water pressure complaint", "Medium", "A. Silva", DateTime.UtcNow.AddMinutes(-28)),
+				new("REQ-1043", "REQ-1043", "Electrical inspection pending", "High", "N. Perera", DateTime.UtcNow.AddMinutes(-12)),
+				new("REQ-1041", "REQ-1041", "Water pressure complaint", "Medium", "A. Silva", DateTime.UtcNow.AddMinutes(-28)),
 			]),
 		new(
 			"Assessment",
 			[
-				new("REQ-1037", "AC not cooling on site", "High", "K. Fernando", DateTime.UtcNow.AddMinutes(-35)),
-				new("REQ-1034", "Door lock replacement", "Low", "D. Akila", DateTime.UtcNow.AddMinutes(-63)),
+				new("REQ-1037", "REQ-1037", "AC not cooling on site", "High", "K. Fernando", DateTime.UtcNow.AddMinutes(-35)),
+				new("REQ-1034", "REQ-1034", "Door lock replacement", "Low", "D. Akila", DateTime.UtcNow.AddMinutes(-63)),
 			]),
 		new(
 			"Dispatch",
 			[
-				new("REQ-1033", "Fiber outage triage", "Critical", "J. Peris", DateTime.UtcNow.AddMinutes(-6)),
-				new("REQ-1029", "Backup generator noise", "Medium", "M. Karuna", DateTime.UtcNow.AddMinutes(-44)),
+				new("REQ-1033", "REQ-1033", "Fiber outage triage", "Critical", "J. Peris", DateTime.UtcNow.AddMinutes(-6)),
+				new("REQ-1029", "REQ-1029", "Backup generator noise", "Medium", "M. Karuna", DateTime.UtcNow.AddMinutes(-44)),
 			]),
 		new(
 			"In Progress",
 			[
-				new("REQ-1026", "Camera recalibration", "Low", "S. Dias", DateTime.UtcNow.AddMinutes(-15)),
+				new("REQ-1026", "REQ-1026", "Camera recalibration", "Low", "S. Dias", DateTime.UtcNow.AddMinutes(-15)),
 			]),
 	];
 
 	protected override async Task OnInitializedAsync()
 	{
+		realtimeConnectionState = RealtimeClient.ConnectionState;
+		statusSubscription = RealtimeClient.SubscribeToStatusUpdates(HandleStatusUpdatedAsync);
+		RealtimeClient.ConnectionStateChanged += HandleConnectionStateChanged;
+		await EnsureRealtimeConnectedAsync();
 		await FetchPipelineData();
 	}
 
@@ -96,5 +108,97 @@
 	private void HandleDismiss()
 	{
 		fetchState.State = FetchState.Idle;
+	}
+
+	public void Dispose()
+	{
+		statusSubscription?.Dispose();
+		RealtimeClient.ConnectionStateChanged -= HandleConnectionStateChanged;
+	}
+
+	private async Task EnsureRealtimeConnectedAsync()
+	{
+		try
+		{
+			await RealtimeClient.EnsureConnectedAsync();
+		}
+		catch
+		{
+			realtimeConnectionState = RealtimeClient.ConnectionState;
+		}
+	}
+
+	private Task HandleStatusUpdatedAsync(ServiceRequestStatusUpdatedEvent payload)
+	{
+		return InvokeAsync(() =>
+		{
+			if (fetchState.Data is null || !OperationalRealtimeMapper.TryParseRequestStatus(payload.CurrentStatus, out var currentStatus))
+			{
+				return;
+			}
+
+			fetchState.Data = ApplyStatusUpdate(fetchState.Data, payload.RequestId, currentStatus, payload.UpdatedAtUtc);
+			fetchState.LastSuccessFetchedAt = payload.UpdatedAtUtc;
+			StateHasChanged();
+		});
+	}
+
+	private void HandleConnectionStateChanged(OperationalRealtimeConnectionState newState)
+	{
+		_ = InvokeAsync(() =>
+		{
+			realtimeConnectionState = newState;
+			StateHasChanged();
+		});
+	}
+
+	private static List<OperationsBoardColumn> ApplyStatusUpdate(
+		IReadOnlyList<OperationsBoardColumn> columns,
+		string requestId,
+		RequestStatus currentStatus,
+		DateTime updatedAtUtc)
+	{
+		var stageName = OperationalRealtimeMapper.MapPipelineStage(currentStatus);
+		var updatedColumns = columns
+			.Select(column => new OperationsBoardColumn(column.Name, column.Cards.ToList()))
+			.ToList();
+
+		OperationsBoardCard? matchedCard = null;
+		var sourceColumn = updatedColumns.FirstOrDefault(column =>
+		{
+			var card = column.Cards.FirstOrDefault(candidate => string.Equals(candidate.RequestId, requestId, StringComparison.Ordinal));
+			if (card is null)
+			{
+				return false;
+			}
+
+			matchedCard = card;
+			return true;
+		});
+
+		if (matchedCard is null || sourceColumn is null)
+		{
+			return updatedColumns;
+		}
+
+		var sourceCards = sourceColumn.Cards.Where(card => !string.Equals(card.RequestId, requestId, StringComparison.Ordinal)).ToList();
+		updatedColumns[updatedColumns.FindIndex(column => string.Equals(column.Name, sourceColumn.Name, StringComparison.Ordinal))] = new OperationsBoardColumn(sourceColumn.Name, sourceCards);
+
+		if (stageName is null)
+		{
+			return updatedColumns;
+		}
+
+		var targetIndex = updatedColumns.FindIndex(column => string.Equals(column.Name, stageName, StringComparison.Ordinal));
+		if (targetIndex < 0)
+		{
+			updatedColumns.Add(new OperationsBoardColumn(stageName, [matchedCard with { UpdatedAtUtc = updatedAtUtc }]));
+			return updatedColumns;
+		}
+
+		var targetCards = updatedColumns[targetIndex].Cards.ToList();
+		targetCards.Add(matchedCard with { UpdatedAtUtc = updatedAtUtc });
+		updatedColumns[targetIndex] = new OperationsBoardColumn(stageName, targetCards);
+		return updatedColumns;
 	}
 }

@@ -6,6 +6,7 @@ namespace GTEK.FSM.Backend.Application.Identity;
 public static class Permissions
 {
     public const string SystemPing = "system.ping";
+    public const string RealTimeConnect = "realtime.connect";
 
     public const string TenantsRead = "tenants.read";
     public const string TenantsWrite = "tenants.write";

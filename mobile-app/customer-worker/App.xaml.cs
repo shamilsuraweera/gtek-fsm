@@ -2,12 +2,14 @@
 
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Identity;
+using GTEK.FSM.MobileApp.Services.Realtime;
 using GTEK.FSM.MobileApp.Services.Security;
 using GTEK.FSM.MobileApp.State;
 
 public partial class App : Application
 {
 	private readonly IMobileSecurityLifecycleService _securityLifecycleService;
+	private readonly IMobileOperationalRealtimeClient _realtimeClient;
 
 	public App(
 		ThemePreferenceState themePreferenceState,
@@ -15,9 +17,11 @@ public partial class App : Application
 		IIdentityTokenProvider tokenProvider,
 		IConnectivityRecoveryService connectivityRecoveryService,
 		ITenantContextInitializer tenantContextInitializer,
+		IMobileOperationalRealtimeClient realtimeClient,
 		IMobileSecurityLifecycleService securityLifecycleService)
 	{
 		_securityLifecycleService = securityLifecycleService;
+		_realtimeClient = realtimeClient;
 		InitializeComponent();
 
 		UserAppTheme = themePreferenceState.Preference switch
@@ -38,6 +42,7 @@ public partial class App : Application
 
 			tenantContextInitializer.TryInitializeFromToken();
 			_ = connectivityRecoveryService.EvaluateStartupConnectivityAsync();
+			_ = _realtimeClient.EnsureConnectedAsync();
 		}
 
 		MainPage = new AppShell(sessionContextState);
@@ -57,6 +62,9 @@ public partial class App : Application
 		if (!_securityLifecycleService.ValidateCurrentToken())
 		{
 			_securityLifecycleService.Logout("Token was invalid or expired when app resumed.");
+			return;
 		}
+
+		_ = _realtimeClient.EnsureConnectedAsync();
 	}
 }

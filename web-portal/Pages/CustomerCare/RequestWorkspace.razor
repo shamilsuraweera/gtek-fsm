@@ -4,13 +4,19 @@
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@using GTEK.FSM.WebPortal.Services.Realtime
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime
 
 @inject NavigationManager Navigation
 @inject ResilientDataFetcher Fetcher
+@inject IOperationalRealtimeClient RealtimeClient
+
+@implements IDisposable
 
 <PageTitle>Customer Care Request Workspace</PageTitle>
 
 <h1>Customer Care Request Workspace</h1>
+<OperationalRealtimeStatusBadge State="@realtimeConnectionState" />
 
 <ResilienceErrorBoundary @ref="errorBoundary">
     <DataFetchStateDisplay
@@ -94,6 +100,8 @@
 
     private ResilienceErrorBoundary? errorBoundary;
     private FetchResult<OperationalQueueItem> fetchState = new();
+    private IDisposable? statusSubscription;
+    private OperationalRealtimeConnectionState realtimeConnectionState;
     private OperationalQueueItem? ActiveItem => fetchState.Data;
 
     private readonly List<TimelineEntry> timelineEntries = [];
@@ -101,6 +109,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        realtimeConnectionState = RealtimeClient.ConnectionState;
+        statusSubscription = RealtimeClient.SubscribeToStatusUpdates(HandleStatusUpdatedAsync);
+        RealtimeClient.ConnectionStateChanged += HandleConnectionStateChanged;
+        await EnsureRealtimeConnectedAsync();
         await LoadWorkspace();
     }
 
@@ -143,6 +155,12 @@
     private void HandleDismiss()
     {
         fetchState.State = FetchState.Idle;
+    }
+
+    public void Dispose()
+    {
+        statusSubscription?.Dispose();
+        RealtimeClient.ConnectionStateChanged -= HandleConnectionStateChanged;
     }
 
     private async Task HandleLifecycleAction(TriageAction action)
@@ -193,6 +211,7 @@
     {
         return new OperationalQueueItem
         {
+            RequestId = reference,
             Reference = reference,
             Customer = "Contoso Facilities",
             Stage = "Dispatch",
@@ -205,6 +224,7 @@
             IsEscalated = true,
             IsSLABreach = false,
             AssignedWorker = "Alice Chen",
+            AssignedWorkerId = "W-100",
             EstimatedMinutes = 55,
             WorkloadHint = "High priority and active dispatch coordination",
         };
@@ -216,4 +236,45 @@
     }
 
     private sealed record TimelineEntry(Guid Id, DateTime Timestamp, string Message);
+
+    private async Task EnsureRealtimeConnectedAsync()
+    {
+        try
+        {
+            await RealtimeClient.EnsureConnectedAsync();
+        }
+        catch
+        {
+            realtimeConnectionState = RealtimeClient.ConnectionState;
+        }
+    }
+
+    private Task HandleStatusUpdatedAsync(ServiceRequestStatusUpdatedEvent payload)
+    {
+        return InvokeAsync(() =>
+        {
+            if (ActiveItem is null
+                || !string.Equals(ActiveItem.RequestId, payload.RequestId, StringComparison.Ordinal)
+                || !OperationalRealtimeMapper.TryParseRequestStatus(payload.CurrentStatus, out var currentStatus))
+            {
+                return;
+            }
+
+            ActiveItem.Status = currentStatus;
+            ActiveItem.Stage = OperationalRealtimeMapper.MapWorkspaceStage(currentStatus);
+            ActiveItem.UpdatedAtUtc = payload.UpdatedAtUtc;
+            AddTimelineEvent($"Live update: status changed from {payload.PreviousStatus} to {payload.CurrentStatus}.");
+            fetchState.LastSuccessFetchedAt = payload.UpdatedAtUtc;
+            StateHasChanged();
+        });
+    }
+
+    private void HandleConnectionStateChanged(OperationalRealtimeConnectionState newState)
+    {
+        _ = InvokeAsync(() =>
+        {
+            realtimeConnectionState = newState;
+            StateHasChanged();
+        });
+    }
 }

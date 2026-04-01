@@ -12,18 +12,21 @@ public static class RolePermissionMatrix
 
             [UserRole.Customer] = Set(
                 Permissions.SystemPing,
+                Permissions.RealTimeConnect,
                 Permissions.ServiceRequestsRead,
                 Permissions.ServiceRequestsWrite,
                 Permissions.JobsRead),
 
             [UserRole.Worker] = Set(
                 Permissions.SystemPing,
+                Permissions.RealTimeConnect,
                 Permissions.ServiceRequestsRead,
                 Permissions.JobsRead,
                 Permissions.JobsWrite),
 
             [UserRole.Support] = Set(
                 Permissions.SystemPing,
+                Permissions.RealTimeConnect,
                 Permissions.TenantsRead,
                 Permissions.UsersRead,
                 Permissions.ServiceRequestsRead,
@@ -34,6 +37,7 @@ public static class RolePermissionMatrix
 
             [UserRole.Manager] = Set(
                 Permissions.SystemPing,
+                Permissions.RealTimeConnect,
                 Permissions.TenantsRead,
                 Permissions.UsersRead,
                 Permissions.UsersWrite,
@@ -46,6 +50,7 @@ public static class RolePermissionMatrix
 
             [UserRole.Admin] = Set(
                 Permissions.SystemPing,
+                Permissions.RealTimeConnect,
                 Permissions.TenantsRead,
                 Permissions.TenantsWrite,
                 Permissions.UsersRead,

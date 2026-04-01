@@ -1,14 +1,13 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Transactions;
+using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Domain.Aggregates;
 using GTEK.FSM.Backend.Domain.Enums;
+using GTEK.FSM.Backend.Domain.Audit;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
-
-
-using GTEK.FSM.Backend.Application.Audit;
-using GTEK.FSM.Backend.Domain.Audit;
 
 internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmentService
 {
@@ -17,19 +16,22 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
     private readonly IUserRepository userRepository;
     private readonly IUnitOfWork unitOfWork;
     private readonly IAuditLogWriter auditLogWriter;
+    private readonly IOperationalUpdatePublisher operationalUpdatePublisher;
 
     public ServiceRequestAssignmentService(
         IServiceRequestRepository serviceRequestRepository,
         IJobRepository jobRepository,
         IUserRepository userRepository,
         IUnitOfWork unitOfWork,
-        IAuditLogWriter auditLogWriter)
+        IAuditLogWriter auditLogWriter,
+        IOperationalUpdatePublisher operationalUpdatePublisher)
     {
         this.serviceRequestRepository = serviceRequestRepository;
         this.jobRepository = jobRepository;
         this.userRepository = userRepository;
         this.unitOfWork = unitOfWork;
         this.auditLogWriter = auditLogWriter;
+        this.operationalUpdatePublisher = operationalUpdatePublisher;
     }
 
     public async Task<ServiceRequestAssignmentResult> AssignAsync(
@@ -118,6 +120,7 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
                     errorCode: "CONCURRENCY_CONFLICT",
                     statusCode: 409);
             }
+
             await tx.CommitAsync(cancellationToken);
 
             // Write audit log
@@ -131,12 +134,15 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
                 Action = $"AssignWorker:{parsedWorkerId}",
                 Outcome = "Success",
                 OccurredAtUtc = DateTimeOffset.UtcNow,
-                Details = null
+                Details = null,
             };
             await this.auditLogWriter.WriteAsync(auditLog, cancellationToken);
 
+            var payload = BuildPayload(request, job, previousWorkerUserId: null, parsedWorkerId);
+            await this.operationalUpdatePublisher.PublishJobAssignmentUpdatedAsync(payload, cancellationToken);
+
             return ServiceRequestAssignmentResult.Success(
-                payload: BuildPayload(request, job, previousWorkerUserId: null, parsedWorkerId),
+                payload: payload,
                 message: "Service request assigned successfully.");
         }
         catch (InvalidOperationException ex)
@@ -257,10 +263,14 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
                     errorCode: "CONCURRENCY_CONFLICT",
                     statusCode: 409);
             }
+
             await tx.CommitAsync(cancellationToken);
 
+            var payload = BuildPayload(request, job, previousWorkerUserId, parsedWorkerId);
+            await this.operationalUpdatePublisher.PublishJobAssignmentUpdatedAsync(payload, cancellationToken);
+
             return ServiceRequestAssignmentResult.Success(
-                payload: BuildPayload(request, job, previousWorkerUserId, parsedWorkerId),
+                payload: payload,
                 message: "Service request reassigned successfully.");
         }
         catch (InvalidOperationException ex)

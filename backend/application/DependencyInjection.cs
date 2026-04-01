@@ -1,6 +1,7 @@
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
 using GTEK.FSM.Backend.Application.Identity;
+using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
 
@@ -17,6 +18,7 @@ public static class DependencyInjection
 
         services.AddScoped<IAuthorizationDecisionAuditSink, NoOpAuthorizationDecisionAuditSink>();
         services.AddScoped<IAuditLogWriter, NoOpAuditLogWriter>();
+        services.AddScoped<IOperationalUpdatePublisher, NoOpOperationalUpdatePublisher>();
         services.AddScoped<IPrivilegedTenantOperationGuard, PrivilegedTenantOperationGuard>();
         services.AddScoped<ITenantOwnershipGuard, TenantOwnershipGuard>();
         services.AddScoped<IServiceRequestCreationService, ServiceRequestCreationService>();
@@ -44,6 +46,19 @@ public static class DependencyInjection
     private sealed class NoOpAuditLogWriter : IAuditLogWriter
     {
         public Task WriteAsync(GTEK.FSM.Backend.Domain.Audit.AuditLog log, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class NoOpOperationalUpdatePublisher : IOperationalUpdatePublisher
+    {
+        public Task PublishServiceRequestStatusUpdatedAsync(TransitionedServiceRequestPayload payload, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task PublishJobAssignmentUpdatedAsync(AssignedServiceRequestPayload payload, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }
