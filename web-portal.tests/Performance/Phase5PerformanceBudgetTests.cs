@@ -2,6 +2,7 @@ namespace GTEK.FSM.WebPortal.Tests.Performance;
 
 using System.Diagnostics;
 using Bunit;
+using GTEK.FSM.Shared.Contracts.Vocabulary;
 using GTEK.FSM.WebPortal.Components;
 using GTEK.FSM.WebPortal.Models;
 using GTEK.FSM.WebPortal.Pages.Management;
@@ -67,7 +68,7 @@ public sealed class Phase5PerformanceBudgetTests : TestContext
                 Priority = i % 5 == 0 ? "Critical" : "High",
                 Summary = "Performance baseline request",
                 UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-i),
-                Status = i % 2 == 0 ? RequestStatus.Assigned : RequestStatus.Waiting,
+                Status = i % 2 == 0 ? RequestStage.Assigned : RequestStage.OnHold,
                 UrgencyLevel = i % 5 == 0 ? UrgencyLevel.Critical : UrgencyLevel.High,
                 IsEscalated = i % 7 == 0,
                 IsSLABreach = i % 9 == 0,

@@ -31,6 +31,7 @@
 					<option value="Active">Active</option>
 					<option value="Escalated">Escalated</option>
 					<option value="Waiting">Waiting</option>
+					<option value="Completed">Completed</option>
 				</select>
 
 				<select class="ops-filter-select" @bind="urgencyFilter">
@@ -58,8 +59,8 @@
 				<span class="col-ref mono">@item.Reference</span>
 				<span class="col-customer">@item.Customer</span>
 				<span class="col-status">
-					<span class="status-quick status-@item.Status.ToString().ToLowerInvariant()">
-						@FormatStatus(item.Status)
+					<span class="status-quick status-@RequestStagePresentation.GetCssClass(item.Status, item.IsEscalated)">
+						@FormatStatus(item)
 					</span>
 				</span>
 				<span class="col-priority">
@@ -147,7 +148,7 @@
 	private List<OperationalQueueItem> FilteredItems =>
 		Items
 			.Where(x => stageFilter == "All" || string.Equals(x.Stage, stageFilter, StringComparison.OrdinalIgnoreCase))
-			.Where(x => string.IsNullOrWhiteSpace(statusFilter) || string.Equals(x.Status.ToString(), statusFilter, StringComparison.OrdinalIgnoreCase))
+			.Where(x => string.IsNullOrWhiteSpace(statusFilter) || string.Equals(RequestStagePresentation.GetLabel(x.Status, x.IsEscalated), statusFilter, StringComparison.OrdinalIgnoreCase))
 			.Where(x =>
 			{
 				return urgencyFilter switch
@@ -175,19 +176,7 @@
 		}
 	}
 
-	private string FormatStatus(RequestStatus status) => status switch
-	{
-		RequestStatus.New => "📋",
-		RequestStatus.Assessing => "🔍",
-		RequestStatus.Assigned => "👤",
-		RequestStatus.Active => "🔧",
-		RequestStatus.Waiting => "⏳",
-		RequestStatus.OnHold => "⏸️",
-		RequestStatus.Escalated => "⚠️",
-		RequestStatus.Completed => "✅",
-		RequestStatus.Cancelled => "❌",
-		_ => "?",
-	};
+	private string FormatStatus(OperationalQueueItem item) => RequestStagePresentation.GetIcon(item.Status, item.IsEscalated);
 
 	private string FormatAgeShort(int minutes)
 	{

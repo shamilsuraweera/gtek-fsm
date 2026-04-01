@@ -1,14 +1,15 @@
+using GTEK.FSM.Shared.Contracts.Vocabulary;
 using GTEK.FSM.WebPortal.Models;
 
 namespace GTEK.FSM.WebPortal.Services.Realtime;
 
 public static class OperationalRealtimeMapper
 {
-    public static bool TryParseRequestStatus(string value, out RequestStatus status)
+    public static bool TryParseRequestStage(string value, out RequestStage stage)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            status = RequestStatus.New;
+            stage = RequestStage.New;
             return false;
         }
 
@@ -17,35 +18,23 @@ public static class OperationalRealtimeMapper
             .Replace("-", string.Empty, StringComparison.Ordinal)
             .Replace(" ", string.Empty, StringComparison.Ordinal);
 
-        return Enum.TryParse(normalized, ignoreCase: true, out status);
+        return Enum.TryParse(normalized, ignoreCase: true, out stage);
     }
 
-    public static string? MapPipelineStage(RequestStatus status)
+    public static string? MapPipelineStage(RequestStage stage)
     {
-        return status switch
-        {
-            RequestStatus.New => "Intake",
-            RequestStatus.Assessing => "Assessment",
-            RequestStatus.Assigned => "Dispatch",
-            RequestStatus.Active => "In Progress",
-            RequestStatus.Waiting => "Assessment",
-            RequestStatus.Escalated => "Dispatch",
-            RequestStatus.OnHold => "Assessment",
-            RequestStatus.Completed => null,
-            RequestStatus.Cancelled => null,
-            _ => null,
-        };
+        return RequestStagePresentation.MapPipelineStage(stage);
     }
 
-    public static string MapWorkspaceStage(RequestStatus status)
+    public static string MapWorkspaceStage(RequestStage stage)
     {
-        return MapPipelineStage(status) ?? "Closed";
+        return RequestStagePresentation.MapWorkspaceStage(stage);
     }
 
-    public static RequestStatus MapAssignmentStatus(string assignmentStatus)
+    public static RequestStage MapAssignmentStage(string assignmentStatus)
     {
-        return TryParseRequestStatus(assignmentStatus, out var parsedStatus)
-            ? parsedStatus
-            : RequestStatus.Assigned;
+        return TryParseRequestStage(assignmentStatus, out var parsedStage)
+            ? parsedStage
+            : RequestStage.Assigned;
     }
 }

@@ -172,17 +172,38 @@
 
         await Task.Delay(100);
 
-        ActiveItem.Status = action switch
+        switch (action)
         {
-            TriageAction.Assign => RequestStatus.Assigned,
-            TriageAction.Complete => RequestStatus.Completed,
-            TriageAction.Escalate => RequestStatus.Escalated,
-            TriageAction.Hold => RequestStatus.OnHold,
-            TriageAction.Reopen => RequestStatus.Assessing,
-            TriageAction.Reassign => RequestStatus.Assigned,
-            TriageAction.Reject => RequestStatus.Cancelled,
-            _ => ActiveItem.Status,
-        };
+            case TriageAction.Assign:
+            case TriageAction.Reassign:
+                ActiveItem.Status = RequestStage.Assigned;
+                ActiveItem.Stage = "Dispatch";
+                break;
+            case TriageAction.Complete:
+                ActiveItem.Status = RequestStage.Completed;
+                ActiveItem.Stage = "Closed";
+                ActiveItem.IsEscalated = false;
+                break;
+            case TriageAction.Escalate:
+                ActiveItem.IsEscalated = true;
+                break;
+            case TriageAction.Hold:
+                ActiveItem.Status = RequestStage.OnHold;
+                ActiveItem.Stage = "Assessment";
+                break;
+            case TriageAction.Reopen:
+                ActiveItem.Status = RequestStage.New;
+                ActiveItem.Stage = "Intake";
+                ActiveItem.IsEscalated = false;
+                break;
+            case TriageAction.Reject:
+                ActiveItem.Status = RequestStage.Cancelled;
+                ActiveItem.Stage = "Closed";
+                ActiveItem.IsEscalated = false;
+                break;
+        }
+
+        ActiveItem.UpdatedAtUtc = DateTime.UtcNow;
 
         AddTimelineEvent($"Lifecycle action applied: {action}.");
     }
@@ -218,7 +239,7 @@
             Priority = "High",
             Summary = "HVAC outage escalation with tenant comfort impact.",
             UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-8),
-            Status = RequestStatus.Assigned,
+            Status = RequestStage.Assigned,
             UrgencyLevel = UrgencyLevel.High,
             AgeMinutes = 92,
             IsEscalated = true,
@@ -255,7 +276,7 @@
         {
             if (ActiveItem is null
                 || !string.Equals(ActiveItem.RequestId, payload.RequestId, StringComparison.Ordinal)
-                || !OperationalRealtimeMapper.TryParseRequestStatus(payload.CurrentStatus, out var currentStatus))
+                || !OperationalRealtimeMapper.TryParseRequestStage(payload.CurrentStatus, out var currentStatus))
             {
                 return;
             }

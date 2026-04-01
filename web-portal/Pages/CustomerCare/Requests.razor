@@ -92,15 +92,32 @@
 			await Task.Delay(200);
 
 			// Update the item status based on action
-			item.Status = action switch
+			switch (action)
 			{
-				TriageAction.Assign => RequestStatus.Assigned,
-				TriageAction.Complete => RequestStatus.Completed,
-				TriageAction.Escalate => RequestStatus.Escalated,
-				TriageAction.Hold => RequestStatus.OnHold,
-				TriageAction.Reopen => RequestStatus.Assessing,
-				_ => item.Status,
-			};
+				case TriageAction.Assign:
+					item.Status = RequestStage.Assigned;
+					item.Stage = "Dispatch";
+					break;
+				case TriageAction.Complete:
+					item.Status = RequestStage.Completed;
+					item.Stage = "Closed";
+					item.IsEscalated = false;
+					break;
+				case TriageAction.Escalate:
+					item.IsEscalated = true;
+					break;
+				case TriageAction.Hold:
+					item.Status = RequestStage.OnHold;
+					item.Stage = "Assessment";
+					break;
+				case TriageAction.Reopen:
+					item.Status = RequestStage.New;
+					item.Stage = "Intake";
+					item.IsEscalated = false;
+					break;
+			}
+
+			item.UpdatedAtUtc = DateTime.UtcNow;
 
 			StateHasChanged();
 		}
@@ -116,10 +133,10 @@
 	{
 		return
 		[
-			new OperationsBoardColumn("Intake", ToCards(items.Where(x => x.Status is RequestStatus.New or RequestStatus.Assessing).ToList())),
-			new OperationsBoardColumn("Assigned", ToCards(items.Where(x => x.Status == RequestStatus.Assigned).ToList())),
-			new OperationsBoardColumn("Active", ToCards(items.Where(x => x.Status == RequestStatus.Active).ToList())),
-			new OperationsBoardColumn("Escalated", ToCards(items.Where(x => x.Status == RequestStatus.Escalated).ToList())),
+			new OperationsBoardColumn("Intake", ToCards(items.Where(x => x.Status == RequestStage.New && !x.IsEscalated).ToList())),
+			new OperationsBoardColumn("Assigned", ToCards(items.Where(x => x.Status == RequestStage.Assigned && !x.IsEscalated).ToList())),
+			new OperationsBoardColumn("Active", ToCards(items.Where(x => x.Status == RequestStage.InProgress && !x.IsEscalated).ToList())),
+			new OperationsBoardColumn("Escalated", ToCards(items.Where(x => x.IsEscalated).ToList())),
 		];
 	}
 
@@ -141,7 +158,7 @@
 		var items = new List<OperationalQueueItem>();
 		var stages = new[] { "Intake", "Assessment", "Dispatch", "In Progress" };
 		var priorities = new[] { "Critical", "High", "Medium", "Low" };
-		var statuses = new[] { RequestStatus.New, RequestStatus.Assessing, RequestStatus.Assigned, RequestStatus.Active };
+		var statuses = new[] { RequestStage.New, RequestStage.OnHold, RequestStage.Assigned, RequestStage.InProgress };
 		var urgencies = new[] { UrgencyLevel.Critical, UrgencyLevel.High, UrgencyLevel.Moderate, UrgencyLevel.Normal };
 		var workers = new[] { "Alice Chen", "Bob Silva", "Carol López", "David Patel", null };
 
