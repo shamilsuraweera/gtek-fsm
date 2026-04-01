@@ -4,6 +4,7 @@ using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
+using GTEK.FSM.Backend.Application.Workers;
 
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,8 @@ public static class DependencyInjection
         services.AddScoped<ICategoryManagementService, CategoryManagementService>();
         services.AddScoped<ISubscriptionQueryService, SubscriptionQueryService>();
         services.AddScoped<ISubscriptionManagementService, SubscriptionManagementService>();
+        services.AddScoped<IWorkerQueryService, WorkerQueryService>();
+        services.AddScoped<IWorkerManagementService, WorkerManagementService>();
 
         return services;
     }

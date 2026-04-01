@@ -6,6 +6,7 @@ using GTEK.FSM.WebPortal.Services.Requests;
 using GTEK.FSM.WebPortal.Services.Theme;
 using GTEK.FSM.WebPortal.Services;
 using GTEK.FSM.WebPortal.Services.Security;
+using GTEK.FSM.WebPortal.Services.Management;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -17,6 +18,7 @@ builder.Services.AddScoped<ThemeState>();
 builder.Services.AddScoped<ResilientDataFetcher>();
 builder.Services.AddScoped<UiSecurityContext>();
 builder.Services.AddScoped<IRequestWorkspaceApiClient, RequestWorkspaceApiClient>();
+builder.Services.AddScoped<IManagementWorkersApiClient, ManagementWorkersApiClient>();
 builder.Services.AddScoped<IPortalAccessTokenProvider, NullPortalAccessTokenProvider>();
 builder.Services.AddScoped<IOperationalRealtimeClient, SignalROperationalRealtimeClient>();
 

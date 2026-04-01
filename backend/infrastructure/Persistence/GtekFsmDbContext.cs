@@ -25,6 +25,8 @@ public class GtekFsmDbContext : DbContext
 
     public DbSet<ServiceCategory> ServiceCategories => this.Set<ServiceCategory>();
 
+    public DbSet<WorkerProfile> WorkerProfiles => this.Set<WorkerProfile>();
+
     public DbSet<GTEK.FSM.Backend.Domain.Audit.AuditLog> AuditLogs => this.Set<GTEK.FSM.Backend.Domain.Audit.AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -51,6 +53,9 @@ public class GtekFsmDbContext : DbContext
             .HasQueryFilter(x => !x.IsDeleted);
 
         modelBuilder.Entity<ServiceCategory>()
+            .HasQueryFilter(x => !x.IsDeleted);
+
+        modelBuilder.Entity<WorkerProfile>()
             .HasQueryFilter(x => !x.IsDeleted);
 
         // AuditLog configuration

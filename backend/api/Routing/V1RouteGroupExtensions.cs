@@ -4,6 +4,7 @@ using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
+using GTEK.FSM.Backend.Application.Workers;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
@@ -18,6 +19,8 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
 
 namespace GTEK.FSM.Backend.Api.Routing;
@@ -768,6 +771,143 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
+        v1.MapGet("/management/workers", async (
+            [AsParameters] GetWorkersRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<GetWorkersRequest> validator,
+            IWorkerQueryService workerQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var query = await workerQueryService.GetWorkersAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "WORKER_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetWorkersListResponse
+            {
+                Items = query.Payload.Items.Select(MapWorker).ToArray(),
+                Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
+                {
+                    Offset = (query.Payload.Page - 1) * query.Payload.PageSize,
+                    Limit = query.Payload.PageSize,
+                    Total = query.Payload.Total,
+                },
+            };
+
+            return Results.Ok(ApiResponse<GetWorkersListResponse>.Ok(payload, query.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPost("/management/workers", async (
+            CreateWorkerProfileRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<CreateWorkerProfileRequest> validator,
+            IWorkerManagementService workerManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var mutation = await workerManagementService.CreateAsync(principal, request, cancellationToken);
+            if (!mutation.IsSuccess || mutation.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    mutation.StatusCode ?? StatusCodes.Status400BadRequest,
+                    mutation.ErrorCode ?? "WORKER_CREATE_FAILED",
+                    mutation.Message);
+            }
+
+            var payload = MapWorker(mutation.Payload);
+            return Results.Ok(ApiResponse<WorkerProfileResponse>.Ok(payload, mutation.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPatch("/management/workers/{workerId:guid}", async (
+            Guid workerId,
+            UpdateWorkerProfileRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<UpdateWorkerProfileRequest> validator,
+            IWorkerManagementService workerManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var mutation = await workerManagementService.UpdateAsync(principal, workerId, request, cancellationToken);
+            if (!mutation.IsSuccess || mutation.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    mutation.StatusCode ?? StatusCodes.Status400BadRequest,
+                    mutation.ErrorCode ?? "WORKER_UPDATE_FAILED",
+                    mutation.Message);
+            }
+
+            var payload = MapWorker(mutation.Payload);
+            return Results.Ok(ApiResponse<WorkerProfileResponse>.Ok(payload, mutation.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
         v1.MapGet("/management/subscriptions/organization", async (
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
@@ -1192,6 +1332,23 @@ public static class V1RouteGroupExtensions
             IsEnabled = category.IsEnabled,
             CreatedAtUtc = category.CreatedAtUtc,
             UpdatedAtUtc = category.UpdatedAtUtc,
+        };
+    }
+
+    private static WorkerProfileResponse MapWorker(QueriedWorkerProfileItem worker)
+    {
+        return new WorkerProfileResponse
+        {
+            WorkerId = worker.WorkerId.ToString(),
+            TenantId = worker.TenantId.ToString(),
+            WorkerCode = worker.WorkerCode,
+            DisplayName = worker.DisplayName,
+            InternalRating = worker.InternalRating,
+            AvailabilityStatus = worker.AvailabilityStatus.ToString(),
+            IsActive = worker.IsActive,
+            Skills = worker.Skills.ToArray(),
+            CreatedAtUtc = worker.CreatedAtUtc,
+            UpdatedAtUtc = worker.UpdatedAtUtc,
         };
     }
 
