@@ -50,7 +50,8 @@ internal sealed class SubscriptionQueryService : ISubscriptionQueryService
             ActiveUsers: activeUsers,
             AvailableUserSlots: Math.Max(0, subscription.UserLimit - activeUsers),
             StartsOnUtc: subscription.StartsOnUtc,
-            EndsOnUtc: subscription.EndsOnUtc));
+            EndsOnUtc: subscription.EndsOnUtc,
+            RowVersion: Convert.ToBase64String(subscription.RowVersion)));
     }
 
     public async Task<SubscriptionUsersQueryResult> GetUsersAsync(

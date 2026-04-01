@@ -5,4 +5,6 @@ public sealed class UpdateOrganizationSubscriptionRequest
     public string? PlanCode { get; set; }
 
     public int? UserLimit { get; set; }
+
+    public string? RowVersion { get; set; }
 }

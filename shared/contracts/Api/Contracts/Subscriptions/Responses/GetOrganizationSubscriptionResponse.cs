@@ -17,4 +17,6 @@ public sealed class GetOrganizationSubscriptionResponse
     public DateTime StartsOnUtc { get; set; }
 
     public DateTime? EndsOnUtc { get; set; }
+
+    public string? RowVersion { get; set; }
 }

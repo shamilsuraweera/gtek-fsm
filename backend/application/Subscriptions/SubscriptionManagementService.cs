@@ -70,6 +70,14 @@ internal sealed class SubscriptionManagementService : ISubscriptionManagementSer
                 404);
         }
 
+        if (!TryValidateRowVersion(request.RowVersion, subscription.RowVersion, out var validationErrorCode, out var validationMessage))
+        {
+            return OrganizationSubscriptionQueryResult.Failure(
+                validationMessage,
+                validationErrorCode,
+                409);
+        }
+
         var users = await this.userRepository.ListByTenantAsync(principal.TenantId, cancellationToken);
         var activeUsers = users.Count;
         if (request.UserLimit.Value < activeUsers)
@@ -85,7 +93,17 @@ internal sealed class SubscriptionManagementService : ISubscriptionManagementSer
             subscription.ChangePlan(normalizedPlanCode.ToUpperInvariant());
             subscription.ChangeUserLimit(request.UserLimit.Value);
             this.subscriptionRepository.Update(subscription);
-            await this.unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await this.unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (ConcurrencyConflictException)
+            {
+                return OrganizationSubscriptionQueryResult.Failure(
+                    "The subscription was modified by another operation. Refresh and retry.",
+                    "CONCURRENCY_CONFLICT",
+                    409);
+            }
 
             // Write audit log
             var auditLog = new AuditLog
@@ -126,12 +144,49 @@ internal sealed class SubscriptionManagementService : ISubscriptionManagementSer
                 ActiveUsers: activeUsers,
                 AvailableUserSlots: Math.Max(0, subscription.UserLimit - activeUsers),
                 StartsOnUtc: subscription.StartsOnUtc,
-                EndsOnUtc: subscription.EndsOnUtc),
+                EndsOnUtc: subscription.EndsOnUtc,
+                RowVersion: Convert.ToBase64String(subscription.RowVersion)),
             "Subscription updated.");
     }
 
     private static bool IsManagementRole(AuthenticatedPrincipal principal)
     {
         return principal.IsInRole("Manager") || principal.IsInRole("Admin");
+    }
+
+    private static bool TryValidateRowVersion(
+        string? requestRowVersion,
+        byte[] currentRowVersion,
+        out string errorCode,
+        out string message)
+    {
+        errorCode = string.Empty;
+        message = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(requestRowVersion))
+        {
+            return true;
+        }
+
+        byte[] decoded;
+        try
+        {
+            decoded = Convert.FromBase64String(requestRowVersion.Trim());
+        }
+        catch (FormatException)
+        {
+            errorCode = "ROW_VERSION_INVALID";
+            message = "rowVersion must be a valid base64 string.";
+            return false;
+        }
+
+        if (!decoded.AsSpan().SequenceEqual(currentRowVersion))
+        {
+            errorCode = "CONCURRENCY_CONFLICT";
+            message = "The subscription was modified by another operation. Refresh and retry.";
+            return false;
+        }
+
+        return true;
     }
 }

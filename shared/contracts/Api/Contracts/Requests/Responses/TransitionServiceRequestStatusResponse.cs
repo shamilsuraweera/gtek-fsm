@@ -14,4 +14,6 @@ public sealed class TransitionServiceRequestStatusResponse
     public string CurrentStatus { get; set; } = string.Empty;
 
     public DateTime UpdatedAtUtc { get; set; }
+
+    public string? RowVersion { get; set; }
 }

@@ -36,6 +36,7 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
         AuthenticatedPrincipal principal,
         Guid requestId,
         string? workerUserId,
+        string? rowVersion,
         CancellationToken cancellationToken = default)
     {
         if (!TryParseWorker(workerUserId, out var parsedWorkerId))
@@ -62,6 +63,14 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
                 message: "Service request was not found.",
                 errorCode: "REQUEST_NOT_FOUND",
                 statusCode: 404);
+        }
+
+        if (!TryValidateRowVersion(rowVersion, request.RowVersion, out var validationErrorCode, out var validationMessage))
+        {
+            return ServiceRequestAssignmentResult.Failure(
+                message: validationMessage,
+                errorCode: validationErrorCode,
+                statusCode: 409);
         }
 
         if (request.ActiveJobId.HasValue)
@@ -97,7 +106,18 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
             await this.jobRepository.AddAsync(job, cancellationToken);
             this.serviceRequestRepository.Update(request);
 
-            await this.unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await this.unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (ConcurrencyConflictException)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return ServiceRequestAssignmentResult.Failure(
+                    message: "The request was modified by another operation. Refresh and retry.",
+                    errorCode: "CONCURRENCY_CONFLICT",
+                    statusCode: 409);
+            }
             await tx.CommitAsync(cancellationToken);
 
             // Write audit log
@@ -133,6 +153,7 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
         AuthenticatedPrincipal principal,
         Guid requestId,
         string? workerUserId,
+        string? rowVersion,
         CancellationToken cancellationToken = default)
     {
         if (!TryParseWorker(workerUserId, out var parsedWorkerId))
@@ -159,6 +180,14 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
                 message: "Service request was not found.",
                 errorCode: "REQUEST_NOT_FOUND",
                 statusCode: 404);
+        }
+
+        if (!TryValidateRowVersion(rowVersion, request.RowVersion, out var validationErrorCode, out var validationMessage))
+        {
+            return ServiceRequestAssignmentResult.Failure(
+                message: validationMessage,
+                errorCode: validationErrorCode,
+                statusCode: 409);
         }
 
         if (!request.ActiveJobId.HasValue)
@@ -216,7 +245,18 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
             this.jobRepository.Update(job);
             this.serviceRequestRepository.Update(request);
 
-            await this.unitOfWork.SaveChangesAsync(cancellationToken);
+            try
+            {
+                await this.unitOfWork.SaveChangesAsync(cancellationToken);
+            }
+            catch (ConcurrencyConflictException)
+            {
+                await tx.RollbackAsync(cancellationToken);
+                return ServiceRequestAssignmentResult.Failure(
+                    message: "The request was modified by another operation. Refresh and retry.",
+                    errorCode: "CONCURRENCY_CONFLICT",
+                    statusCode: 409);
+            }
             await tx.CommitAsync(cancellationToken);
 
             return ServiceRequestAssignmentResult.Success(
@@ -254,6 +294,43 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
             PreviousWorkerUserId: previousWorkerUserId,
             CurrentWorkerUserId: currentWorkerUserId,
             AssignmentStatus: job.AssignmentStatus.ToString(),
-            UpdatedAtUtc: job.UpdatedAtUtc);
+            UpdatedAtUtc: job.UpdatedAtUtc,
+            RowVersion: Convert.ToBase64String(request.RowVersion));
+    }
+
+    private static bool TryValidateRowVersion(
+        string? requestRowVersion,
+        byte[] currentRowVersion,
+        out string errorCode,
+        out string message)
+    {
+        errorCode = string.Empty;
+        message = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(requestRowVersion))
+        {
+            return true;
+        }
+
+        byte[] decoded;
+        try
+        {
+            decoded = Convert.FromBase64String(requestRowVersion.Trim());
+        }
+        catch (FormatException)
+        {
+            errorCode = "ROW_VERSION_INVALID";
+            message = "rowVersion must be a valid base64 string.";
+            return false;
+        }
+
+        if (!decoded.AsSpan().SequenceEqual(currentRowVersion))
+        {
+            errorCode = "CONCURRENCY_CONFLICT";
+            message = "The request was modified by another operation. Refresh and retry.";
+            return false;
+        }
+
+        return true;
     }
 }

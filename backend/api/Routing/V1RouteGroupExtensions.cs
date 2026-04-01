@@ -134,6 +134,7 @@ public static class V1RouteGroupExtensions
                 principal,
                 requestId,
                 request.NextStatus,
+                request.RowVersion,
                 cancellationToken);
 
             if (!transition.IsSuccess || transition.Payload is null)
@@ -152,6 +153,7 @@ public static class V1RouteGroupExtensions
                 PreviousStatus = transition.Payload.PreviousStatus,
                 CurrentStatus = transition.Payload.CurrentStatus,
                 UpdatedAtUtc = transition.Payload.UpdatedAtUtc,
+                RowVersion = transition.Payload.RowVersion,
             };
 
             var envelope = ApiResponse<TransitionServiceRequestStatusResponse>.Ok(
@@ -196,7 +198,7 @@ public static class V1RouteGroupExtensions
                 return validationFailure;
             }
 
-            var assignment = await assignmentService.AssignAsync(principal, requestId, request.WorkerUserId, cancellationToken);
+            var assignment = await assignmentService.AssignAsync(principal, requestId, request.WorkerUserId, request.RowVersion, cancellationToken);
             if (!assignment.IsSuccess || assignment.Payload is null)
             {
                 return BuildFailure(
@@ -215,6 +217,7 @@ public static class V1RouteGroupExtensions
                 CurrentWorkerUserId = assignment.Payload.CurrentWorkerUserId.ToString(),
                 AssignmentStatus = assignment.Payload.AssignmentStatus,
                 UpdatedAtUtc = assignment.Payload.UpdatedAtUtc,
+                RowVersion = assignment.Payload.RowVersion,
             };
 
             var envelope = ApiResponse<ServiceRequestAssignmentResponse>.Ok(
@@ -259,7 +262,7 @@ public static class V1RouteGroupExtensions
                 return validationFailure;
             }
 
-            var assignment = await assignmentService.ReassignAsync(principal, requestId, request.WorkerUserId, cancellationToken);
+            var assignment = await assignmentService.ReassignAsync(principal, requestId, request.WorkerUserId, request.RowVersion, cancellationToken);
             if (!assignment.IsSuccess || assignment.Payload is null)
             {
                 return BuildFailure(
@@ -278,6 +281,7 @@ public static class V1RouteGroupExtensions
                 CurrentWorkerUserId = assignment.Payload.CurrentWorkerUserId.ToString(),
                 AssignmentStatus = assignment.Payload.AssignmentStatus,
                 UpdatedAtUtc = assignment.Payload.UpdatedAtUtc,
+                RowVersion = assignment.Payload.RowVersion,
             };
 
             var envelope = ApiResponse<ServiceRequestAssignmentResponse>.Ok(
@@ -802,6 +806,7 @@ public static class V1RouteGroupExtensions
                 AvailableUserSlots = query.Payload.AvailableUserSlots,
                 StartsOnUtc = query.Payload.StartsOnUtc,
                 EndsOnUtc = query.Payload.EndsOnUtc,
+                RowVersion = query.Payload.RowVersion,
             };
 
             return Results.Ok(ApiResponse<GetOrganizationSubscriptionResponse>.Ok(
@@ -858,6 +863,7 @@ public static class V1RouteGroupExtensions
                 AvailableUserSlots = update.Payload.AvailableUserSlots,
                 StartsOnUtc = update.Payload.StartsOnUtc,
                 EndsOnUtc = update.Payload.EndsOnUtc,
+                RowVersion = update.Payload.RowVersion,
             };
 
             return Results.Ok(ApiResponse<GetOrganizationSubscriptionResponse>.Ok(
@@ -1240,5 +1246,4 @@ public static class V1RouteGroupExtensions
 
         return $"\"{value.Replace("\"", "\"\"")}\"";
     }
-
 }

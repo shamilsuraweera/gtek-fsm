@@ -129,6 +129,36 @@ public class ServiceRequestLifecycleIntegrationTests
         Assert.Equal(ServiceRequestStatus.New, stored!.Status);
     }
 
+    [Fact]
+    public async Task TransitionStatus_StaleRowVersion_ReturnsConflict()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var store = new InMemoryServiceRequestStore();
+        store.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Water leak in lobby"));
+
+        var app = await BuildTestApplicationAsync(store);
+        using var client = app.GetTestClient();
+
+        using var request = CreateAuthenticatedRequest(
+            method: HttpMethod.Patch,
+            route: $"/api/v1/requests/{requestId}/status",
+            role: "Customer",
+            tenantId: tenantId,
+            userId: Guid.NewGuid(),
+            body: new TransitionServiceRequestStatusRequest
+            {
+                NextStatus = "Assigned",
+                RowVersion = Convert.ToBase64String(new byte[] { 1, 2, 3 }),
+            });
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("CONCURRENCY_CONFLICT", body);
+    }
+
     private static HttpRequestMessage CreateAuthenticatedRequest(
         HttpMethod method,
         string route,

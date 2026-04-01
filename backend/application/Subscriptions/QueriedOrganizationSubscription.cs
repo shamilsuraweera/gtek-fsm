@@ -8,4 +8,5 @@ public sealed record QueriedOrganizationSubscription(
     int ActiveUsers,
     int AvailableUserSlots,
     DateTime StartsOnUtc,
-    DateTime? EndsOnUtc);
+    DateTime? EndsOnUtc,
+    string? RowVersion);

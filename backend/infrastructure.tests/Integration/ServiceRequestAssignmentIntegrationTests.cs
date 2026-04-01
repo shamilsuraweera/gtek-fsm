@@ -192,6 +192,42 @@ public class ServiceRequestAssignmentIntegrationTests
         Assert.Contains("WORKER_NOT_FOUND_IN_TENANT", body);
     }
 
+    [Fact]
+    public async Task AssignRequest_StaleRowVersion_ReturnsConflict()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var workerId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue"));
+        userStore.Seed(new User(workerId, tenantId, "wrk-01", "Worker One"));
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        using var client = app.GetTestClient();
+
+        using var request = CreateAuthenticatedRequest(
+            HttpMethod.Post,
+            $"/api/v1/requests/{requestId}/assign",
+            role: "Support",
+            tenantId: tenantId,
+            userId: Guid.NewGuid(),
+            body: new AssignServiceRequestRequest
+            {
+                WorkerUserId = workerId.ToString(),
+                RowVersion = Convert.ToBase64String(new byte[] { 1, 2, 3 }),
+            });
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("CONCURRENCY_CONFLICT", body);
+    }
+
     private static HttpRequestMessage CreateAuthenticatedRequest(
         HttpMethod method,
         string route,

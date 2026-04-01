@@ -8,6 +8,7 @@ public interface IServiceRequestLifecycleService
         AuthenticatedPrincipal principal,
         Guid requestId,
         string? nextStatus,
+        string? rowVersion,
         CancellationToken cancellationToken = default);
 }
 
@@ -63,4 +64,5 @@ public sealed record TransitionedServiceRequestPayload(
     Guid TenantId,
     string PreviousStatus,
     string CurrentStatus,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    string? RowVersion);

@@ -38,6 +38,8 @@ public sealed class ServiceRequest
 
     public DateTime UpdatedAtUtc { get; internal set; }
 
+    public byte[] RowVersion { get; internal set; } = Array.Empty<byte>();
+
     public bool IsDeleted { get; internal set; }
 
     public IReadOnlyCollection<IDomainEvent> DomainEvents => this.domainEvents;
