@@ -12,6 +12,11 @@ namespace GTEK.FSM.WebPortal.Models;
 public class OperationalQueueItem
 {
     /// <summary>
+    /// Gets or sets the stable backend request identifier.
+    /// </summary>
+    public string RequestId { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets or sets the queue list item reference.
     /// </summary>
     public string Reference { get; set; } = string.Empty;
@@ -75,6 +80,11 @@ public class OperationalQueueItem
     /// Gets or sets the optional assigned worker name.
     /// </summary>
     public string? AssignedWorker { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional assigned worker user identifier.
+    /// </summary>
+    public string? AssignedWorkerId { get; set; }
 
     /// <summary>
     /// Gets or sets the estimate of time to resolution in minutes (if available).

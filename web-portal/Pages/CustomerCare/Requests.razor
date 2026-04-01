@@ -127,6 +127,7 @@
 	{
 		return items
 			.Select(item => new OperationsBoardCard(
+				item.RequestId,
 				item.Reference,
 				item.Summary,
 				item.Priority,
@@ -153,6 +154,7 @@
 
 			items.Add(new OperationalQueueItem
 			{
+				RequestId = $"REQ-{1000 + i}",
 				Reference = $"REQ-{1000 + i}",
 				Customer = $"Customer {i:000}",
 				Stage = stages[i % stages.Length],
