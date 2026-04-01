@@ -6,6 +6,7 @@ using GTEK.FSM.Backend.Api.Realtime;
 using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Api.Tenancy;
 using GTEK.FSM.Backend.Application.Identity;
+using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Infrastructure;
 using GTEK.FSM.Backend.Infrastructure.Configuration;
 using GTEK.FSM.Shared.Contracts.Results;
@@ -32,6 +33,7 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddApiAuthorizationPolicies();
+builder.Services.AddScoped<IOperationalUpdatePublisher, SignalROperationalUpdatePublisher>();
 builder.Services.AddSignalR(options =>
 {
 	options.EnableDetailedErrors = signalROptions.EnableDetailedErrors;
