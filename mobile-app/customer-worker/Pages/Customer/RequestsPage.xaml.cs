@@ -2,12 +2,16 @@ namespace GTEK.FSM.MobileApp.Pages.Customer;
 
 using System.Collections.ObjectModel;
 using GTEK.FSM.MobileApp.Services.Api;
+using GTEK.FSM.MobileApp.Services.Realtime;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using Microsoft.Extensions.DependencyInjection;
 
-public partial class RequestsPage : ContentPage
+public partial class RequestsPage : ContentPage, IDisposable
 {
     private readonly ObservableCollection<CustomerRequestViewModel> _requests;
     private readonly IRequestQueryService _requestQueryService;
+    private readonly IMobileOperationalRealtimeClient? _realtimeClient;
+    private readonly IDisposable? _statusSubscription;
     private CustomerRequestViewModel _selectedRequest;
 
     public RequestsPage()
@@ -47,7 +51,19 @@ public partial class RequestsPage : ContentPage
         RenderRequestDetail(_requests[0]);
 
         _requestQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IRequestQueryService>();
+        _realtimeClient = Application.Current?.Handler?.MauiContext?.Services?.GetService<IMobileOperationalRealtimeClient>();
+        if (_realtimeClient is not null)
+        {
+            _statusSubscription = _realtimeClient.SubscribeToStatusUpdates(HandleStatusUpdateAsync);
+            _ = _realtimeClient.EnsureConnectedAsync();
+        }
+
         _ = LoadLiveRequestsAsync();
+    }
+
+    public void Dispose()
+    {
+        _statusSubscription?.Dispose();
     }
 
     private void OnRequestSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -168,38 +184,56 @@ public partial class RequestsPage : ContentPage
 
     private static int ResolveStageIndex(string stage)
     {
-        var normalized = stage.Trim().ToLowerInvariant();
-        return normalized switch
-        {
-            "new" => 0,
-            "submitted" => 0,
-            "scheduled" => 1,
-            "assigned" => 1,
-            "onroute" => 2,
-            "inprogress" => 2,
-            "in_progress" => 2,
-            "completed" => 3,
-            _ => 0,
-        };
+        return MobileOperationalRealtimeMapper.ResolveRequestStageIndex(stage);
     }
 
     private static Color ResolveStageColor(string stage)
     {
-        var normalized = stage.Trim().ToLowerInvariant();
-        return normalized switch
+        return MobileOperationalRealtimeMapper.ResolveRequestStageColor(stage);
+    }
+
+    private Task HandleStatusUpdateAsync(ServiceRequestStatusUpdatedEvent payload)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
         {
-            "completed" => Color.FromArgb("#166534"),
-            "scheduled" => Color.FromArgb("#166534"),
-            "assigned" => Color.FromArgb("#0F6ABD"),
-            "onroute" => Color.FromArgb("#B45309"),
-            "inprogress" => Color.FromArgb("#0F6ABD"),
-            "in_progress" => Color.FromArgb("#0F6ABD"),
-            _ => Color.FromArgb("#6B7280"),
-        };
+            var target = _requests.FirstOrDefault(request => string.Equals(request.Id, payload.RequestId, StringComparison.Ordinal));
+            if (target is null)
+            {
+                return;
+            }
+
+            var updatedStatus = MobileOperationalRealtimeMapper.NormalizeStatus(payload.CurrentStatus);
+            var updated = target with
+            {
+                StatusLabel = updatedStatus,
+                StatusColor = ResolveStageColor(updatedStatus),
+                CurrentStage = ResolveStageIndex(updatedStatus),
+                EtaText = $"Updated {payload.UpdatedAtUtc:g}",
+            };
+
+            ReplaceRequest(target, updated);
+        });
+
+        return Task.CompletedTask;
+    }
+
+    private void ReplaceRequest(CustomerRequestViewModel previous, CustomerRequestViewModel updated)
+    {
+        var index = _requests.IndexOf(previous);
+        if (index < 0)
+        {
+            return;
+        }
+
+        _requests[index] = updated;
+        if (_selectedRequest is not null && string.Equals(_selectedRequest.Id, updated.Id, StringComparison.Ordinal))
+        {
+            RenderRequestDetail(updated);
+        }
     }
 }
 
-internal sealed class CustomerRequestViewModel
+internal sealed record CustomerRequestViewModel
 {
     public CustomerRequestViewModel(
         string id,
@@ -225,11 +259,11 @@ internal sealed class CustomerRequestViewModel
 
     public string Summary { get; }
 
-    public string EtaText { get; }
+    public string EtaText { get; init; }
 
-    public string StatusLabel { get; }
+    public string StatusLabel { get; init; }
 
-    public Color StatusColor { get; }
+    public Color StatusColor { get; init; }
 
-    public int CurrentStage { get; }
+    public int CurrentStage { get; init; }
 }

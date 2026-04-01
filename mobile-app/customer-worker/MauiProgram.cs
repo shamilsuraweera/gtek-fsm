@@ -4,6 +4,7 @@ using GTEK.FSM.MobileApp.Configuration;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
+using GTEK.FSM.MobileApp.Services.Realtime;
 using GTEK.FSM.MobileApp.Services.Security;
 using GTEK.FSM.MobileApp.State;
 
@@ -74,6 +75,7 @@ public static class MauiProgram
 		});
 		builder.Services.AddSingleton<IRequestQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
 		builder.Services.AddSingleton<IJobQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+		builder.Services.AddSingleton<IMobileOperationalRealtimeClient, SignalRMobileOperationalRealtimeClient>();
 
 		builder.Services.AddSingleton<IConnectivityRecoveryService, ConnectivityRecoveryService>();
 

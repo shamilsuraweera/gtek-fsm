@@ -2,12 +2,16 @@ namespace GTEK.FSM.MobileApp.Pages.Worker;
 
 using System.Collections.ObjectModel;
 using GTEK.FSM.MobileApp.Services.Api;
+using GTEK.FSM.MobileApp.Services.Realtime;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using Microsoft.Extensions.DependencyInjection;
 
-public partial class JobsPage : ContentPage
+public partial class JobsPage : ContentPage, IDisposable
 {
     private readonly ObservableCollection<WorkerJobViewModel> _jobs;
     private readonly IJobQueryService _jobQueryService;
+    private readonly IMobileOperationalRealtimeClient? _realtimeClient;
+    private readonly IDisposable? _assignmentSubscription;
     private WorkerJobViewModel _selectedJob;
 
     public JobsPage()
@@ -63,7 +67,19 @@ public partial class JobsPage : ContentPage
         RenderSelectedJob(_jobs[0]);
 
         _jobQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IJobQueryService>();
+        _realtimeClient = Application.Current?.Handler?.MauiContext?.Services?.GetService<IMobileOperationalRealtimeClient>();
+        if (_realtimeClient is not null)
+        {
+            _assignmentSubscription = _realtimeClient.SubscribeToAssignmentUpdates(HandleAssignmentUpdateAsync);
+            _ = _realtimeClient.EnsureConnectedAsync();
+        }
+
         _ = LoadLiveJobsAsync();
+    }
+
+    public void Dispose()
+    {
+        _assignmentSubscription?.Dispose();
     }
 
     private void OnJobSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -87,12 +103,15 @@ public partial class JobsPage : ContentPage
             return;
         }
 
-        _selectedJob.Accepted = true;
-        _selectedJob.StatusLabel = "Accepted";
-        _selectedJob.StatusColor = Color.FromArgb("#166534");
+        var updated = _selectedJob with
+        {
+            Accepted = true,
+            StatusLabel = "Accepted",
+            StatusColor = Color.FromArgb("#166534"),
+        };
+
+        ReplaceJob(_selectedJob, updated);
         StatusResultLabel.Text = $"Assignment accepted for {_selectedJob.Id}.";
-        RefreshJobsList();
-        RenderSelectedJob(_selectedJob);
     }
 
     private async void OnPublishStatusClicked(object sender, EventArgs e)
@@ -108,17 +127,15 @@ public partial class JobsPage : ContentPage
             return;
         }
 
-        _selectedJob.StatusLabel = newStatus;
-        _selectedJob.StatusColor = ResolveStatusColor(newStatus);
-        StatusResultLabel.Text = $"Published status '{newStatus}' for {_selectedJob.Id} at {DateTime.Now:t}.";
-
-        if (newStatus == "Accepted")
+        var updated = _selectedJob with
         {
-            _selectedJob.Accepted = true;
-        }
+            StatusLabel = newStatus,
+            StatusColor = ResolveStatusColor(newStatus),
+            Accepted = newStatus == "Accepted" || _selectedJob.Accepted,
+        };
 
-        RefreshJobsList();
-        RenderSelectedJob(_selectedJob);
+        ReplaceJob(_selectedJob, updated);
+        StatusResultLabel.Text = $"Published status '{newStatus}' for {updated.Id} at {DateTime.Now:t}.";
     }
 
     private async void OnOpenMapClicked(object sender, EventArgs e)
@@ -165,15 +182,7 @@ public partial class JobsPage : ContentPage
 
     private static Color ResolveStatusColor(string status)
     {
-        return status switch
-        {
-            "Completed" => Color.FromArgb("#166534"),
-            "In Progress" => Color.FromArgb("#0F6ABD"),
-            "On Site" => Color.FromArgb("#0F6ABD"),
-            "On Route" => Color.FromArgb("#B45309"),
-            "Accepted" => Color.FromArgb("#166534"),
-            _ => Color.FromArgb("#6B7280"),
-        };
+        return MobileOperationalRealtimeMapper.ResolveJobStatusColor(status);
     }
 
     private void ApplyQuickStatus(string quickStatus)
@@ -183,18 +192,16 @@ public partial class JobsPage : ContentPage
             return;
         }
 
-        _selectedJob.StatusLabel = quickStatus;
-        _selectedJob.StatusColor = ResolveStatusColor(quickStatus);
-
-        if (quickStatus == "Accepted")
+        var updated = _selectedJob with
         {
-            _selectedJob.Accepted = true;
-        }
+            StatusLabel = quickStatus,
+            StatusColor = ResolveStatusColor(quickStatus),
+            Accepted = quickStatus == "Accepted" || _selectedJob.Accepted,
+        };
 
+        ReplaceJob(_selectedJob, updated);
         StatusPicker.SelectedItem = quickStatus;
-        StatusResultLabel.Text = $"Quick action applied: '{quickStatus}' for {_selectedJob.Id} at {DateTime.Now:t}.";
-        RefreshJobsList();
-        RenderSelectedJob(_selectedJob);
+        StatusResultLabel.Text = $"Quick action applied: '{quickStatus}' for {updated.Id} at {DateTime.Now:t}.";
     }
 
     private async Task LoadLiveJobsAsync()
@@ -251,35 +258,56 @@ public partial class JobsPage : ContentPage
 
     private static bool IsAcceptedStatus(string status)
     {
-        return status is "Accepted" or "On Route" or "On Site" or "In Progress" or "Completed";
+        return MobileOperationalRealtimeMapper.IsAcceptedStatus(status);
     }
 
     private static string NormalizeStatus(string status)
     {
-        if (string.IsNullOrWhiteSpace(status))
+        return MobileOperationalRealtimeMapper.NormalizeStatus(status);
+    }
+
+    private Task HandleAssignmentUpdateAsync(JobAssignmentUpdatedEvent payload)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
         {
-            return "Available";
+            var target = _jobs.FirstOrDefault(job => string.Equals(job.Id, payload.JobId, StringComparison.Ordinal));
+            if (target is null)
+            {
+                return;
+            }
+
+            var normalizedStatus = NormalizeStatus(payload.AssignmentStatus);
+            var updated = target with
+            {
+                StatusLabel = normalizedStatus,
+                StatusColor = ResolveStatusColor(normalizedStatus),
+                Accepted = IsAcceptedStatus(normalizedStatus),
+            };
+
+            ReplaceJob(target, updated);
+            StatusResultLabel.Text = $"Live update: {updated.Id} is now {normalizedStatus} ({payload.UpdatedAtUtc:t}).";
+        });
+
+        return Task.CompletedTask;
+    }
+
+    private void ReplaceJob(WorkerJobViewModel previous, WorkerJobViewModel updated)
+    {
+        var index = _jobs.IndexOf(previous);
+        if (index < 0)
+        {
+            return;
         }
 
-        var normalized = status.Trim().ToLowerInvariant();
-        return normalized switch
+        _jobs[index] = updated;
+        if (_selectedJob is not null && string.Equals(_selectedJob.Id, updated.Id, StringComparison.Ordinal))
         {
-            "new" => "Available",
-            "pending" => "Available",
-            "accepted" => "Accepted",
-            "onroute" => "On Route",
-            "on_route" => "On Route",
-            "onsite" => "On Site",
-            "on_site" => "On Site",
-            "inprogress" => "In Progress",
-            "in_progress" => "In Progress",
-            "completed" => "Completed",
-            _ => status,
-        };
+            RenderSelectedJob(updated);
+        }
     }
 }
 
-internal sealed class WorkerJobViewModel
+internal sealed record WorkerJobViewModel
 {
     public WorkerJobViewModel(
         string id,
@@ -315,9 +343,9 @@ internal sealed class WorkerJobViewModel
 
     public Color PriorityColor { get; }
 
-    public string StatusLabel { get; set; }
+    public string StatusLabel { get; init; }
 
-    public Color StatusColor { get; set; }
+    public Color StatusColor { get; init; }
 
-    public bool Accepted { get; set; }
+    public bool Accepted { get; init; }
 }
