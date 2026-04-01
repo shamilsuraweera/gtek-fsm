@@ -29,6 +29,7 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
         AuthenticatedPrincipal principal,
         Guid requestId,
         string? nextStatus,
+        string? rowVersion,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(nextStatus))
@@ -56,6 +57,14 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
                 statusCode: 404);
         }
 
+        if (!TryValidateRowVersion(rowVersion, request.RowVersion, out var validationErrorCode, out var validationMessage))
+        {
+            return TransitionServiceRequestResult.Failure(
+                message: validationMessage,
+                errorCode: validationErrorCode,
+                statusCode: 409);
+        }
+
         var previousStatus = request.Status;
 
         try
@@ -71,7 +80,17 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
         }
 
         this.serviceRequestRepository.Update(request);
-        await this.unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await this.unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (ConcurrencyConflictException)
+        {
+            return TransitionServiceRequestResult.Failure(
+                message: "The request was modified by another operation. Refresh and retry.",
+                errorCode: "CONCURRENCY_CONFLICT",
+                statusCode: 409);
+        }
 
         // Write audit log
         var auditLog = new AuditLog
@@ -94,6 +113,43 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
                 TenantId: request.TenantId,
                 PreviousStatus: previousStatus.ToString(),
                 CurrentStatus: request.Status.ToString(),
-                UpdatedAtUtc: request.UpdatedAtUtc));
+                UpdatedAtUtc: request.UpdatedAtUtc,
+                RowVersion: Convert.ToBase64String(request.RowVersion)));
+    }
+
+    private static bool TryValidateRowVersion(
+        string? requestRowVersion,
+        byte[] currentRowVersion,
+        out string errorCode,
+        out string message)
+    {
+        errorCode = string.Empty;
+        message = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(requestRowVersion))
+        {
+            return true;
+        }
+
+        byte[] decoded;
+        try
+        {
+            decoded = Convert.FromBase64String(requestRowVersion.Trim());
+        }
+        catch (FormatException)
+        {
+            errorCode = "ROW_VERSION_INVALID";
+            message = "rowVersion must be a valid base64 string.";
+            return false;
+        }
+
+        if (!decoded.AsSpan().SequenceEqual(currentRowVersion))
+        {
+            errorCode = "CONCURRENCY_CONFLICT";
+            message = "The request was modified by another operation. Refresh and retry.";
+            return false;
+        }
+
+        return true;
     }
 }

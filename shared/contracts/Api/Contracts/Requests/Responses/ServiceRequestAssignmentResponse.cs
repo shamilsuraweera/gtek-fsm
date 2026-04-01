@@ -18,4 +18,6 @@ public sealed class ServiceRequestAssignmentResponse
     public string AssignmentStatus { get; set; } = string.Empty;
 
     public DateTime UpdatedAtUtc { get; set; }
+
+    public string? RowVersion { get; set; }
 }

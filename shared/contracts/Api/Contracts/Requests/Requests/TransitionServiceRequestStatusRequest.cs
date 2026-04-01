@@ -6,4 +6,6 @@ namespace GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 public sealed class TransitionServiceRequestStatusRequest
 {
     public string? NextStatus { get; set; }
+
+    public string? RowVersion { get; set; }
 }

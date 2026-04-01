@@ -8,12 +8,14 @@ public interface IServiceRequestAssignmentService
         AuthenticatedPrincipal principal,
         Guid requestId,
         string? workerUserId,
+        string? rowVersion,
         CancellationToken cancellationToken = default);
 
     Task<ServiceRequestAssignmentResult> ReassignAsync(
         AuthenticatedPrincipal principal,
         Guid requestId,
         string? workerUserId,
+        string? rowVersion,
         CancellationToken cancellationToken = default);
 }
 
@@ -71,4 +73,5 @@ public sealed record AssignedServiceRequestPayload(
     Guid? PreviousWorkerUserId,
     Guid CurrentWorkerUserId,
     string AssignmentStatus,
-    DateTime UpdatedAtUtc);
+    DateTime UpdatedAtUtc,
+    string? RowVersion);

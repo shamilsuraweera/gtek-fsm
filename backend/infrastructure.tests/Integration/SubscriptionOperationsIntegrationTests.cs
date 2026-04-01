@@ -130,6 +130,36 @@ public class SubscriptionOperationsIntegrationTests
     }
 
     [Fact]
+    public async Task PatchOrganizationSubscription_StaleRowVersion_ReturnsConflict()
+    {
+        var tenantId = Guid.NewGuid();
+        var subscription = new Subscription(Guid.NewGuid(), tenantId, "PRO", DateTime.UtcNow.AddDays(-30), userLimit: 3);
+
+        var subscriptionStore = new InMemorySubscriptionStore();
+        subscriptionStore.Seed(subscription);
+
+        var userStore = new InMemoryUserStore();
+        userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-1", "Alpha"));
+
+        var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
+        using var client = app.GetTestClient();
+
+        using var request = CreateAuthenticatedRequest(HttpMethod.Patch, "/api/v1/management/subscriptions/organization", "Manager", tenantId, Guid.NewGuid());
+        request.Content = JsonContent.Create(new UpdateOrganizationSubscriptionRequest
+        {
+            PlanCode = "PRO",
+            UserLimit = 5,
+            RowVersion = Convert.ToBase64String(new byte[] { 1, 2, 3 }),
+        });
+
+        var response = await client.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Contains("CONCURRENCY_CONFLICT", body);
+    }
+
+    [Fact]
     public async Task GetSubscriptionUsers_ManagerRole_ReturnsWithinLimitIndicators()
     {
         var tenantId = Guid.NewGuid();

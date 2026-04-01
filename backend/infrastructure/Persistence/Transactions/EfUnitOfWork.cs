@@ -1,3 +1,4 @@
+using GTEK.FSM.Backend.Application;
 using GTEK.FSM.Backend.Application.Persistence.Transactions;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,8 +24,15 @@ internal sealed class EfUnitOfWork : IUnitOfWork
         return new EfUnitOfWorkTransaction(transaction);
     }
 
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return this.dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await this.dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            throw new ConcurrencyConflictException("The requested update conflicted with a newer version of the data.", exception);
+        }
     }
 }

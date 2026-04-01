@@ -40,6 +40,8 @@ public static class DependencyInjection
         services.AddScoped<IServiceRequestRepository, ServiceRequestRepository>();
         services.AddScoped<IJobRepository, JobRepository>();
         services.AddScoped<ISubscriptionRepository, SubscriptionRepository>();
+        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+        services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddHttpContextAccessor();
         services.AddScoped<IAuthorizationDecisionAuditSink, AuthorizationDecisionAuditLogger>();

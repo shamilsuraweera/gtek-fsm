@@ -45,6 +45,12 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<Guid>("ServiceRequestId")
                         .HasColumnType("uniqueidentifier");
 
@@ -74,6 +80,65 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("Jobs", (string)null);
                 });
 
+            modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.ServiceCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2(3)")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2(3)")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("Id")
+                        .HasName("PK_ServiceCategories");
+
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("AK_ServiceCategories_TenantId_Id");
+
+                    b.HasIndex("TenantId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_ServiceCategories_TenantId_Code");
+
+                    b.HasIndex("TenantId", "IsEnabled", "SortOrder")
+                        .HasDatabaseName("IX_ServiceCategories_TenantId_IsEnabled_SortOrder");
+
+                    b.ToTable("ServiceCategories", (string)null);
+                });
+
             modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.ServiceRequest", b =>
                 {
                     b.Property<Guid>("Id")
@@ -94,6 +159,12 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<byte>("Status")
                         .ValueGeneratedOnAdd()
@@ -156,6 +227,12 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<DateTime>("StartsOnUtc")
                         .HasPrecision(3)
@@ -356,6 +433,16 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_Jobs_ServiceRequests_TenantId_ServiceRequestId");
+                });
+
+            modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.ServiceCategory", b =>
+                {
+                    b.HasOne("GTEK.FSM.Backend.Domain.Aggregates.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_ServiceCategories_Tenants_TenantId");
                 });
 
             modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.ServiceRequest", b =>

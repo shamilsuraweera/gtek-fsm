@@ -49,6 +49,9 @@ public sealed class ServiceRequestConfiguration : IEntityTypeConfiguration<Servi
             .HasDefaultValueSql("GETUTCDATE()")
             .ValueGeneratedOnAddOrUpdate();
 
+        builder.Property(x => x.RowVersion)
+            .IsRowVersion();
+
         builder.Property(x => x.IsDeleted)
             .HasColumnType("bit")
             .HasDefaultValue(false)

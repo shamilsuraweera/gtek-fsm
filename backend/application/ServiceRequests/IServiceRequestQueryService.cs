@@ -25,4 +25,16 @@ public interface IServiceRequestQueryService
         AuthenticatedPrincipal principal,
         GetRequestsRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Retrieves service request detail for the authenticated principal.
+    /// </summary>
+    /// <param name="principal">The authenticated principal used for tenant and role scoping.</param>
+    /// <param name="requestId">The target service request id.</param>
+    /// <param name="cancellationToken">Token to cancel the asynchronous operation.</param>
+    /// <returns>A result envelope containing detail payload or failure details.</returns>
+    Task<ServiceRequestDetailQueryResult> GetDetailAsync(
+        AuthenticatedPrincipal principal,
+        Guid requestId,
+        CancellationToken cancellationToken = default);
 }
