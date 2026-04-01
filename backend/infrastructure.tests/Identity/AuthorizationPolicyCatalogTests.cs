@@ -25,4 +25,12 @@ public class AuthorizationPolicyCatalogTests
 
         Assert.Equal(Permissions.SystemPing, map[AuthorizationPolicyCatalog.SystemPing]);
     }
+
+    [Fact]
+    public void GetPolicyPermissions_IncludesRealtimeOperationsPolicy()
+    {
+        var map = AuthorizationPolicyCatalog.GetPolicyPermissions();
+
+        Assert.Equal(Permissions.RealTimeConnect, map[AuthorizationPolicyCatalog.RealTimeOperations]);
+    }
 }

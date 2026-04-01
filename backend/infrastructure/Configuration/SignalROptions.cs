@@ -1,8 +1,7 @@
 namespace GTEK.FSM.Backend.Infrastructure.Configuration;
 
 /// <summary>
-/// Placeholder configuration for SignalR-related settings.
-/// No SignalR services are activated in Phase 0.7.5.
+/// Configuration for operational SignalR hub behavior.
 /// </summary>
 public class SignalROptions
 {

@@ -3,6 +3,7 @@ namespace GTEK.FSM.Backend.Application.Identity;
 public static class AuthorizationPolicyCatalog
 {
     public const string SystemPing = "policy.system.ping";
+    public const string RealTimeOperations = "policy.realtime.operations";
 
     public const string CustomerFlow = "policy.customer.flow";
     public const string WorkerFlow = "policy.worker.flow";
@@ -14,6 +15,7 @@ public static class AuthorizationPolicyCatalog
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
             [SystemPing] = Permissions.SystemPing,
+            [RealTimeOperations] = Permissions.RealTimeConnect,
             [CustomerFlow] = Permissions.ServiceRequestsWrite,
             [WorkerFlow] = Permissions.JobsWrite,
             [SupportFlow] = Permissions.ServiceRequestsWrite,

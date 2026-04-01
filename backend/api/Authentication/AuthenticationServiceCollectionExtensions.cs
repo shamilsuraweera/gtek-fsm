@@ -15,6 +15,8 @@ public static class AuthenticationServiceCollectionExtensions
         configuration.GetSection(JwtAuthenticationOptions.SectionName).Bind(jwtOptions);
         jwtOptions.Validate();
 
+        var hubPath = configuration.GetSection("SignalR").GetValue<string>("HubPath") ?? "/hubs/pipeline";
+
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -25,6 +27,22 @@ public static class AuthenticationServiceCollectionExtensions
 
                 options.Events = new JwtBearerEvents
                 {
+                    OnMessageReceived = context =>
+                    {
+                        if (!string.IsNullOrWhiteSpace(context.Token))
+                        {
+                            return Task.CompletedTask;
+                        }
+
+                        var accessToken = context.Request.Query["access_token"].ToString();
+                        if (!string.IsNullOrWhiteSpace(accessToken)
+                            && context.HttpContext.Request.Path.StartsWithSegments(hubPath, StringComparison.OrdinalIgnoreCase))
+                        {
+                            context.Token = accessToken;
+                        }
+
+                        return Task.CompletedTask;
+                    },
                     OnChallenge = async context =>
                     {
                         // Prevent default plain-text challenge so clients receive standardized envelope payloads.
