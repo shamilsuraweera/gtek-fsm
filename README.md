@@ -8,6 +8,34 @@ It includes:
 - Mobile App (MAUI)
 - SQL Server database
 
+## What GTEK FSM Is
+
+GTEK FSM (Facility Service Management) is an end-to-end service operations platform for handling facility issues from intake to closure across customer, worker, and management channels.
+
+The platform is composed of:
+
+- A .NET backend API with MS SQL persistence
+- A web portal for management and customer-care operations
+- A mobile app for customers and field workers
+- A real-time operational pipeline (Kanban-style) for service-request lifecycle visibility
+
+Core operational capabilities and product goals include:
+
+- Service request lifecycle orchestration (New, Assigned, InProgress, OnHold, Completed, Cancelled)
+- Worker assignment workflows, with roadmap support for road-distance, skills, and internal rating based matching
+- SLA-driven execution model (response, assignment, and completion timers)
+- Real-time updates across channels for status and assignment changes
+- Push-notification integration roadmap for mobile users
+- Full audit trail for sensitive and operational actions
+- Multi-tenant security boundaries and role-based access control
+- Minimalistic UI direction with support for light and dark themes across clients
+
+The system is designed to keep operations tenant-safe, observable, and consistent across backend, web, and mobile channels while supporting phased delivery.
+
+## AI Execution Note
+
+If you are an AI coding/analysis agent operating in this repository, read this file (`README.md`) first before making changes. Use it as the primary operational context for project purpose, setup, run flows, and test commands.
+
 This guide is an operational manual for local setup, run, and testing.
 
 ## Project Layout
