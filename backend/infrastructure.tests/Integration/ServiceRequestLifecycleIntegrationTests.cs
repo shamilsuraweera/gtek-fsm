@@ -41,7 +41,7 @@ public class ServiceRequestLifecycleIntegrationTests
         var store = new InMemoryServiceRequestStore();
         store.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Water leak in lobby"));
 
-        var app = await BuildTestApplicationAsync(store);
+        await using var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -76,7 +76,7 @@ public class ServiceRequestLifecycleIntegrationTests
         var store = new InMemoryServiceRequestStore();
         store.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Power outage in level 2"));
 
-        var app = await BuildTestApplicationAsync(store);
+        await using var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -107,7 +107,7 @@ public class ServiceRequestLifecycleIntegrationTests
         var store = new InMemoryServiceRequestStore();
         store.Seed(new ServiceRequest(requestId, requestTenant, Guid.NewGuid(), "HVAC maintenance"));
 
-        var app = await BuildTestApplicationAsync(store);
+        await using var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -137,7 +137,7 @@ public class ServiceRequestLifecycleIntegrationTests
         var store = new InMemoryServiceRequestStore();
         store.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Water leak in lobby"));
 
-        var app = await BuildTestApplicationAsync(store);
+        await using var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(

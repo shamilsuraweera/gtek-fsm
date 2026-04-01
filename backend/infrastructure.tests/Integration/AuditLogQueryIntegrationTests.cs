@@ -86,7 +86,7 @@ public class AuditLogQueryIntegrationTests
             Details = "Outside time range",
         });
 
-        var app = await BuildTestApplicationAsync(auditStore);
+        await using var app = await BuildTestApplicationAsync(auditStore);
         using var client = app.GetTestClient();
 
         var route = $"/api/v1/management/audit-logs?actorUserId={actorUserId}&entityType=ServiceRequest&entityId={entityId}&action=CATEGORY&outcome=Success&fromUtc={Uri.EscapeDataString(fromUtc.ToString("O"))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O"))}&page=1&pageSize=10";
@@ -114,7 +114,7 @@ public class AuditLogQueryIntegrationTests
     {
         var tenantId = Guid.NewGuid();
         var auditStore = new InMemoryAuditLogStore();
-        var app = await BuildTestApplicationAsync(auditStore);
+        await using var app = await BuildTestApplicationAsync(auditStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/audit-logs?page=1&pageSize=10", role, tenantId, Guid.NewGuid());
@@ -128,7 +128,7 @@ public class AuditLogQueryIntegrationTests
     {
         var tenantId = Guid.NewGuid();
         var auditStore = new InMemoryAuditLogStore();
-        var app = await BuildTestApplicationAsync(auditStore);
+        await using var app = await BuildTestApplicationAsync(auditStore);
         using var client = app.GetTestClient();
 
         var route = $"/api/v1/management/audit-logs?fromUtc={Uri.EscapeDataString(DateTimeOffset.UtcNow.ToString("O"))}&toUtc={Uri.EscapeDataString(DateTimeOffset.UtcNow.AddDays(-1).ToString("O"))}";
@@ -172,7 +172,7 @@ public class AuditLogQueryIntegrationTests
             Details = "Other tenant row",
         });
 
-        var app = await BuildTestApplicationAsync(auditStore);
+        await using var app = await BuildTestApplicationAsync(auditStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/audit-logs/export?action=REORDERED", "Admin", tenantId, Guid.NewGuid());

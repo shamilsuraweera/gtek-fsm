@@ -27,7 +27,7 @@ public class CrossTenantAccessDenialIntegrationTests
     [Fact]
     public async Task CustomerCrossTenantRead_IsForbidden_WithTenantOwnershipMismatch()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var claimTenant = Guid.NewGuid();
@@ -49,7 +49,7 @@ public class CrossTenantAccessDenialIntegrationTests
     [Fact]
     public async Task WorkerCrossTenantWrite_IsForbidden_WithTenantOwnershipMismatch()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var claimTenant = Guid.NewGuid();
@@ -71,7 +71,7 @@ public class CrossTenantAccessDenialIntegrationTests
     [Fact]
     public async Task ManagerCrossTenantManagementProbe_IsForbidden_WithCrossTenantForbiddenCode()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var claimTenant = Guid.NewGuid();
@@ -93,7 +93,7 @@ public class CrossTenantAccessDenialIntegrationTests
     [Fact]
     public async Task AdminCrossTenantManagementProbe_IsAllowed_AsPrivilegedFlowException()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var claimTenant = Guid.NewGuid();
@@ -113,7 +113,7 @@ public class CrossTenantAccessDenialIntegrationTests
     [Fact]
     public async Task ManagerSameTenantManagementProbe_IsAllowed()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var tenantId = Guid.NewGuid();

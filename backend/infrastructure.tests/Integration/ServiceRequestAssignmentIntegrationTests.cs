@@ -47,7 +47,7 @@ public class ServiceRequestAssignmentIntegrationTests
         requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue"));
         userStore.Seed(new User(workerId, tenantId, "wrk-01", "Worker One"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -95,7 +95,7 @@ public class ServiceRequestAssignmentIntegrationTests
         userStore.Seed(new User(firstWorker, tenantId, "wrk-a", "Worker A"));
         userStore.Seed(new User(secondWorker, tenantId, "wrk-b", "Worker B"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -134,7 +134,7 @@ public class ServiceRequestAssignmentIntegrationTests
         requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Door lock not working"));
         userStore.Seed(new User(workerId, tenantId, "wrk-02", "Worker Two"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -174,7 +174,7 @@ public class ServiceRequestAssignmentIntegrationTests
         jobStore.Seed(seededJob);
         userStore.Seed(new User(firstWorker, tenantId, "wrk-c", "Worker C"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -206,7 +206,7 @@ public class ServiceRequestAssignmentIntegrationTests
         requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue"));
         userStore.Seed(new User(workerId, tenantId, "wrk-01", "Worker One"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(

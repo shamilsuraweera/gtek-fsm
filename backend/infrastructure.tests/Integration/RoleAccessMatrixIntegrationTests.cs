@@ -44,7 +44,7 @@ public class RoleAccessMatrixIntegrationTests
     [InlineData("Admin", "POST", "/api/v1/management/cross-tenant/{tenantId}/guarded-probe")]
     public async Task CriticalPhase2Endpoints_AllowedRoles_ReturnSuccess(string role, string method, string routeTemplate)
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var tenantId = Guid.NewGuid();
@@ -72,7 +72,7 @@ public class RoleAccessMatrixIntegrationTests
     [InlineData("Support", "POST", "/api/v1/management/cross-tenant/{tenantId}/guarded-probe")]
     public async Task CriticalPhase2Endpoints_DisallowedRoles_ReturnForbidden(string role, string method, string routeTemplate)
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var tenantId = Guid.NewGuid();

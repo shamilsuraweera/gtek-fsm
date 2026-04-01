@@ -37,7 +37,7 @@ public class CreateServiceRequestIntegrationTests
     public async Task CreateRequest_CustomerWithValidPayload_ReturnsCreatedAndPersistsTenantScopedRequest()
     {
         var store = new InMemoryServiceRequestStore();
-        var app = await BuildTestApplicationAsync(store);
+        await using var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         var tenantId = Guid.NewGuid();
@@ -74,7 +74,7 @@ public class CreateServiceRequestIntegrationTests
     public async Task CreateRequest_EmptyTitle_ReturnsBadRequestValidationError()
     {
         var store = new InMemoryServiceRequestStore();
-        var app = await BuildTestApplicationAsync(store);
+        await using var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
@@ -97,7 +97,7 @@ public class CreateServiceRequestIntegrationTests
     public async Task CreateRequest_NonCustomerRole_ReturnsForbidden()
     {
         var store = new InMemoryServiceRequestStore();
-        var app = await BuildTestApplicationAsync(store);
+        await using var app = await BuildTestApplicationAsync(store);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(

@@ -48,7 +48,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         // Arrange - valid token with all required claims
         var userId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
 
         using var client = app.GetTestClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "/test/flow/verify-auth");
@@ -69,7 +69,7 @@ public class EndToEndAuthenticatedRequestFlowTests
     public async Task TokenIntake_MissingBearerToken_FailsWithUnauthorized()
     {
         // Arrange - no authorization header
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
 
         using var client = app.GetTestClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "/test/flow/verify-auth");
@@ -88,7 +88,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         // Arrange - token with specific claims
         var userId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
 
         using var client = app.GetTestClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "/test/flow/extract-claims");
@@ -116,7 +116,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         // Arrange - tenant from token claim (preferred source)
         var userId = Guid.NewGuid();
         var tokenTenantId = Guid.NewGuid();
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
 
         using var client = app.GetTestClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "/test/flow/resolve-tenant");
@@ -141,7 +141,7 @@ public class EndToEndAuthenticatedRequestFlowTests
     {
         // Arrange - token without tenant claim and no header
         var userId = Guid.NewGuid();
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
 
         using var client = app.GetTestClient();
         var request = new HttpRequestMessage(HttpMethod.Get, "/test/flow/resolve-tenant");
@@ -164,7 +164,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         // Arrange - user with required role
         var userId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         await SeedUsersAsync(app, new User(userId, tenantId, "ext-1", "Test User"));
 
         using var client = app.GetTestClient();
@@ -188,7 +188,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         // Arrange - user without required role
         var userId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         await SeedUsersAsync(app, new User(userId, tenantId, "ext-1", "Test User"));
 
         using var client = app.GetTestClient();
@@ -214,7 +214,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         var tenantA = Guid.NewGuid();
         var tenantB = Guid.NewGuid();
 
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         await SeedUsersAsync(
             app,
             new User(Guid.NewGuid(), tenantA, "ext-a-1", "Tenant A User 1"),
@@ -249,7 +249,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         var userAId = Guid.NewGuid();
         var userBId = Guid.NewGuid();
 
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         await SeedUsersAsync(
             app,
             new User(userAId, tenantA, "ext-a", "Tenant A User"),
@@ -296,7 +296,7 @@ public class EndToEndAuthenticatedRequestFlowTests
         var adminUserId = Guid.NewGuid();
         var tenantId = Guid.NewGuid();
 
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         await SeedUsersAsync(
             app,
             new User(Guid.NewGuid(), tenantId, "ext-e1", "Employee 1"),

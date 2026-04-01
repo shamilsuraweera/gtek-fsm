@@ -28,7 +28,7 @@ public class AuthTenantIsolationIntegrationTests
     [Fact]
     public async Task TamperedTenantClaim_IsRejected_WithUnauthorizedResponse()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/bootstrap/authenticated");
@@ -48,7 +48,7 @@ public class AuthTenantIsolationIntegrationTests
     [Fact]
     public async Task TenantMismatch_IsRejected_WithForbiddenResponse()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var claimTenant = Guid.NewGuid();
