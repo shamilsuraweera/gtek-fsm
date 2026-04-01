@@ -395,6 +395,7 @@ public static class V1RouteGroupExtensions
             var payload = new GetServiceRequestDetailResponse
             {
                 RequestId = query.Payload.RequestId.ToString(),
+                RowVersion = query.Payload.RowVersion,
                 TenantId = query.Payload.TenantId.ToString(),
                 CustomerUserId = query.Payload.CustomerUserId.ToString(),
                 Title = query.Payload.Title,

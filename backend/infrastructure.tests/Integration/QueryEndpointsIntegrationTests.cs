@@ -134,6 +134,7 @@ public class QueryEndpointsIntegrationTests
         var requestStore = new InMemoryServiceRequestStore();
         var request = new ServiceRequest(Guid.NewGuid(), tenantId, customerId, "Leaking sink");
         request.TransitionTo(ServiceRequestStatus.Assigned);
+        typeof(ServiceRequest).GetProperty(nameof(ServiceRequest.RowVersion))!.SetValue(request, new byte[] { 1, 2, 3, 4 });
         requestStore.Seed(request);
 
         var jobStore = new InMemoryJobStore();
@@ -156,6 +157,7 @@ public class QueryEndpointsIntegrationTests
         Assert.True(envelope!.Success);
         Assert.NotNull(envelope.Data);
         Assert.Equal(request.Id.ToString(), envelope.Data!.RequestId);
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.RowVersion));
         Assert.Equal(job.Id.ToString(), envelope.Data.ActiveJobId);
         Assert.NotEmpty(envelope.Data.Timeline);
         Assert.All(envelope.Data.Timeline, x => Assert.False(string.IsNullOrWhiteSpace(x.EventType)));

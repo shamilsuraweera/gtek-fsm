@@ -5,6 +5,7 @@ namespace GTEK.FSM.Backend.Application.ServiceRequests;
 /// </summary>
 public sealed record QueriedServiceRequestDetail(
     Guid RequestId,
+    string? RowVersion,
     Guid TenantId,
     Guid CustomerUserId,
     string Title,

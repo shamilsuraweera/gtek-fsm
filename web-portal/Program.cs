@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using GTEK.FSM.WebPortal;
 using GTEK.FSM.WebPortal.Services.Realtime;
+using GTEK.FSM.WebPortal.Services.Requests;
 using GTEK.FSM.WebPortal.Services.Theme;
 using GTEK.FSM.WebPortal.Services;
 using GTEK.FSM.WebPortal.Services.Security;
@@ -15,6 +16,7 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 builder.Services.AddScoped<ThemeState>();
 builder.Services.AddScoped<ResilientDataFetcher>();
 builder.Services.AddScoped<UiSecurityContext>();
+builder.Services.AddScoped<IRequestWorkspaceApiClient, RequestWorkspaceApiClient>();
 builder.Services.AddScoped<IPortalAccessTokenProvider, NullPortalAccessTokenProvider>();
 builder.Services.AddScoped<IOperationalRealtimeClient, SignalROperationalRealtimeClient>();
 
