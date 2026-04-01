@@ -27,6 +27,7 @@ using GTEK.FSM.Shared.Contracts.Results;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,53 @@ namespace GTEK.FSM.Backend.Infrastructure.Tests.Integration;
 
 public class OperationalRealtimePublishingIntegrationTests
 {
+    [Fact]
+    public async Task UnauthenticatedConnection_IsRejected()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), role: null, includeAuthorizationHeader: false);
+
+        await Assert.ThrowsAnyAsync<Exception>(async () => await connection.StartAsync());
+    }
+
+    [Fact]
+    public async Task GuestRoleConnection_IsRejected_ByRealtimePolicy()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Guest");
+
+        await Assert.ThrowsAnyAsync<Exception>(async () => await connection.StartAsync());
+    }
+
+    [Fact]
+    public async Task CrossTenantSubscribeToTenantChannel_IsRejected()
+    {
+        var currentTenantId = Guid.NewGuid();
+        var otherTenantId = Guid.NewGuid();
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var connection = CreateConnection(app, currentTenantId, Guid.NewGuid(), "Manager");
+
+        await connection.StartAsync();
+
+        var ex = await Assert.ThrowsAsync<HubException>(async () =>
+            await connection.InvokeAsync<string>("SubscribeToTenantChannelAsync", otherTenantId.ToString()));
+        Assert.Contains("SubscribeToTenantChannelAsync", ex.Message);
+    }
+
     [Fact]
     public async Task LifecycleTransition_PublishesRealtimeEnvelope_ToRequestChannel()
     {
@@ -188,17 +236,223 @@ public class OperationalRealtimePublishingIntegrationTests
         Assert.Null(leaked);
     }
 
-    private static HubConnection CreateConnection(WebApplication app, Guid tenantId, Guid userId, string role)
+    [Fact]
+    public async Task Assignment_DoesNotLeak_ToOtherTenantChannel()
+    {
+        var sourceTenantId = Guid.NewGuid();
+        var otherTenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var workerId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        requestStore.Seed(new ServiceRequest(requestId, sourceTenantId, Guid.NewGuid(), "Security gate malfunction"));
+        userStore.Seed(new User(workerId, sourceTenantId, "wrk-iso-01", "Worker Isolation"));
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        using var client = app.GetTestClient();
+        await using var connection = CreateConnection(app, otherTenantId, Guid.NewGuid(), "Manager");
+
+        var messages = Channel.CreateUnbounded<OperationalUpdateEnvelope>();
+        connection.On<OperationalUpdateEnvelope>(
+            SignalROperationalUpdatePublisher.OperationalUpdateReceivedMethod,
+            envelope => messages.Writer.TryWrite(envelope));
+
+        await connection.StartAsync();
+
+        using var request = CreateAuthenticatedRequest(
+            HttpMethod.Post,
+            $"/api/v1/requests/{requestId}/assign",
+            "Support",
+            sourceTenantId,
+            Guid.NewGuid(),
+            new AssignServiceRequestRequest { WorkerUserId = workerId.ToString() });
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var leaked = await TryReadMessageAsync(messages.Reader, TimeSpan.FromMilliseconds(500));
+        Assert.Null(leaked);
+    }
+
+    [Fact]
+    public async Task AfterReconnect_ResubscribedTenantChannel_ReceivesEvents()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Reconnect scenario request"));
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        using var client = app.GetTestClient();
+
+        var connection1 = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
+        await connection1.StartAsync();
+        await connection1.StopAsync();
+        await connection1.DisposeAsync();
+
+        await using var connection2 = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
+        var messages = Channel.CreateUnbounded<OperationalUpdateEnvelope>();
+        connection2.On<OperationalUpdateEnvelope>(
+            SignalROperationalUpdatePublisher.OperationalUpdateReceivedMethod,
+            envelope => messages.Writer.TryWrite(envelope));
+
+        await connection2.StartAsync();
+        await connection2.InvokeAsync<string>("SubscribeToTenantChannelAsync", tenantId.ToString());
+
+        using var request = CreateAuthenticatedRequest(
+            HttpMethod.Patch,
+            $"/api/v1/requests/{requestId}/status",
+            "Customer",
+            tenantId,
+            Guid.NewGuid(),
+            new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var envelope = await ReadMessageAsync(messages.Reader);
+        Assert.Equal("service_request.status_updated", envelope.EventType);
+        Assert.Equal(requestId.ToString(), envelope.ServiceRequestStatusUpdated?.RequestId);
+    }
+
+    [Fact]
+    public async Task SequentialLifecycleEvents_AreReceived_InOrder()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId1 = Guid.NewGuid();
+        var requestId2 = Guid.NewGuid();
+        var requestId3 = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        requestStore.Seed(new ServiceRequest(requestId1, tenantId, Guid.NewGuid(), "Ordered event one"));
+        requestStore.Seed(new ServiceRequest(requestId2, tenantId, Guid.NewGuid(), "Ordered event two"));
+        requestStore.Seed(new ServiceRequest(requestId3, tenantId, Guid.NewGuid(), "Ordered event three"));
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        using var client = app.GetTestClient();
+        await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
+
+        var messages = Channel.CreateUnbounded<OperationalUpdateEnvelope>();
+        connection.On<OperationalUpdateEnvelope>(
+            SignalROperationalUpdatePublisher.OperationalUpdateReceivedMethod,
+            envelope => messages.Writer.TryWrite(envelope));
+
+        await connection.StartAsync();
+        await connection.InvokeAsync<string>("SubscribeToTenantChannelAsync", tenantId.ToString());
+
+        foreach (var requestId in new[] { requestId1, requestId2, requestId3 })
+        {
+            using var request = CreateAuthenticatedRequest(
+                HttpMethod.Patch,
+                $"/api/v1/requests/{requestId}/status",
+                "Customer",
+                tenantId,
+                Guid.NewGuid(),
+                new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
+
+            var response = await client.SendAsync(request);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        }
+
+        var first = await ReadMessageAsync(messages.Reader);
+        var second = await ReadMessageAsync(messages.Reader);
+        var third = await ReadMessageAsync(messages.Reader);
+
+        Assert.Equal(requestId1.ToString(), first.ServiceRequestStatusUpdated?.RequestId);
+        Assert.Equal(requestId2.ToString(), second.ServiceRequestStatusUpdated?.RequestId);
+        Assert.Equal(requestId3.ToString(), third.ServiceRequestStatusUpdated?.RequestId);
+    }
+
+    [Fact]
+    public async Task DuplicateLifecycleTransition_DoesNotPublishDuplicateEvent()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Duplicate transition scenario"));
+
+        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        using var client = app.GetTestClient();
+        await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
+
+        var messages = Channel.CreateUnbounded<OperationalUpdateEnvelope>();
+        connection.On<OperationalUpdateEnvelope>(
+            SignalROperationalUpdatePublisher.OperationalUpdateReceivedMethod,
+            envelope => messages.Writer.TryWrite(envelope));
+
+        await connection.StartAsync();
+        await connection.InvokeAsync<string>("SubscribeToRequestChannelAsync", requestId.ToString());
+
+        using var firstTransition = CreateAuthenticatedRequest(
+            HttpMethod.Patch,
+            $"/api/v1/requests/{requestId}/status",
+            "Customer",
+            tenantId,
+            Guid.NewGuid(),
+            new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
+
+        var firstResponse = await client.SendAsync(firstTransition);
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+
+        var published = await ReadMessageAsync(messages.Reader);
+        Assert.Equal(requestId.ToString(), published.ServiceRequestStatusUpdated?.RequestId);
+
+        // This publisher targets both tenant and request groups; depending on transport timing,
+        // the first transition can produce more than one queued client callback.
+        await DrainQueuedMessagesAsync(messages.Reader, TimeSpan.FromMilliseconds(250));
+
+        using var duplicateTransition = CreateAuthenticatedRequest(
+            HttpMethod.Patch,
+            $"/api/v1/requests/{requestId}/status",
+            "Customer",
+            tenantId,
+            Guid.NewGuid(),
+            new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
+
+        var duplicateResponse = await client.SendAsync(duplicateTransition);
+        Assert.Equal(HttpStatusCode.BadRequest, duplicateResponse.StatusCode);
+
+        var duplicateEvent = await TryReadMessageAsync(messages.Reader, TimeSpan.FromMilliseconds(500));
+        Assert.Null(duplicateEvent);
+    }
+
+    private static HubConnection CreateConnection(
+        WebApplication app,
+        Guid tenantId,
+        Guid userId,
+        string? role,
+        bool includeAuthorizationHeader = true)
     {
         return new HubConnectionBuilder()
             .WithUrl(new Uri("http://localhost/hubs/pipeline"), options =>
             {
                 options.HttpMessageHandlerFactory = _ => app.GetTestServer().CreateHandler();
                 options.Transports = HttpTransportType.LongPolling;
-                options.Headers.Add("Authorization", $"{TestAuthHandler.SchemeName} ok");
+                if (includeAuthorizationHeader)
+                {
+                    options.Headers.Add("Authorization", $"{TestAuthHandler.SchemeName} ok");
+                }
+
                 options.Headers.Add(TestAuthHeaders.Subject, userId.ToString());
                 options.Headers.Add(TestAuthHeaders.TenantId, tenantId.ToString());
-                options.Headers.Add(TestAuthHeaders.Role, role);
+
+                if (!string.IsNullOrWhiteSpace(role))
+                {
+                    options.Headers.Add(TestAuthHeaders.Role, role);
+                }
+
                 options.Headers.Add(TestAuthHeaders.TokenVersion, "1");
             })
             .Build();
@@ -284,6 +538,18 @@ public class OperationalRealtimePublishingIntegrationTests
         catch (OperationCanceledException)
         {
             return null;
+        }
+    }
+
+    private static async Task DrainQueuedMessagesAsync(ChannelReader<OperationalUpdateEnvelope> reader, TimeSpan quietPeriod)
+    {
+        while (true)
+        {
+            var message = await TryReadMessageAsync(reader, quietPeriod);
+            if (message is null)
+            {
+                return;
+            }
         }
     }
 
