@@ -1,11 +1,18 @@
+using System.Text;
 using GTEK.FSM.Backend.Application.Identity;
+using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Application.Categories;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Audit.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Audit.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
@@ -538,6 +545,224 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
 
+        v1.MapGet("/categories", async (
+            bool? includeDisabled,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            ICategoryQueryService categoryQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await categoryQueryService.GetCategoriesAsync(principal, includeDisabled ?? false, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "CATEGORY_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetCategoriesListResponse
+            {
+                Items = query.Payload.Select(x => new CategoryResponse
+                {
+                    CategoryId = x.CategoryId.ToString(),
+                    TenantId = x.TenantId.ToString(),
+                    Code = x.Code,
+                    Name = x.Name,
+                    SortOrder = x.SortOrder,
+                    IsEnabled = x.IsEnabled,
+                    CreatedAtUtc = x.CreatedAtUtc,
+                    UpdatedAtUtc = x.UpdatedAtUtc,
+                }).ToArray(),
+            };
+
+            return Results.Ok(ApiResponse<GetCategoriesListResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SystemPing);
+
+        v1.MapPost("/management/categories", async (
+            CreateCategoryRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<CreateCategoryRequest> validator,
+            ICategoryManagementService categoryManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var result = await categoryManagementService.CreateAsync(principal, request, cancellationToken);
+            if (!result.IsSuccess || result.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    result.StatusCode ?? StatusCodes.Status400BadRequest,
+                    result.ErrorCode ?? "CATEGORY_CREATE_FAILED",
+                    result.Message);
+            }
+
+            var payload = MapCategory(result.Payload);
+            return Results.Ok(ApiResponse<CategoryResponse>.Ok(payload, result.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPatch("/management/categories/{categoryId:guid}", async (
+            Guid categoryId,
+            UpdateCategoryRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<UpdateCategoryRequest> validator,
+            ICategoryManagementService categoryManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var result = await categoryManagementService.UpdateAsync(principal, categoryId, request, cancellationToken);
+            if (!result.IsSuccess || result.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    result.StatusCode ?? StatusCodes.Status400BadRequest,
+                    result.ErrorCode ?? "CATEGORY_UPDATE_FAILED",
+                    result.Message);
+            }
+
+            var payload = MapCategory(result.Payload);
+            return Results.Ok(ApiResponse<CategoryResponse>.Ok(payload, result.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPatch("/management/categories/{categoryId:guid}/disable", async (
+            Guid categoryId,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            ICategoryManagementService categoryManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var result = await categoryManagementService.DisableAsync(principal, categoryId, cancellationToken);
+            if (!result.IsSuccess || result.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    result.StatusCode ?? StatusCodes.Status400BadRequest,
+                    result.ErrorCode ?? "CATEGORY_DISABLE_FAILED",
+                    result.Message);
+            }
+
+            var payload = MapCategory(result.Payload);
+            return Results.Ok(ApiResponse<CategoryResponse>.Ok(payload, result.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPost("/management/categories/reorder", async (
+            ReorderCategoriesRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<ReorderCategoriesRequest> validator,
+            ICategoryManagementService categoryManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var result = await categoryManagementService.ReorderAsync(principal, request, cancellationToken);
+            if (!result.IsSuccess || result.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    result.StatusCode ?? StatusCodes.Status400BadRequest,
+                    result.ErrorCode ?? "CATEGORY_REORDER_FAILED",
+                    result.Message);
+            }
+
+            var payload = new GetCategoriesListResponse
+            {
+                Items = result.Payload.Select(MapCategory).ToArray(),
+            };
+
+            return Results.Ok(ApiResponse<GetCategoriesListResponse>.Ok(payload, result.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
         v1.MapGet("/management/subscriptions/organization", async (
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
@@ -705,6 +930,106 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
+        v1.MapGet("/management/audit-logs", async (
+            [AsParameters] GetAuditLogsRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<GetAuditLogsRequest> validator,
+            IAuditLogQueryService auditLogQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var query = await auditLogQueryService.GetLogsAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "AUDIT_LOG_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetAuditLogsListResponse
+            {
+                Items = query.Payload.Items
+                    .Select(MapAuditLog)
+                    .ToArray(),
+                Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
+                {
+                    Offset = (query.Payload.Page - 1) * query.Payload.PageSize,
+                    Limit = query.Payload.PageSize,
+                    Total = query.Payload.Total,
+                },
+            };
+
+            return Results.Ok(ApiResponse<GetAuditLogsListResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapGet("/management/audit-logs/export", async (
+            [AsParameters] GetAuditLogsRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<GetAuditLogsRequest> validator,
+            IAuditLogQueryService auditLogQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var export = await auditLogQueryService.ExportCsvAsync(principal, request, cancellationToken);
+            if (!export.IsSuccess || export.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    export.StatusCode ?? StatusCodes.Status400BadRequest,
+                    export.ErrorCode ?? "AUDIT_LOG_EXPORT_FAILED",
+                    export.Message);
+            }
+
+            var csv = BuildAuditLogCsv(export.Payload);
+            var fileName = $"audit-logs-{principal.TenantId:N}-{DateTime.UtcNow:yyyyMMddHHmmss}.csv";
+            return Results.File(Encoding.UTF8.GetBytes(csv), "text/csv", fileName);
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (
             HttpContext context,
@@ -846,6 +1171,74 @@ public static class V1RouteGroupExtensions
                 .Distinct(StringComparer.Ordinal));
 
         return BuildFailure(context, StatusCodes.Status400BadRequest, "VALIDATION_FAILED", message);
+    }
+
+    private static CategoryResponse MapCategory(QueriedCategoryItem category)
+    {
+        return new CategoryResponse
+        {
+            CategoryId = category.CategoryId.ToString(),
+            TenantId = category.TenantId.ToString(),
+            Code = category.Code,
+            Name = category.Name,
+            SortOrder = category.SortOrder,
+            IsEnabled = category.IsEnabled,
+            CreatedAtUtc = category.CreatedAtUtc,
+            UpdatedAtUtc = category.UpdatedAtUtc,
+        };
+    }
+
+    private static GetAuditLogResponse MapAuditLog(QueriedAuditLogItem auditLog)
+    {
+        return new GetAuditLogResponse
+        {
+            AuditLogId = auditLog.AuditLogId.ToString(),
+            TenantId = auditLog.TenantId.ToString(),
+            ActorUserId = auditLog.ActorUserId?.ToString(),
+            EntityType = auditLog.EntityType,
+            EntityId = auditLog.EntityId.ToString(),
+            Action = auditLog.Action,
+            Outcome = auditLog.Outcome,
+            OccurredAtUtc = auditLog.OccurredAtUtc,
+            Details = auditLog.Details,
+        };
+    }
+
+    private static string BuildAuditLogCsv(IReadOnlyList<QueriedAuditLogItem> items)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("auditLogId,tenantId,actorUserId,entityType,entityId,action,outcome,occurredAtUtc,details");
+
+        foreach (var item in items)
+        {
+            builder.Append(EscapeCsv(item.AuditLogId.ToString())).Append(',')
+                .Append(EscapeCsv(item.TenantId.ToString())).Append(',')
+                .Append(EscapeCsv(item.ActorUserId?.ToString())).Append(',')
+                .Append(EscapeCsv(item.EntityType)).Append(',')
+                .Append(EscapeCsv(item.EntityId.ToString())).Append(',')
+                .Append(EscapeCsv(item.Action)).Append(',')
+                .Append(EscapeCsv(item.Outcome)).Append(',')
+                .Append(EscapeCsv(item.OccurredAtUtc.ToString("O"))).Append(',')
+                .Append(EscapeCsv(item.Details))
+                .AppendLine();
+        }
+
+        return builder.ToString();
+    }
+
+    private static string EscapeCsv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            return string.Empty;
+        }
+
+        if (!value.Contains(',') && !value.Contains('"') && !value.Contains('\n') && !value.Contains('\r'))
+        {
+            return value;
+        }
+
+        return $"\"{value.Replace("\"", "\"\"")}\"";
     }
 
 }

@@ -1,4 +1,5 @@
 using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Application.Categories;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
@@ -23,6 +24,9 @@ public static class DependencyInjection
         services.AddScoped<IServiceRequestAssignmentService, ServiceRequestAssignmentService>();
         services.AddScoped<IServiceRequestQueryService, ServiceRequestQueryService>();
         services.AddScoped<IJobQueryService, JobQueryService>();
+        services.AddScoped<IAuditLogQueryService, AuditLogQueryService>();
+        services.AddScoped<ICategoryQueryService, CategoryQueryService>();
+        services.AddScoped<ICategoryManagementService, CategoryManagementService>();
         services.AddScoped<ISubscriptionQueryService, SubscriptionQueryService>();
         services.AddScoped<ISubscriptionManagementService, SubscriptionManagementService>();
 

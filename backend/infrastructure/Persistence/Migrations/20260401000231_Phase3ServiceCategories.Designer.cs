@@ -4,6 +4,7 @@ using GTEK.FSM.Backend.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(GtekFsmDbContext))]
-    partial class GtekFsmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260401000231_Phase3ServiceCategories")]
+    partial class Phase3ServiceCategories
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
