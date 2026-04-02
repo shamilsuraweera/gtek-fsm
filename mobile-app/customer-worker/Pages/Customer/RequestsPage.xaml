@@ -11,6 +11,34 @@
 
               <ScrollView Grid.Row="2">
                      <VerticalStackLayout Spacing="12">
+                            <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                                   <VerticalStackLayout Spacing="8">
+                                          <Label Text="Create New Request" FontSize="18" FontAttributes="Bold" />
+                                          <Label Text="Choose a category and describe the issue so dispatch can route it quickly."
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
+
+                                          <Label Text="Category" FontAttributes="Bold" FontSize="13" />
+                                          <Picker x:Name="CategoryPicker"
+                                                  Title="Select category"
+                                                  ItemDisplayBinding="{Binding Name}" />
+
+                                          <Label Text="Details" FontAttributes="Bold" FontSize="13" />
+                                          <Editor x:Name="RequestDetailsEditor"
+                                                  Placeholder="Describe the issue in at least 10 characters"
+                                                  AutoSize="TextChanges"
+                                                  MaxLength="150"
+                                                  HeightRequest="100" />
+
+                                          <Label x:Name="CreateRequestFeedbackLabel"
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light=#B42318, Dark=#FCA5A5}" />
+
+                                          <Button Text="Submit Request"
+                                                  Clicked="OnSubmitRequestClicked" />
+                                   </VerticalStackLayout>
+                            </Border>
+
                             <Border StrokeShape="RoundRectangle 12" Padding="10" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
                                    <CollectionView x:Name="RequestsCollectionView"
                                                                SelectionMode="Single"

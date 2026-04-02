@@ -1,11 +1,14 @@
 namespace GTEK.FSM.MobileApp.Services.Api;
 
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
-using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 
 public sealed record LiveQueryResult<T>(bool IsLive, IReadOnlyList<T> Items, string Message = "");
 
@@ -19,7 +22,19 @@ public interface IJobQueryService
     Task<LiveQueryResult<GetJobsResponse>> QueryJobsAsync(CancellationToken cancellationToken = default);
 }
 
-public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService
+public interface ICategoryQueryService
+{
+    Task<LiveQueryResult<CategoryResponse>> QueryActiveCategoriesAsync(CancellationToken cancellationToken = default);
+}
+
+public sealed record RequestCreationResult(bool IsSuccess, CreateServiceRequestResponse Request, string Message = "");
+
+public interface IServiceRequestCreationService
+{
+    Task<RequestCreationResult> CreateRequestAsync(string title, CancellationToken cancellationToken = default);
+}
+
+public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService, ICategoryQueryService, IServiceRequestCreationService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -29,6 +44,8 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
     private readonly HttpClient _httpClient;
     private readonly IIdentityTokenProvider _tokenProvider;
     private readonly IMobileDiagnosticsLogger _diagnostics;
+
+    private static readonly CreateServiceRequestResponse EmptyCreateResponse = new();
 
     public OperationalDataQueryService(
         HttpClient httpClient,
@@ -54,6 +71,64 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
             route: "/api/v1/jobs?offset=0&limit=20&sortBy=AssignedUtc&sortDirection=asc",
             category: "jobs.query",
             cancellationToken);
+    }
+
+    public Task<LiveQueryResult<CategoryResponse>> QueryActiveCategoriesAsync(CancellationToken cancellationToken = default)
+    {
+        return QueryListAsync<CategoryResponse>(
+            route: "/api/v1/categories",
+            category: "categories.query",
+            cancellationToken);
+    }
+
+    public async Task<RequestCreationResult> CreateRequestAsync(string title, CancellationToken cancellationToken = default)
+    {
+        var token = _tokenProvider.GetAccessToken();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _diagnostics.Warn("requests.create", "Create request skipped because JWT token is missing.");
+            return new RequestCreationResult(IsSuccess: false, Request: EmptyCreateResponse, Message: "Missing token");
+        }
+
+        var payload = new CreateServiceRequestRequest
+        {
+            Title = title,
+        };
+
+        var jsonPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/requests")
+        {
+            Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json"),
+        };
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        try
+        {
+            _diagnostics.Info("requests.create", "Dispatching create request command to '/api/v1/requests'.");
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _diagnostics.Warn("requests.create", $"Create request failed with HTTP {(int)response.StatusCode} ({response.StatusCode}).");
+                return new RequestCreationResult(IsSuccess: false, Request: EmptyCreateResponse, Message: $"HTTP {(int)response.StatusCode}");
+            }
+
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            if (TryExtractItem<CreateServiceRequestResponse>(json, out var createdRequest) && createdRequest is not null)
+            {
+                _diagnostics.Info("requests.create", $"Create request succeeded for request '{createdRequest.RequestId}'.");
+                return new RequestCreationResult(IsSuccess: true, Request: createdRequest, Message: "Created");
+            }
+
+            _diagnostics.Warn("requests.create", "Create request returned an unexpected payload shape.");
+            return new RequestCreationResult(IsSuccess: false, Request: EmptyCreateResponse, Message: "Unexpected payload");
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.Error("requests.create", $"Create request threw an exception: {ex.Message}");
+            return new RequestCreationResult(IsSuccess: false, Request: EmptyCreateResponse, Message: ex.Message);
+        }
     }
 
     private async Task<LiveQueryResult<T>> QueryListAsync<T>(
@@ -140,6 +215,40 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
                 var pagedItems = JsonSerializer.Deserialize<List<T>>(nestedItems.GetRawText(), JsonOptions) ?? new List<T>();
                 items = pagedItems;
                 return true;
+            }
+        }
+        catch
+        {
+            return false;
+        }
+
+        return false;
+    }
+
+    private static bool TryExtractItem<T>(string json, out T item)
+    {
+        item = default!;
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+
+            if (root.ValueKind == JsonValueKind.Object)
+            {
+                if (TryReadEnvelopeData(root, out var dataElement))
+                {
+                    if (dataElement.ValueKind == JsonValueKind.Object)
+                    {
+                        item = JsonSerializer.Deserialize<T>(dataElement.GetRawText(), JsonOptions)!;
+                        return item is not null;
+                    }
+
+                    return false;
+                }
+
+                item = JsonSerializer.Deserialize<T>(root.GetRawText(), JsonOptions)!;
+                return item is not null;
             }
         }
         catch

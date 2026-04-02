@@ -4,15 +4,20 @@ using System.Collections.ObjectModel;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Realtime;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using Microsoft.Extensions.DependencyInjection;
 
 public partial class RequestsPage : ContentPage, IDisposable
 {
     private readonly ObservableCollection<CustomerRequestViewModel> _requests;
+    private readonly ObservableCollection<RequestCategoryViewModel> _categories;
     private readonly IRequestQueryService _requestQueryService;
+    private readonly ICategoryQueryService _categoryQueryService;
+    private readonly IServiceRequestCreationService _requestCreationService;
     private readonly IMobileOperationalRealtimeClient? _realtimeClient;
     private readonly IDisposable? _statusSubscription;
     private CustomerRequestViewModel _selectedRequest;
+    private bool _isSubmitting;
 
     public RequestsPage()
     {
@@ -46,11 +51,17 @@ public partial class RequestsPage : ContentPage, IDisposable
                 currentStage: 3),
         };
 
+            _categories = new ObservableCollection<RequestCategoryViewModel>();
+
         RequestsCollectionView.ItemsSource = _requests;
+            CategoryPicker.ItemsSource = _categories;
         RequestsCollectionView.SelectedItem = _requests[0];
         RenderRequestDetail(_requests[0]);
+            CreateRequestFeedbackLabel.Text = string.Empty;
 
         _requestQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IRequestQueryService>();
+            _categoryQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<ICategoryQueryService>();
+            _requestCreationService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IServiceRequestCreationService>();
         _realtimeClient = Application.Current?.Handler?.MauiContext?.Services?.GetService<IMobileOperationalRealtimeClient>();
         if (_realtimeClient is not null)
         {
@@ -59,6 +70,7 @@ public partial class RequestsPage : ContentPage, IDisposable
         }
 
         _ = LoadLiveRequestsAsync();
+        _ = LoadCategoriesAsync();
     }
 
     public void Dispose()
@@ -170,6 +182,123 @@ public partial class RequestsPage : ContentPage, IDisposable
         }
     }
 
+    private async Task LoadCategoriesAsync()
+    {
+        if (_categoryQueryService is null)
+        {
+            return;
+        }
+
+        var result = await _categoryQueryService.QueryActiveCategoriesAsync();
+        if (!result.IsLive || result.Items.Count == 0)
+        {
+            CreateRequestFeedbackLabel.Text = "Unable to load categories right now.";
+            return;
+        }
+
+        _categories.Clear();
+        foreach (var item in result.Items.OrderBy(category => category.SortOrder).ThenBy(category => category.Name, StringComparer.OrdinalIgnoreCase))
+        {
+            if (string.IsNullOrWhiteSpace(item.Name))
+            {
+                continue;
+            }
+
+            _categories.Add(new RequestCategoryViewModel(
+                CategoryId: item.CategoryId ?? string.Empty,
+                Code: item.Code ?? string.Empty,
+                Name: item.Name,
+                SortOrder: item.SortOrder));
+        }
+
+        if (_categories.Count > 0)
+        {
+            CategoryPicker.SelectedItem = _categories[0];
+            CreateRequestFeedbackLabel.Text = string.Empty;
+        }
+    }
+
+    private async void OnSubmitRequestClicked(object sender, EventArgs e)
+    {
+        if (_isSubmitting)
+        {
+            return;
+        }
+
+        if (_requestCreationService is null)
+        {
+            CreateRequestFeedbackLabel.Text = "Request submission is unavailable.";
+            return;
+        }
+
+        if (CategoryPicker.SelectedItem is not RequestCategoryViewModel selectedCategory)
+        {
+            CreateRequestFeedbackLabel.Text = "Select a category before submitting.";
+            return;
+        }
+
+        var details = RequestDetailsEditor.Text?.Trim() ?? string.Empty;
+        if (details.Length < 10)
+        {
+            CreateRequestFeedbackLabel.Text = "Provide at least 10 characters of details.";
+            return;
+        }
+
+        var title = BuildRequestTitle(selectedCategory.Name, details);
+        if (title.Length > 180)
+        {
+            CreateRequestFeedbackLabel.Text = "Combined category and details must be 180 characters or less.";
+            return;
+        }
+
+        _isSubmitting = true;
+        CreateRequestFeedbackLabel.Text = "Submitting request...";
+
+        try
+        {
+            var creation = await _requestCreationService.CreateRequestAsync(title);
+            if (!creation.IsSuccess)
+            {
+                CreateRequestFeedbackLabel.Text = "Request submission failed. Please try again.";
+                return;
+            }
+
+            RequestDetailsEditor.Text = string.Empty;
+            CreateRequestFeedbackLabel.Text = $"Request {creation.Request.RequestId} created.";
+
+            await LoadLiveRequestsAsync();
+            EnsureCreatedRequestVisible(creation.Request);
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
+    private void EnsureCreatedRequestVisible(CreateServiceRequestResponse createdRequest)
+    {
+        var existing = _requests.FirstOrDefault(item => string.Equals(item.Id, createdRequest.RequestId, StringComparison.Ordinal));
+        if (existing is null)
+        {
+            var fallback = new CustomerRequestViewModel(
+                id: createdRequest.RequestId,
+                title: createdRequest.Title,
+                summary: createdRequest.Title,
+                etaText: $"Updated {createdRequest.UpdatedAtUtc:g}",
+                statusLabel: createdRequest.Status,
+                statusColor: ResolveStageColor(createdRequest.Status),
+                currentStage: ResolveStageIndex(createdRequest.Status));
+
+            _requests.Insert(0, fallback);
+            RequestsCollectionView.SelectedItem = fallback;
+            RenderRequestDetail(fallback);
+            return;
+        }
+
+        RequestsCollectionView.SelectedItem = existing;
+        RenderRequestDetail(existing);
+    }
+
     private static string BuildTitle(string summary, string requestId)
     {
         if (string.IsNullOrWhiteSpace(summary))
@@ -180,6 +309,11 @@ public partial class RequestsPage : ContentPage, IDisposable
         return summary.Length <= 36
             ? summary
             : $"{summary[..33]}...";
+    }
+
+    private static string BuildRequestTitle(string categoryName, string details)
+    {
+        return $"{categoryName}: {details}";
     }
 
     private static int ResolveStageIndex(string stage)
@@ -232,6 +366,12 @@ public partial class RequestsPage : ContentPage, IDisposable
         }
     }
 }
+
+internal sealed record RequestCategoryViewModel(
+    string CategoryId,
+    string Code,
+    string Name,
+    int SortOrder);
 
 internal sealed record CustomerRequestViewModel
 {
