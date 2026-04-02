@@ -1,4 +1,6 @@
 using GTEK.FSM.Backend.Api.Routing;
+using GTEK.FSM.Backend.Api.Authorization;
+using GTEK.FSM.Backend.Application;
 using GTEK.FSM.Backend.Application.Identity;
 
 using Microsoft.AspNetCore.Authorization;
@@ -39,10 +41,12 @@ public class ProtectedEndpointPolicyMetadataTests
     {
         var builder = WebApplication.CreateBuilder();
 
+        builder.Services.AddApplication();
         builder.Services.AddSingleton<IAuthenticatedPrincipalAccessor, StubPrincipalAccessor>();
         builder.Services.AddSingleton<ITenantContextAccessor, StubTenantContextAccessor>();
         builder.Services.AddSingleton<ITenantOwnershipGuard, StubTenantOwnershipGuard>();
         builder.Services.AddSingleton<IPrivilegedTenantOperationGuard, StubPrivilegedTenantOperationGuard>();
+        builder.Services.AddApiAuthorizationPolicies();
 
         return builder.Build();
     }

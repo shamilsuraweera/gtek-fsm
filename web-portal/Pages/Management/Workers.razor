@@ -1,6 +1,317 @@
 @page "/management/workers"
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses
+@using GTEK.FSM.WebPortal.Services.Management
+@inject IManagementWorkersApiClient WorkersApiClient
 
 <PageTitle>Management Workers</PageTitle>
 
 <h1>Management Workers</h1>
-<p>Placeholder page for worker administration.</p>
+
+<div class="workers-actions">
+	<input class="workers-search" @bind="SearchText" placeholder="Search by code or name" />
+	<label class="workers-checkbox">
+		<input type="checkbox" @bind="IncludeInactive" /> Include inactive
+	</label>
+	<button @onclick="ReloadAsync" disabled="@IsLoading">Refresh</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Notice))
+{
+	<p class="workers-notice">@Notice</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+	<p class="workers-error">@ErrorMessage</p>
+}
+
+<section class="workers-layout">
+	<article class="workers-panel">
+		<h2>@(EditTarget is null ? "Create Worker" : "Edit Worker")</h2>
+		<div class="workers-form">
+			<label>Code</label>
+			<input @bind="Form.WorkerCode" />
+
+			<label>Display Name</label>
+			<input @bind="Form.DisplayName" />
+
+			<label>Internal Rating (1.0 - 5.0)</label>
+			<input type="number" min="1" max="5" step="0.1" @bind="Form.InternalRating" />
+
+			<label>Availability</label>
+			<select @bind="Form.AvailabilityStatus">
+				@foreach (var value in AvailabilityOptions)
+				{
+					<option value="@value">@value</option>
+				}
+			</select>
+
+			<label>Skills (comma-separated)</label>
+			<input @bind="Form.SkillsCsv" />
+
+			<label class="workers-checkbox">
+				<input type="checkbox" @bind="Form.IsActive" /> Active profile
+			</label>
+
+			<div class="workers-form-actions">
+				<button @onclick="SaveAsync" disabled="@IsSaving">@(EditTarget is null ? "Create" : "Update")</button>
+				@if (EditTarget is not null)
+				{
+					<button @onclick="CancelEdit">Cancel</button>
+				}
+			</div>
+		</div>
+	</article>
+
+	<article class="workers-panel">
+		<h2>Worker Profiles</h2>
+		@if (IsLoading)
+		{
+			<p>Loading workers...</p>
+		}
+		else if (WorkerItems.Count == 0)
+		{
+			<p>No workers found for current filters.</p>
+		}
+		else
+		{
+			<table class="workers-table">
+				<thead>
+					<tr>
+						<th>Code</th>
+						<th>Name</th>
+						<th>Rating</th>
+						<th>Availability</th>
+						<th>Skills</th>
+						<th>Active</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var worker in WorkerItems)
+					{
+						<tr>
+							<td>@worker.WorkerCode</td>
+							<td>@worker.DisplayName</td>
+							<td>@worker.InternalRating.ToString("0.0")</td>
+							<td>@worker.AvailabilityStatus</td>
+							<td>@string.Join(", ", worker.Skills)</td>
+							<td>@(worker.IsActive ? "Yes" : "No")</td>
+							<td>
+								<button @onclick="() => BeginEdit(worker)">Edit</button>
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</article>
+</section>
+
+<style>
+	.workers-layout {
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	}
+
+	.workers-panel {
+		border: 1px solid #d8dde6;
+		border-radius: 8px;
+		padding: 1rem;
+		background: #ffffff;
+	}
+
+	.workers-actions {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		margin-bottom: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.workers-search {
+		min-width: 250px;
+	}
+
+	.workers-form {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.workers-form-actions {
+		margin-top: 0.5rem;
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.workers-checkbox {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.workers-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.workers-table th,
+	.workers-table td {
+		border-bottom: 1px solid #e6ebf2;
+		text-align: left;
+		padding: 0.5rem;
+		vertical-align: top;
+	}
+
+	.workers-error {
+		color: #b42318;
+	}
+
+	.workers-notice {
+		color: #175cd3;
+	}
+</style>
+
+@code {
+	private static readonly string[] AvailabilityOptions = ["Available", "Busy", "OnBreak", "Unavailable", "Offline"];
+
+	private readonly WorkerEditorModel Form = new();
+	private List<WorkerProfileResponse> WorkerItems { get; set; } = [];
+
+	private WorkerProfileResponse? EditTarget { get; set; }
+
+	private string? SearchText { get; set; }
+
+	private bool IncludeInactive { get; set; }
+
+	private bool IsLoading { get; set; }
+
+	private bool IsSaving { get; set; }
+
+	private string? ErrorMessage { get; set; }
+
+	private string? Notice { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		await this.ReloadAsync();
+	}
+
+	private async Task ReloadAsync()
+	{
+		this.IsLoading = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			this.WorkerItems = (await this.WorkersApiClient.ListAsync(this.SearchText, this.IncludeInactive)).ToList();
+		}
+		catch (ManagementWorkersApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsLoading = false;
+		}
+	}
+
+	private async Task SaveAsync()
+	{
+		this.IsSaving = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			if (this.EditTarget is null)
+			{
+				await this.WorkersApiClient.CreateAsync(new CreateWorkerProfileRequest
+				{
+					WorkerCode = this.Form.WorkerCode,
+					DisplayName = this.Form.DisplayName,
+					InternalRating = this.Form.InternalRating,
+					AvailabilityStatus = this.Form.AvailabilityStatus,
+					IsActive = this.Form.IsActive,
+					Skills = ParseSkills(this.Form.SkillsCsv),
+				});
+
+				this.Notice = "Worker profile created.";
+			}
+			else
+			{
+				await this.WorkersApiClient.UpdateAsync(this.EditTarget.WorkerId ?? string.Empty, new UpdateWorkerProfileRequest
+				{
+					WorkerCode = this.Form.WorkerCode,
+					DisplayName = this.Form.DisplayName,
+					InternalRating = this.Form.InternalRating,
+					AvailabilityStatus = this.Form.AvailabilityStatus,
+					IsActive = this.Form.IsActive,
+					Skills = ParseSkills(this.Form.SkillsCsv),
+				});
+
+				this.Notice = "Worker profile updated.";
+			}
+
+			this.CancelEdit();
+			await this.ReloadAsync();
+		}
+		catch (ManagementWorkersApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsSaving = false;
+		}
+	}
+
+	private void BeginEdit(WorkerProfileResponse worker)
+	{
+		this.EditTarget = worker;
+		this.Form.WorkerCode = worker.WorkerCode;
+		this.Form.DisplayName = worker.DisplayName;
+		this.Form.InternalRating = worker.InternalRating;
+		this.Form.AvailabilityStatus = worker.AvailabilityStatus;
+		this.Form.IsActive = worker.IsActive;
+		this.Form.SkillsCsv = string.Join(", ", worker.Skills);
+	}
+
+	private void CancelEdit()
+	{
+		this.EditTarget = null;
+		this.Form.WorkerCode = string.Empty;
+		this.Form.DisplayName = string.Empty;
+		this.Form.InternalRating = 3.0m;
+		this.Form.AvailabilityStatus = "Available";
+		this.Form.IsActive = true;
+		this.Form.SkillsCsv = string.Empty;
+	}
+
+	private static string[] ParseSkills(string? skillsCsv)
+	{
+		return (skillsCsv ?? string.Empty)
+			.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+			.Where(x => !string.IsNullOrWhiteSpace(x))
+			.Distinct(StringComparer.OrdinalIgnoreCase)
+			.ToArray();
+	}
+
+	private sealed class WorkerEditorModel
+	{
+		public string? WorkerCode { get; set; }
+
+		public string? DisplayName { get; set; }
+
+		public decimal InternalRating { get; set; } = 3.0m;
+
+		public string? AvailabilityStatus { get; set; } = "Available";
+
+		public bool IsActive { get; set; } = true;
+
+		public string? SkillsCsv { get; set; }
+	}
+}

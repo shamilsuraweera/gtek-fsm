@@ -1,6 +1,7 @@
 namespace GTEK.FSM.WebPortal.Tests.Component;
 
 using Bunit;
+using GTEK.FSM.Shared.Contracts.Vocabulary;
 using GTEK.FSM.WebPortal.Components;
 using GTEK.FSM.WebPortal.Models;
 using GTEK.FSM.WebPortal.Services.Security;
@@ -26,7 +27,7 @@ public sealed class AssignmentCoordinationShellComponentTests : TestContext
                 Priority = "Critical",
                 Summary = "Needs immediate assignment",
                 UpdatedAtUtc = DateTime.UtcNow,
-                Status = RequestStatus.Escalated,
+                Status = RequestStage.Assigned,
                 UrgencyLevel = UrgencyLevel.Critical,
                 IsEscalated = true,
                 IsSLABreach = true,
@@ -73,7 +74,7 @@ public sealed class AssignmentCoordinationShellComponentTests : TestContext
                 Priority = "High",
                 Summary = "Blocked by tenant guard",
                 UpdatedAtUtc = DateTime.UtcNow,
-                Status = RequestStatus.Assigned,
+                Status = RequestStage.Assigned,
                 UrgencyLevel = UrgencyLevel.High,
             },
         };

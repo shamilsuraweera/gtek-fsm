@@ -4,6 +4,8 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using GTEK.FSM.Shared.Contracts.Vocabulary;
+
 namespace GTEK.FSM.WebPortal.Models;
 
 /// <summary>
@@ -54,7 +56,7 @@ public class OperationalQueueItem
     /// <summary>
     /// Gets or sets the current lifecycle status of the request.
     /// </summary>
-    public RequestStatus Status { get; set; } = RequestStatus.New;
+    public RequestStage Status { get; set; } = RequestStage.New;
 
     /// <summary>
     /// Gets or sets the urgency level based on priority, age, and SLA.
@@ -101,15 +103,12 @@ public class OperationalQueueItem
     /// </summary>
     public IReadOnlyList<TriageAction> AvailableActions => this.Status switch
     {
-        RequestStatus.New => new[] { TriageAction.Assign, TriageAction.Escalate, TriageAction.RequestInfo },
-        RequestStatus.Assessing => new[] { TriageAction.Assign, TriageAction.Escalate, TriageAction.ViewDetails },
-        RequestStatus.Assigned => new[] { TriageAction.Reassign, TriageAction.Complete, TriageAction.Hold, TriageAction.ViewDetails },
-        RequestStatus.Active => new[] { TriageAction.Complete, TriageAction.RequestInfo, TriageAction.Hold, TriageAction.ViewDetails },
-        RequestStatus.Waiting => new[] { TriageAction.Reassign, TriageAction.Escalate, TriageAction.ViewDetails },
-        RequestStatus.OnHold => new[] { TriageAction.Reassign, TriageAction.Reopen, TriageAction.Reject, TriageAction.ViewDetails },
-        RequestStatus.Escalated => new[] { TriageAction.Reassign, TriageAction.Complete, TriageAction.ViewDetails },
-        RequestStatus.Completed => new[] { TriageAction.Reopen, TriageAction.AddNote, TriageAction.ViewDetails },
-        RequestStatus.Cancelled => new[] { TriageAction.Reopen, TriageAction.ViewDetails },
+        RequestStage.New => new[] { TriageAction.Assign, TriageAction.Escalate, TriageAction.RequestInfo },
+        RequestStage.Assigned => new[] { TriageAction.Reassign, TriageAction.Complete, TriageAction.Hold, TriageAction.ViewDetails },
+        RequestStage.InProgress => new[] { TriageAction.Complete, TriageAction.RequestInfo, TriageAction.Hold, TriageAction.ViewDetails },
+        RequestStage.OnHold => new[] { TriageAction.Reassign, TriageAction.Escalate, TriageAction.Reopen, TriageAction.Reject, TriageAction.ViewDetails },
+        RequestStage.Completed => new[] { TriageAction.Reopen, TriageAction.AddNote, TriageAction.ViewDetails },
+        RequestStage.Cancelled => new[] { TriageAction.Reopen, TriageAction.ViewDetails },
         _ => Array.Empty<TriageAction>(),
     };
 }

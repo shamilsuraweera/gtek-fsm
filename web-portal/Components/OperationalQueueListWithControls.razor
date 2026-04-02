@@ -14,26 +14,27 @@
 			<div class="ops-queue__controls">
 				<input class="ops-filter-input"
 					   placeholder="Filter reference, customer, summary"
-					   @bind="searchText"
-					   @bind:event="oninput" />
+					   value="@searchText"
+					   @oninput="OnSearchChangedAsync" />
 
-				<select class="ops-filter-select" @bind="stageFilter">
+				<select class="ops-filter-select" value="@stageFilter" @onchange="OnStageChangedAsync">
 					@foreach (var option in StageOptions)
 					{
 						<option value="@option">@option</option>
 					}
 				</select>
 
-				<select class="ops-filter-select" @bind="statusFilter">
+				<select class="ops-filter-select" value="@statusFilter" @onchange="OnStatusChangedAsync">
 					<option value="">All Status</option>
 					<option value="New">New</option>
 					<option value="Assigned">Assigned</option>
 					<option value="Active">Active</option>
 					<option value="Escalated">Escalated</option>
 					<option value="Waiting">Waiting</option>
+					<option value="Completed">Completed</option>
 				</select>
 
-				<select class="ops-filter-select" @bind="urgencyFilter">
+				<select class="ops-filter-select" value="@urgencyFilter" @onchange="OnUrgencyChangedAsync">
 					<option value="">All Urgency</option>
 					<option value="Critical">Critical Only</option>
 					<option value="High">High+</option>
@@ -58,8 +59,8 @@
 				<span class="col-ref mono">@item.Reference</span>
 				<span class="col-customer">@item.Customer</span>
 				<span class="col-status">
-					<span class="status-quick status-@item.Status.ToString().ToLowerInvariant()">
-						@FormatStatus(item.Status)
+					<span class="status-quick status-@RequestStagePresentation.GetCssClass(item.Status, item.IsEscalated)">
+						@FormatStatus(item)
 					</span>
 				</span>
 				<span class="col-priority">
@@ -139,7 +140,26 @@
 	public List<OperationalQueueItem> Items { get; set; } = [];
 
 	[Parameter]
+	public QueueFilterState? AppliedView { get; set; }
+
+	[Parameter]
+	public EventCallback<QueueFilterState> OnFilterChanged { get; set; }
+
+	[Parameter]
 	public EventCallback<(OperationalQueueItem item, TriageAction action)> OnActionTriggered { get; set; }
+
+	protected override void OnParametersSet()
+	{
+		if (this.AppliedView is null)
+		{
+			return;
+		}
+
+		this.searchText = this.AppliedView.SearchText ?? string.Empty;
+		this.stageFilter = string.IsNullOrWhiteSpace(this.AppliedView.StageFilter) ? "All" : this.AppliedView.StageFilter;
+		this.statusFilter = this.AppliedView.StatusFilter ?? string.Empty;
+		this.urgencyFilter = this.AppliedView.UrgencyFilter ?? string.Empty;
+	}
 
 	private IReadOnlyList<string> StageOptions =>
 		["All", .. Items.Select(x => x.Stage).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x)];
@@ -147,7 +167,7 @@
 	private List<OperationalQueueItem> FilteredItems =>
 		Items
 			.Where(x => stageFilter == "All" || string.Equals(x.Stage, stageFilter, StringComparison.OrdinalIgnoreCase))
-			.Where(x => string.IsNullOrWhiteSpace(statusFilter) || string.Equals(x.Status.ToString(), statusFilter, StringComparison.OrdinalIgnoreCase))
+			.Where(x => string.IsNullOrWhiteSpace(statusFilter) || string.Equals(RequestStagePresentation.GetLabel(x.Status, x.IsEscalated), statusFilter, StringComparison.OrdinalIgnoreCase))
 			.Where(x =>
 			{
 				return urgencyFilter switch
@@ -175,19 +195,45 @@
 		}
 	}
 
-	private string FormatStatus(RequestStatus status) => status switch
+	private async Task OnSearchChangedAsync(ChangeEventArgs args)
 	{
-		RequestStatus.New => "📋",
-		RequestStatus.Assessing => "🔍",
-		RequestStatus.Assigned => "👤",
-		RequestStatus.Active => "🔧",
-		RequestStatus.Waiting => "⏳",
-		RequestStatus.OnHold => "⏸️",
-		RequestStatus.Escalated => "⚠️",
-		RequestStatus.Completed => "✅",
-		RequestStatus.Cancelled => "❌",
-		_ => "?",
-	};
+		this.searchText = args.Value?.ToString() ?? string.Empty;
+		await NotifyFilterChangedAsync();
+	}
+
+	private async Task OnStageChangedAsync(ChangeEventArgs args)
+	{
+		this.stageFilter = args.Value?.ToString() ?? "All";
+		await NotifyFilterChangedAsync();
+	}
+
+	private async Task OnStatusChangedAsync(ChangeEventArgs args)
+	{
+		this.statusFilter = args.Value?.ToString() ?? string.Empty;
+		await NotifyFilterChangedAsync();
+	}
+
+	private async Task OnUrgencyChangedAsync(ChangeEventArgs args)
+	{
+		this.urgencyFilter = args.Value?.ToString() ?? string.Empty;
+		await NotifyFilterChangedAsync();
+	}
+
+	private async Task NotifyFilterChangedAsync()
+	{
+		if (this.OnFilterChanged.HasDelegate)
+		{
+			await this.OnFilterChanged.InvokeAsync(new QueueFilterState
+			{
+				SearchText = this.searchText,
+				StageFilter = this.stageFilter,
+				StatusFilter = this.statusFilter,
+				UrgencyFilter = this.urgencyFilter,
+			});
+		}
+	}
+
+	private string FormatStatus(OperationalQueueItem item) => RequestStagePresentation.GetIcon(item.Status, item.IsEscalated);
 
 	private string FormatAgeShort(int minutes)
 	{

@@ -7,6 +7,8 @@ public class GetServiceRequestDetailResponse
 {
     public string? RequestId { get; set; }
 
+    public string? RowVersion { get; set; }
+
     public string? TenantId { get; set; }
 
     public string? CustomerUserId { get; set; }

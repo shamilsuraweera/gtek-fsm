@@ -203,6 +203,7 @@ internal sealed class ServiceRequestQueryService : IServiceRequestQueryService
         return ServiceRequestDetailQueryResult.Success(
             new QueriedServiceRequestDetail(
                 RequestId: request.Id,
+                RowVersion: Convert.ToBase64String(request.RowVersion),
                 TenantId: request.TenantId,
                 CustomerUserId: request.CustomerUserId,
                 Title: request.Title,

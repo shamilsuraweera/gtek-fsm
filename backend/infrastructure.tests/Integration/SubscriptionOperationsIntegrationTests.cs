@@ -45,7 +45,7 @@ public class SubscriptionOperationsIntegrationTests
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-1", "Alpha"));
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-2", "Beta"));
 
-        var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
+        await using var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/subscriptions/organization", "Manager", tenantId, Guid.NewGuid());
@@ -75,7 +75,7 @@ public class SubscriptionOperationsIntegrationTests
         var userStore = new InMemoryUserStore();
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-1", "Alpha"));
 
-        var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
+        await using var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Patch, "/api/v1/management/subscriptions/organization", "Manager", tenantId, Guid.NewGuid());
@@ -112,7 +112,7 @@ public class SubscriptionOperationsIntegrationTests
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-2", "Beta"));
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-3", "Gamma"));
 
-        var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
+        await using var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Patch, "/api/v1/management/subscriptions/organization", "Manager", tenantId, Guid.NewGuid());
@@ -141,7 +141,7 @@ public class SubscriptionOperationsIntegrationTests
         var userStore = new InMemoryUserStore();
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-1", "Alpha"));
 
-        var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
+        await using var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Patch, "/api/v1/management/subscriptions/organization", "Manager", tenantId, Guid.NewGuid());
@@ -173,7 +173,7 @@ public class SubscriptionOperationsIntegrationTests
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-2", "Beta"));
         userStore.Seed(new User(Guid.NewGuid(), tenantId, "ext-3", "Gamma"));
 
-        var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
+        await using var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/subscriptions/users?page=1&pageSize=10", "Manager", tenantId, Guid.NewGuid());
@@ -201,7 +201,7 @@ public class SubscriptionOperationsIntegrationTests
         subscriptionStore.Seed(subscription);
         var userStore = new InMemoryUserStore();
 
-        var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
+        await using var app = await BuildTestApplicationAsync(subscriptionStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/subscriptions/organization", "Customer", tenantId, Guid.NewGuid());

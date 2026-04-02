@@ -50,7 +50,7 @@ public class QueryEndpointsIntegrationTests
 
         var jobStore = new InMemoryJobStore();
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/requests?page=1&pageSize=50", "Customer", tenantId, customerA);
@@ -88,7 +88,7 @@ public class QueryEndpointsIntegrationTests
         jobStore.Seed(jobA);
         jobStore.Seed(jobB);
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/jobs?page=1&pageSize=50", "Worker", tenantId, workerA);
@@ -113,7 +113,7 @@ public class QueryEndpointsIntegrationTests
         var requestStore = new InMemoryServiceRequestStore();
         var jobStore = new InMemoryJobStore();
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/jobs", "Customer", tenantId, Guid.NewGuid());
@@ -134,6 +134,7 @@ public class QueryEndpointsIntegrationTests
         var requestStore = new InMemoryServiceRequestStore();
         var request = new ServiceRequest(Guid.NewGuid(), tenantId, customerId, "Leaking sink");
         request.TransitionTo(ServiceRequestStatus.Assigned);
+        typeof(ServiceRequest).GetProperty(nameof(ServiceRequest.RowVersion))!.SetValue(request, new byte[] { 1, 2, 3, 4 });
         requestStore.Seed(request);
 
         var jobStore = new InMemoryJobStore();
@@ -142,7 +143,7 @@ public class QueryEndpointsIntegrationTests
         jobStore.Seed(job);
         request.LinkJob(job.Id);
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore);
         using var client = app.GetTestClient();
 
         using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/requests/{request.Id}", "Customer", tenantId, customerId);
@@ -156,6 +157,7 @@ public class QueryEndpointsIntegrationTests
         Assert.True(envelope!.Success);
         Assert.NotNull(envelope.Data);
         Assert.Equal(request.Id.ToString(), envelope.Data!.RequestId);
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.RowVersion));
         Assert.Equal(job.Id.ToString(), envelope.Data.ActiveJobId);
         Assert.NotEmpty(envelope.Data.Timeline);
         Assert.All(envelope.Data.Timeline, x => Assert.False(string.IsNullOrWhiteSpace(x.EventType)));
@@ -173,7 +175,7 @@ public class QueryEndpointsIntegrationTests
         requestStore.Seed(request);
 
         var jobStore = new InMemoryJobStore();
-        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore);
         using var client = app.GetTestClient();
 
         using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/requests/{request.Id}", "Customer", tenantId, otherCustomerId);
@@ -200,7 +202,7 @@ public class QueryEndpointsIntegrationTests
         job.AssignWorker(workerId);
         jobStore.Seed(job);
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore);
         using var client = app.GetTestClient();
 
         using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/jobs/{job.Id}", "Worker", tenantId, workerId);
@@ -233,7 +235,7 @@ public class QueryEndpointsIntegrationTests
         job.AssignWorker(workerA);
         jobStore.Seed(job);
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore);
         using var client = app.GetTestClient();
 
         using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, $"/api/v1/jobs/{job.Id}", "Worker", tenantId, workerB);
@@ -262,7 +264,7 @@ public class QueryEndpointsIntegrationTests
 
         categoryStore.Seed(new ServiceCategory(Guid.NewGuid(), otherTenantId, "HVAC", "HVAC", 1));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore);
         using var client = app.GetTestClient();
 
         using var httpRequest = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/categories", "Manager", tenantId, Guid.NewGuid());
@@ -289,7 +291,7 @@ public class QueryEndpointsIntegrationTests
         var unitOfWork = new InMemoryUnitOfWork();
         var auditWriter = new InMemoryAuditLogWriter();
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore, unitOfWork, auditWriter);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore, unitOfWork, auditWriter);
         using var client = app.GetTestClient();
 
         var payload = new CreateCategoryRequest
@@ -327,7 +329,7 @@ public class QueryEndpointsIntegrationTests
         var jobStore = new InMemoryJobStore();
         var categoryStore = new InMemoryCategoryStore();
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore);
         using var client = app.GetTestClient();
 
         var payload = new CreateCategoryRequest
@@ -358,7 +360,7 @@ public class QueryEndpointsIntegrationTests
         var category = new ServiceCategory(Guid.NewGuid(), ownerTenantId, "SEC", "Security", 7);
         categoryStore.Seed(category);
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore);
         using var client = app.GetTestClient();
 
         var payload = new UpdateCategoryRequest
@@ -395,7 +397,7 @@ public class QueryEndpointsIntegrationTests
         categoryStore.Seed(categoryA);
         categoryStore.Seed(categoryB);
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore, unitOfWork, auditWriter);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, categoryStore, unitOfWork, auditWriter);
         using var client = app.GetTestClient();
 
         var payload = new ReorderCategoriesRequest

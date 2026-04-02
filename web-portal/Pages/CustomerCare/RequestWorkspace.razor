@@ -1,15 +1,17 @@
 @page "/customer-care/requests/workspace"
-@page "/customer-care/requests/workspace/{Reference}"
+@page "/customer-care/requests/workspace/{RequestId:guid}"
 
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
 @using GTEK.FSM.WebPortal.Services.Realtime
+@using GTEK.FSM.WebPortal.Services.Requests
 @using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime
 
 @inject NavigationManager Navigation
 @inject ResilientDataFetcher Fetcher
 @inject IOperationalRealtimeClient RealtimeClient
+@inject IRequestWorkspaceApiClient WorkspaceApiClient
 
 @implements IDisposable
 
@@ -41,9 +43,19 @@
                     </div>
                     <div class="workspace-header-actions">
                         <button class="btn-quick-action" @onclick="GoBackToQueue">Back to queue</button>
-                        <button class="btn-quick-action btn-primary" @onclick="RunRapidAction">Rapid resolve</button>
+                        <button class="btn-quick-action btn-primary" @onclick="ReloadWorkspaceAsync" disabled="@isMutating">Refresh workspace</button>
                     </div>
                 </header>
+
+                @if (!string.IsNullOrWhiteSpace(workspaceMessage))
+                {
+                    <div class="alert alert-success mt-3" role="status">@workspaceMessage</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(workspaceError))
+                {
+                    <div class="alert alert-danger mt-3" role="alert">@workspaceError</div>
+                }
 
                 <section class="workspace-panel">
                     <h3>Status Signals</h3>
@@ -59,21 +71,53 @@
                 <section class="workspace-grid">
                     <section class="workspace-panel">
                         <h3>Lifecycle Controls</h3>
-                        <p class="workspace-hint">Use lifecycle actions to progress, hold, reassign, or escalate this request.</p>
+                        <p class="workspace-hint">Persisted lifecycle transitions are executed directly against the request API.</p>
                         <TriageControlsPanel
-                            AvailableActions="@ActiveItem.AvailableActions"
+                            AvailableActions="@LifecycleActions"
                             OnAction="@HandleLifecycleAction"
-                            ShowMoreMenu="true" />
+                            ShowMoreMenu="false"
+                            IsActionDisabled="@isMutating" />
                     </section>
 
                     <section class="workspace-panel">
-                        <h3>Rapid Action Pathways</h3>
-                        <div class="rapid-actions-row">
-                            <button class="btn-quick-action" @onclick='@(() => AddTimelineEvent("Outbound customer update sent."))'>Send update</button>
-                            <button class="btn-quick-action" @onclick='@(() => AddTimelineEvent("Worker ping issued for ETA confirmation."))'>Ping worker</button>
-                            <button class="btn-quick-action btn-warning" @onclick='@(() => AddTimelineEvent("Escalation huddle requested by operator."))'>Escalation huddle</button>
+                        <h3>Assignment Controls</h3>
+                        <p class="workspace-hint">Assignment endpoints are live. Enter a worker user id until the richer picker lands in the next task.</p>
+                        <div class="mb-3">
+                            <label class="form-label" for="worker-user-id">Worker user id</label>
+                            <input id="worker-user-id" class="form-control" @bind="workerUserIdInput" @bind:event="oninput" disabled="@isMutating" />
                         </div>
-                        <p class="workspace-hint">Rapid actions are optimized for common coordination paths and can be executed without leaving the workspace.</p>
+                        <div class="rapid-actions-row">
+                            <button class="btn-quick-action" @onclick="AssignWorkerAsync" disabled="@(!CanAssign || isMutating)">Assign</button>
+                            <button class="btn-quick-action btn-warning" @onclick="ReassignWorkerAsync" disabled="@(!CanReassign || isMutating)">Reassign</button>
+                        </div>
+                    </section>
+                </section>
+
+                <section class="workspace-grid">
+                    <section class="workspace-panel">
+                        <h3>Request Context</h3>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Tenant</dt>
+                            <dd class="col-sm-8 mono">@ActiveItem.TenantId</dd>
+                            <dt class="col-sm-4">Customer user</dt>
+                            <dd class="col-sm-8 mono">@workspaceSnapshot?.CustomerUserId</dd>
+                            <dt class="col-sm-4">Created</dt>
+                            <dd class="col-sm-8 mono">@workspaceSnapshot?.CreatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
+                            <dt class="col-sm-4">Updated</dt>
+                            <dd class="col-sm-8 mono">@ActiveItem.UpdatedAtUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
+                        </dl>
+                    </section>
+
+                    <section class="workspace-panel">
+                        <h3>Assignment Context</h3>
+                        <dl class="row mb-0">
+                            <dt class="col-sm-4">Active job</dt>
+                            <dd class="col-sm-8 mono">@(workspaceSnapshot?.ActiveJobId ?? "No active job")</dd>
+                            <dt class="col-sm-4">Job status</dt>
+                            <dd class="col-sm-8">@(workspaceSnapshot?.ActiveJobStatus ?? "No assignment state")</dd>
+                            <dt class="col-sm-4">Assigned worker</dt>
+                            <dd class="col-sm-8 mono">@(ActiveItem.AssignedWorkerId ?? "Unassigned")</dd>
+                        </dl>
                     </section>
                 </section>
 
@@ -96,50 +140,89 @@
 
 @code {
     [Parameter]
-    public string? Reference { get; set; }
+    public string? RequestId { get; set; }
+
+    private static readonly IReadOnlyList<TriageAction> LifecycleActions =
+    [
+        TriageAction.Complete,
+        TriageAction.Hold,
+        TriageAction.Reopen,
+        TriageAction.Reject,
+    ];
 
     private ResilienceErrorBoundary? errorBoundary;
-    private FetchResult<OperationalQueueItem> fetchState = new();
+    private FetchResult<RequestWorkspaceSnapshot> fetchState = new();
+    private RequestWorkspaceSnapshot? workspaceSnapshot;
     private IDisposable? statusSubscription;
+    private IDisposable? assignmentSubscription;
     private OperationalRealtimeConnectionState realtimeConnectionState;
-    private OperationalQueueItem? ActiveItem => fetchState.Data;
+    private readonly List<RequestWorkspaceTimelineEntry> clientTimelineEntries = [];
+    private string? loadedRequestId;
+    private string workerUserIdInput = string.Empty;
+    private string? workspaceMessage;
+    private string? workspaceError;
+    private bool isMutating;
 
-    private readonly List<TimelineEntry> timelineEntries = [];
-    private IReadOnlyList<TimelineEntry> TimelineEntries => timelineEntries.OrderByDescending(x => x.Timestamp).ToList();
+    private OperationalQueueItem? ActiveItem => workspaceSnapshot?.Item;
+
+    private IReadOnlyList<RequestWorkspaceTimelineEntry> TimelineEntries =>
+        [.. ((workspaceSnapshot?.Timeline ?? []).Concat(this.clientTimelineEntries)).OrderByDescending(x => x.Timestamp)];
+
+    private bool CanAssign => ActiveItem is not null && !string.IsNullOrWhiteSpace(workerUserIdInput);
+
+    private bool CanReassign => CanAssign && !string.Equals(workerUserIdInput.Trim(), ActiveItem?.AssignedWorkerId, StringComparison.Ordinal);
 
     protected override async Task OnInitializedAsync()
     {
         realtimeConnectionState = RealtimeClient.ConnectionState;
         statusSubscription = RealtimeClient.SubscribeToStatusUpdates(HandleStatusUpdatedAsync);
+        assignmentSubscription = RealtimeClient.SubscribeToAssignmentUpdates(HandleAssignmentUpdatedAsync);
         RealtimeClient.ConnectionStateChanged += HandleConnectionStateChanged;
         await EnsureRealtimeConnectedAsync();
-        await LoadWorkspace();
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (fetchState.State == FetchState.Idle)
+        if (!string.Equals(loadedRequestId, RequestId, StringComparison.Ordinal))
         {
-            await LoadWorkspace();
+            clientTimelineEntries.Clear();
+            workspaceMessage = null;
+            workspaceError = null;
+            await LoadWorkspaceAsync();
         }
     }
 
-    private async Task LoadWorkspace()
+    public void Dispose()
+    {
+        statusSubscription?.Dispose();
+        assignmentSubscription?.Dispose();
+        RealtimeClient.ConnectionStateChanged -= HandleConnectionStateChanged;
+    }
+
+    private async Task LoadWorkspaceAsync()
     {
         try
         {
             fetchState = await Fetcher.FetchAsync(
                 async () =>
                 {
-                    await Task.Delay(200);
-                    var reference = string.IsNullOrWhiteSpace(Reference) ? "REQ-1001" : Reference;
-                    return BuildSampleItem(reference);
+                    if (string.IsNullOrWhiteSpace(RequestId))
+                    {
+                        throw new InvalidOperationException("Select a request from the queue to open the request workspace.");
+                    }
+
+                    return await WorkspaceApiClient.GetAsync(RequestId);
                 },
                 fetchState,
                 maxRetries: 2,
                 staleThresholdSeconds: 60);
 
-            SeedTimeline();
+            workspaceSnapshot = fetchState.Data;
+            loadedRequestId = workspaceSnapshot?.Item.RequestId;
+            if (ActiveItem is not null)
+            {
+                workerUserIdInput = ActiveItem.AssignedWorkerId ?? workerUserIdInput;
+            }
         }
         catch (Exception ex)
         {
@@ -147,9 +230,15 @@
         }
     }
 
+    private async Task ReloadWorkspaceAsync()
+    {
+        await LoadWorkspaceAsync();
+        StateHasChanged();
+    }
+
     private async Task HandleRetry()
     {
-        await LoadWorkspace();
+        await LoadWorkspaceAsync();
     }
 
     private void HandleDismiss()
@@ -157,85 +246,108 @@
         fetchState.State = FetchState.Idle;
     }
 
-    public void Dispose()
-    {
-        statusSubscription?.Dispose();
-        RealtimeClient.ConnectionStateChanged -= HandleConnectionStateChanged;
-    }
-
     private async Task HandleLifecycleAction(TriageAction action)
     {
-        if (ActiveItem is null)
+        if (workspaceSnapshot is null)
         {
             return;
         }
 
-        await Task.Delay(100);
-
-        ActiveItem.Status = action switch
+        var nextStage = action switch
         {
-            TriageAction.Assign => RequestStatus.Assigned,
-            TriageAction.Complete => RequestStatus.Completed,
-            TriageAction.Escalate => RequestStatus.Escalated,
-            TriageAction.Hold => RequestStatus.OnHold,
-            TriageAction.Reopen => RequestStatus.Assessing,
-            TriageAction.Reassign => RequestStatus.Assigned,
-            TriageAction.Reject => RequestStatus.Cancelled,
-            _ => ActiveItem.Status,
+            TriageAction.Complete => RequestStage.Completed,
+            TriageAction.Hold => RequestStage.OnHold,
+            TriageAction.Reopen => RequestStage.New,
+            TriageAction.Reject => RequestStage.Cancelled,
+            _ => (RequestStage?)null,
         };
 
-        AddTimelineEvent($"Lifecycle action applied: {action}.");
-    }
-
-    private async Task RunRapidAction()
-    {
-        await Task.Delay(100);
-        AddTimelineEvent("Rapid resolve pathway initiated by operator.");
-    }
-
-    private void AddTimelineEvent(string message)
-    {
-        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), DateTime.UtcNow, message));
-    }
-
-    private void SeedTimeline()
-    {
-        timelineEntries.Clear();
-        var now = DateTime.UtcNow;
-        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), now.AddMinutes(-65), "Request created through customer portal."));
-        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), now.AddMinutes(-42), "Initial triage completed and priority confirmed."));
-        timelineEntries.Add(new TimelineEntry(Guid.NewGuid(), now.AddMinutes(-18), "Dispatch note added for worker coordination."));
-    }
-
-    private static OperationalQueueItem BuildSampleItem(string reference)
-    {
-        return new OperationalQueueItem
+        if (nextStage is null)
         {
-            RequestId = reference,
-            Reference = reference,
-            Customer = "Contoso Facilities",
-            Stage = "Dispatch",
-            Priority = "High",
-            Summary = "HVAC outage escalation with tenant comfort impact.",
-            UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-8),
-            Status = RequestStatus.Assigned,
-            UrgencyLevel = UrgencyLevel.High,
-            AgeMinutes = 92,
-            IsEscalated = true,
-            IsSLABreach = false,
-            AssignedWorker = "Alice Chen",
-            AssignedWorkerId = "W-100",
-            EstimatedMinutes = 55,
-            WorkloadHint = "High priority and active dispatch coordination",
-        };
+            return;
+        }
+
+        await ExecuteMutationAsync(
+            () => WorkspaceApiClient.TransitionStatusAsync(workspaceSnapshot.Item.RequestId, nextStage.Value, workspaceSnapshot.RowVersion),
+            $"Lifecycle action applied: {action}.");
+    }
+
+    private async Task AssignWorkerAsync()
+    {
+        if (workspaceSnapshot is null)
+        {
+            return;
+        }
+
+        var workerUserId = workerUserIdInput.Trim();
+        if (string.IsNullOrWhiteSpace(workerUserId))
+        {
+            workspaceError = "Enter a worker user id before assigning the request.";
+            return;
+        }
+
+        await ExecuteMutationAsync(
+            () => WorkspaceApiClient.AssignWorkerAsync(workspaceSnapshot.Item.RequestId, workerUserId, workspaceSnapshot.RowVersion, false),
+            $"Assignment updated: {workerUserId} assigned to the request.");
+    }
+
+    private async Task ReassignWorkerAsync()
+    {
+        if (workspaceSnapshot is null)
+        {
+            return;
+        }
+
+        var workerUserId = workerUserIdInput.Trim();
+        if (string.IsNullOrWhiteSpace(workerUserId))
+        {
+            workspaceError = "Enter a worker user id before reassigning the request.";
+            return;
+        }
+
+        await ExecuteMutationAsync(
+            () => WorkspaceApiClient.AssignWorkerAsync(workspaceSnapshot.Item.RequestId, workerUserId, workspaceSnapshot.RowVersion, true),
+            $"Assignment updated: request reassigned to {workerUserId}.");
+    }
+
+    private async Task ExecuteMutationAsync(Func<Task<RequestWorkspaceOperationResult>> operation, string timelineMessage)
+    {
+        try
+        {
+            isMutating = true;
+            workspaceMessage = null;
+            workspaceError = null;
+
+            var result = await operation();
+            AddClientTimelineEntry(timelineMessage);
+            workspaceMessage = result.Message;
+            await ReloadWorkspaceAsync();
+        }
+        catch (RequestWorkspaceConflictException ex)
+        {
+            workspaceError = ex.Message;
+            AddClientTimelineEntry("Workspace refreshed after a concurrency conflict.");
+            await ReloadWorkspaceAsync();
+        }
+        catch (RequestWorkspaceApiException ex)
+        {
+            workspaceError = ex.Message;
+        }
+        finally
+        {
+            isMutating = false;
+        }
+    }
+
+    private void AddClientTimelineEntry(string message)
+    {
+        clientTimelineEntries.Add(new RequestWorkspaceTimelineEntry(Guid.NewGuid(), DateTime.UtcNow, message));
     }
 
     private void GoBackToQueue()
     {
         Navigation.NavigateTo("/customer-care/requests");
     }
-
-    private sealed record TimelineEntry(Guid Id, DateTime Timestamp, string Message);
 
     private async Task EnsureRealtimeConnectedAsync()
     {
@@ -255,7 +367,7 @@
         {
             if (ActiveItem is null
                 || !string.Equals(ActiveItem.RequestId, payload.RequestId, StringComparison.Ordinal)
-                || !OperationalRealtimeMapper.TryParseRequestStatus(payload.CurrentStatus, out var currentStatus))
+                || !OperationalRealtimeMapper.TryParseRequestStage(payload.CurrentStatus, out var currentStatus))
             {
                 return;
             }
@@ -263,7 +375,32 @@
             ActiveItem.Status = currentStatus;
             ActiveItem.Stage = OperationalRealtimeMapper.MapWorkspaceStage(currentStatus);
             ActiveItem.UpdatedAtUtc = payload.UpdatedAtUtc;
-            AddTimelineEvent($"Live update: status changed from {payload.PreviousStatus} to {payload.CurrentStatus}.");
+            AddClientTimelineEntry($"Live update: status changed from {payload.PreviousStatus} to {payload.CurrentStatus}.");
+            fetchState.LastSuccessFetchedAt = payload.UpdatedAtUtc;
+            StateHasChanged();
+        });
+    }
+
+    private Task HandleAssignmentUpdatedAsync(JobAssignmentUpdatedEvent payload)
+    {
+        return InvokeAsync(() =>
+        {
+            if (ActiveItem is null || !string.Equals(ActiveItem.RequestId, payload.RequestId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            ActiveItem.AssignedWorkerId = payload.CurrentWorkerUserId;
+            ActiveItem.AssignedWorker = payload.CurrentWorkerUserId;
+            ActiveItem.UpdatedAtUtc = payload.UpdatedAtUtc;
+            workerUserIdInput = payload.CurrentWorkerUserId ?? workerUserIdInput;
+
+            if (workspaceSnapshot is not null)
+            {
+                workspaceSnapshot.ActiveJobStatus = payload.AssignmentStatus;
+            }
+
+            AddClientTimelineEntry($"Live update: assignment changed to {payload.CurrentWorkerUserId ?? "unassigned"}.");
             fetchState.LastSuccessFetchedAt = payload.UpdatedAtUtc;
             StateHasChanged();
         });

@@ -2,8 +2,10 @@ using System.Text;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
+using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
+using GTEK.FSM.Backend.Application.Workers;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
@@ -16,8 +18,12 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
 
 namespace GTEK.FSM.Backend.Api.Routing;
@@ -395,6 +401,7 @@ public static class V1RouteGroupExtensions
             var payload = new GetServiceRequestDetailResponse
             {
                 RequestId = query.Payload.RequestId.ToString(),
+                RowVersion = query.Payload.RowVersion,
                 TenantId = query.Payload.TenantId.ToString(),
                 CustomerUserId = query.Payload.CustomerUserId.ToString(),
                 Title = query.Payload.Title,
@@ -767,6 +774,143 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
+        v1.MapGet("/management/workers", async (
+            [AsParameters] GetWorkersRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<GetWorkersRequest> validator,
+            IWorkerQueryService workerQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var query = await workerQueryService.GetWorkersAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "WORKER_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = new GetWorkersListResponse
+            {
+                Items = query.Payload.Items.Select(MapWorker).ToArray(),
+                Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
+                {
+                    Offset = (query.Payload.Page - 1) * query.Payload.PageSize,
+                    Limit = query.Payload.PageSize,
+                    Total = query.Payload.Total,
+                },
+            };
+
+            return Results.Ok(ApiResponse<GetWorkersListResponse>.Ok(payload, query.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPost("/management/workers", async (
+            CreateWorkerProfileRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<CreateWorkerProfileRequest> validator,
+            IWorkerManagementService workerManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var mutation = await workerManagementService.CreateAsync(principal, request, cancellationToken);
+            if (!mutation.IsSuccess || mutation.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    mutation.StatusCode ?? StatusCodes.Status400BadRequest,
+                    mutation.ErrorCode ?? "WORKER_CREATE_FAILED",
+                    mutation.Message);
+            }
+
+            var payload = MapWorker(mutation.Payload);
+            return Results.Ok(ApiResponse<WorkerProfileResponse>.Ok(payload, mutation.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapPatch("/management/workers/{workerId:guid}", async (
+            Guid workerId,
+            UpdateWorkerProfileRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IValidator<UpdateWorkerProfileRequest> validator,
+            IWorkerManagementService workerManagementService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var mutation = await workerManagementService.UpdateAsync(principal, workerId, request, cancellationToken);
+            if (!mutation.IsSuccess || mutation.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    mutation.StatusCode ?? StatusCodes.Status400BadRequest,
+                    mutation.ErrorCode ?? "WORKER_UPDATE_FAILED",
+                    mutation.Message);
+            }
+
+            var payload = MapWorker(mutation.Payload);
+            return Results.Ok(ApiResponse<WorkerProfileResponse>.Ok(payload, mutation.Message, context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
         v1.MapGet("/management/subscriptions/organization", async (
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
@@ -1036,6 +1180,44 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
+        v1.MapGet("/management/reports/overview", async (
+            [AsParameters] GetManagementAnalyticsOverviewRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IManagementReportingQueryService reportingQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await reportingQueryService.GetOverviewAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "REPORTING_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = MapManagementAnalyticsOverview(query.Payload);
+            return Results.Ok(ApiResponse<GetManagementAnalyticsOverviewResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (
             HttpContext context,
@@ -1194,6 +1376,23 @@ public static class V1RouteGroupExtensions
         };
     }
 
+    private static WorkerProfileResponse MapWorker(QueriedWorkerProfileItem worker)
+    {
+        return new WorkerProfileResponse
+        {
+            WorkerId = worker.WorkerId.ToString(),
+            TenantId = worker.TenantId.ToString(),
+            WorkerCode = worker.WorkerCode,
+            DisplayName = worker.DisplayName,
+            InternalRating = worker.InternalRating,
+            AvailabilityStatus = worker.AvailabilityStatus.ToString(),
+            IsActive = worker.IsActive,
+            Skills = worker.Skills.ToArray(),
+            CreatedAtUtc = worker.CreatedAtUtc,
+            UpdatedAtUtc = worker.UpdatedAtUtc,
+        };
+    }
+
     private static GetAuditLogResponse MapAuditLog(QueriedAuditLogItem auditLog)
     {
         return new GetAuditLogResponse
@@ -1207,6 +1406,54 @@ public static class V1RouteGroupExtensions
             Outcome = auditLog.Outcome,
             OccurredAtUtc = auditLog.OccurredAtUtc,
             Details = auditLog.Details,
+        };
+    }
+
+    private static GetManagementAnalyticsOverviewResponse MapManagementAnalyticsOverview(QueriedManagementAnalyticsOverview overview)
+    {
+        return new GetManagementAnalyticsOverviewResponse
+        {
+            TotalRequestsInWindow = overview.TotalRequestsInWindow,
+            CompletedRequestsInWindow = overview.CompletedRequestsInWindow,
+            ActiveJobs = overview.ActiveJobs,
+            SensitiveActions24h = overview.SensitiveActions24h,
+            DeniedActions24h = overview.DeniedActions24h,
+            IntakeTrend = overview.IntakeTrend
+                .Select(x => new ManagementTrendPointResponse
+                {
+                    DateUtc = x.DateUtc,
+                    Value = x.Value,
+                })
+                .ToArray(),
+            CompletionTrend = overview.CompletionTrend
+                .Select(x => new ManagementTrendPointResponse
+                {
+                    DateUtc = x.DateUtc,
+                    Value = x.Value,
+                })
+                .ToArray(),
+            Anomalies = overview.Anomalies
+                .Select(x => new ManagementAnomalyIndicatorResponse
+                {
+                    Code = x.Code,
+                    Severity = x.Severity,
+                    Message = x.Message,
+                })
+                .ToArray(),
+            ActionDrilldown = overview.ActionDrilldown
+                .Select(x => new ManagementDrilldownItemResponse
+                {
+                    Key = x.Key,
+                    Count = x.Count,
+                })
+                .ToArray(),
+            OutcomeDrilldown = overview.OutcomeDrilldown
+                .Select(x => new ManagementDrilldownItemResponse
+                {
+                    Key = x.Key,
+                    Count = x.Count,
+                })
+                .ToArray(),
         };
     }
 

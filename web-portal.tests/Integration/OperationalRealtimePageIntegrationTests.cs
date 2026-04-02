@@ -2,9 +2,12 @@ namespace GTEK.FSM.WebPortal.Tests.Integration;
 
 using Bunit;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
+using GTEK.FSM.Shared.Contracts.Vocabulary;
+using GTEK.FSM.WebPortal.Models;
 using GTEK.FSM.WebPortal.Pages.CustomerCare;
 using GTEK.FSM.WebPortal.Services;
 using GTEK.FSM.WebPortal.Services.Realtime;
+using GTEK.FSM.WebPortal.Services.Requests;
 using GTEK.FSM.WebPortal.Services.Security;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -14,7 +17,7 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
     public async Task Pipeline_StatusUpdate_RemovesCompletedCardFromBoard()
     {
         var realtimeClient = new FakeOperationalRealtimeClient();
-        RegisterServices(realtimeClient, this.Services);
+        RegisterServices(realtimeClient, FakeRequestWorkspaceApiClient.CreateDefault(), this.Services);
 
         var cut = this.RenderComponent<Pipeline>();
 
@@ -42,10 +45,13 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
     public async Task RequestWorkspace_StatusUpdate_UpdatesStatusSignals_AndTimeline()
     {
         var realtimeClient = new FakeOperationalRealtimeClient();
-        RegisterServices(realtimeClient, this.Services);
+        var workspaceApiClient = FakeRequestWorkspaceApiClient.CreateDefault();
+        RegisterServices(realtimeClient, workspaceApiClient, this.Services);
+
+        var requestId = workspaceApiClient.Snapshot.Item.RequestId;
 
         var cut = this.RenderComponent<RequestWorkspace>(parameters => parameters
-            .Add(component => component.Reference, "REQ-1001"));
+            .Add(component => component.RequestId, requestId));
 
         cut.WaitForAssertion(() =>
         {
@@ -54,7 +60,7 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
 
         await realtimeClient.EmitStatusUpdateAsync(new ServiceRequestStatusUpdatedEvent
         {
-            RequestId = "REQ-1001",
+            RequestId = requestId,
             TenantId = "TENANT-01",
             PreviousStatus = "Assigned",
             CurrentStatus = "Completed",
@@ -69,10 +75,35 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
     }
 
     [Fact]
+    public void RequestWorkspace_HoldAction_UsesWorkspaceApi_AndReloadsState()
+    {
+        var realtimeClient = new FakeOperationalRealtimeClient();
+        var workspaceApiClient = FakeRequestWorkspaceApiClient.CreateDefault();
+        RegisterServices(realtimeClient, workspaceApiClient, this.Services);
+
+        var cut = this.RenderComponent<RequestWorkspace>(parameters => parameters
+            .Add(component => component.RequestId, workspaceApiClient.Snapshot.Item.RequestId));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Assigned", cut.Markup, StringComparison.Ordinal);
+        }, TimeSpan.FromSeconds(3));
+
+        cut.Find("button.btn-triage-warning").Click();
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(1, workspaceApiClient.TransitionCallCount);
+            Assert.Contains("Waiting", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Lifecycle action applied: Hold.", cut.Markup, StringComparison.Ordinal);
+        }, TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
     public async Task Assignments_AssignmentUpdate_UpdatesVisibleRequestAssignment()
     {
         var realtimeClient = new FakeOperationalRealtimeClient();
-        RegisterServices(realtimeClient, this.Services);
+        RegisterServices(realtimeClient, FakeRequestWorkspaceApiClient.CreateDefault(), this.Services);
 
         var cut = this.RenderComponent<Assignments>();
 
@@ -107,7 +138,7 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
     public async Task Assignments_Dispose_RemovesRealtimeSubscriptions()
     {
         var realtimeClient = new FakeOperationalRealtimeClient();
-        RegisterServices(realtimeClient, this.Services);
+        RegisterServices(realtimeClient, FakeRequestWorkspaceApiClient.CreateDefault(), this.Services);
 
         var cut = this.RenderComponent<Assignments>();
 
@@ -123,11 +154,12 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
         Assert.Equal(0, realtimeClient.ConnectionStateSubscriberCount);
     }
 
-    private static void RegisterServices(FakeOperationalRealtimeClient realtimeClient, IServiceCollection services)
+    private static void RegisterServices(FakeOperationalRealtimeClient realtimeClient, FakeRequestWorkspaceApiClient workspaceApiClient, IServiceCollection services)
     {
         services.AddScoped<ResilientDataFetcher>();
         services.AddScoped<UiSecurityContext>();
         services.AddScoped<IOperationalRealtimeClient>(_ => realtimeClient);
+        services.AddScoped<IRequestWorkspaceApiClient>(_ => workspaceApiClient);
     }
 
     private sealed class FakeOperationalRealtimeClient : IOperationalRealtimeClient
@@ -208,6 +240,78 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
             {
                 Interlocked.Exchange(ref this.dispose, null)?.Invoke();
             }
+        }
+    }
+
+    private sealed class FakeRequestWorkspaceApiClient : IRequestWorkspaceApiClient
+    {
+        public RequestWorkspaceSnapshot Snapshot { get; private set; } = new();
+
+        public int TransitionCallCount { get; private set; }
+
+        public static FakeRequestWorkspaceApiClient CreateDefault()
+        {
+            var requestId = Guid.NewGuid().ToString();
+
+            return new FakeRequestWorkspaceApiClient
+            {
+                Snapshot = new RequestWorkspaceSnapshot
+                {
+                    RowVersion = "row-version-1",
+                    CustomerUserId = "customer-01",
+                    CreatedAtUtc = DateTime.UtcNow.AddMinutes(-90),
+                    ActiveJobId = "job-01",
+                    ActiveJobStatus = "Assigned",
+                    Item = new OperationalQueueItem
+                    {
+                        RequestId = requestId,
+                        Reference = "REQ-1001",
+                        Customer = "Contoso Facilities",
+                        TenantId = "TENANT-01",
+                        Stage = "Dispatch",
+                        Priority = "High",
+                        Summary = "HVAC outage escalation with tenant comfort impact.",
+                        UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+                        Status = RequestStage.Assigned,
+                        UrgencyLevel = UrgencyLevel.High,
+                        AgeMinutes = 90,
+                        AssignedWorker = "worker-01",
+                        AssignedWorkerId = "worker-01",
+                        WorkloadHint = "Active job status: Assigned.",
+                    },
+                    Timeline =
+                    [
+                        new RequestWorkspaceTimelineEntry(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-65), "REQUEST_CREATED: Service request created."),
+                        new RequestWorkspaceTimelineEntry(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-15), "JOB_ASSIGNED: Job assignment status: Assigned. (worker-01)"),
+                    ],
+                },
+            };
+        }
+
+        public Task<RequestWorkspaceSnapshot> GetAsync(string requestId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(this.Snapshot);
+        }
+
+        public Task<RequestWorkspaceOperationResult> TransitionStatusAsync(string requestId, RequestStage nextStage, string? rowVersion, CancellationToken cancellationToken = default)
+        {
+            this.TransitionCallCount++;
+            this.Snapshot.Item.Status = nextStage;
+            this.Snapshot.Item.Stage = RequestStagePresentation.MapWorkspaceStage(nextStage);
+            this.Snapshot.Item.UpdatedAtUtc = DateTime.UtcNow;
+            this.Snapshot.RowVersion = "row-version-2";
+
+            return Task.FromResult(new RequestWorkspaceOperationResult("Request status updated.", this.Snapshot.RowVersion));
+        }
+
+        public Task<RequestWorkspaceOperationResult> AssignWorkerAsync(string requestId, string workerUserId, string? rowVersion, bool isReassignment, CancellationToken cancellationToken = default)
+        {
+            this.Snapshot.Item.AssignedWorkerId = workerUserId;
+            this.Snapshot.Item.AssignedWorker = workerUserId;
+            this.Snapshot.ActiveJobStatus = isReassignment ? "Reassigned" : "Assigned";
+            this.Snapshot.RowVersion = isReassignment ? "row-version-3" : "row-version-2";
+
+            return Task.FromResult(new RequestWorkspaceOperationResult("Assignment updated.", this.Snapshot.RowVersion));
         }
     }
 }

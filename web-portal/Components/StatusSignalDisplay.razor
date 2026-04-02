@@ -1,43 +1,15 @@
 @namespace GTEK.FSM.WebPortal.Components
 
 @using GTEK.FSM.WebPortal.Models
+@using GTEK.FSM.Shared.Contracts.Vocabulary
 
 <div class="status-signal">
 	<div class="status-badge" title="Request Status">
 		<span class="status-icon">
-			@switch (Status)
-			{
-				case RequestStatus.New:
-					<span>📋</span>
-					break;
-				case RequestStatus.Assessing:
-					<span>🔍</span>
-					break;
-				case RequestStatus.Assigned:
-					<span>👤</span>
-					break;
-				case RequestStatus.Active:
-					<span>🔧</span>
-					break;
-				case RequestStatus.Waiting:
-					<span>⏳</span>
-					break;
-				case RequestStatus.OnHold:
-					<span>⏸️</span>
-					break;
-				case RequestStatus.Escalated:
-					<span>⚠️</span>
-					break;
-				case RequestStatus.Completed:
-					<span>✅</span>
-					break;
-				case RequestStatus.Cancelled:
-					<span>❌</span>
-					break;
-			}
+			<span>@RequestStagePresentation.GetIcon(Status, IsEscalated)</span>
 		</span>
-		<span class="status-label status-@Status.ToString().ToLowerInvariant()">
-			@GetStatusLabel(Status)
+		<span class="status-label status-@RequestStagePresentation.GetCssClass(Status, IsEscalated)">
+			@RequestStagePresentation.GetLabel(Status, IsEscalated)
 		</span>
 	</div>
 
@@ -79,7 +51,7 @@
 
 @code {
 	[Parameter]
-	public RequestStatus Status { get; set; } = RequestStatus.New;
+	public RequestStage Status { get; set; } = RequestStage.New;
 
 	[Parameter]
 	public UrgencyLevel UrgencyLevel { get; set; } = UrgencyLevel.Normal;
@@ -95,20 +67,6 @@
 
 	[Parameter]
 	public string? AssignedWorker { get; set; }
-
-	private string GetStatusLabel(RequestStatus status) => status switch
-	{
-		RequestStatus.New => "New",
-		RequestStatus.Assessing => "Assessing",
-		RequestStatus.Assigned => "Assigned",
-		RequestStatus.Active => "Active",
-		RequestStatus.Waiting => "Waiting",
-		RequestStatus.OnHold => "On Hold",
-		RequestStatus.Escalated => "Escalated",
-		RequestStatus.Completed => "Completed",
-		RequestStatus.Cancelled => "Cancelled",
-		_ => "Unknown",
-	};
 
 	private string GetUrgencyLabel(UrgencyLevel level) => level switch
 	{

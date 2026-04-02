@@ -1,6 +1,382 @@
 @page "/management/categories"
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Requests
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses
+@using GTEK.FSM.WebPortal.Services.Management
+@inject IManagementCategoriesApiClient CategoriesApiClient
 
 <PageTitle>Management Categories</PageTitle>
 
 <h1>Management Categories</h1>
-<p>Placeholder page for service category management.</p>
+
+<div class="categories-actions">
+	<label class="categories-checkbox">
+		<input type="checkbox" @bind="IncludeDisabled" /> Include disabled
+	</label>
+	<button @onclick="ReloadAsync" disabled="@IsLoading">Refresh</button>
+	<button @onclick="SaveReorderAsync" disabled="@(!HasPendingReorder || IsSaving)">Save Reorder</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Notice))
+{
+	<p class="categories-notice">@Notice</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+	<p class="categories-error">@ErrorMessage</p>
+}
+
+<section class="categories-layout">
+	<article class="categories-panel">
+		<h2>@(EditTarget is null ? "Create Category" : "Edit Category")</h2>
+		<div class="categories-form">
+			<label>Code</label>
+			<input @bind="Form.Code" />
+
+			<label>Name</label>
+			<input @bind="Form.Name" />
+
+			<label>Sort Order</label>
+			<input type="number" min="0" max="999" step="1" @bind="Form.SortOrder" />
+
+			<label class="categories-checkbox">
+				<input type="checkbox" @bind="Form.IsEnabled" /> Enabled
+			</label>
+
+			<div class="categories-form-actions">
+				<button @onclick="SaveAsync" disabled="@IsSaving">@(EditTarget is null ? "Create" : "Update")</button>
+				@if (EditTarget is not null)
+				{
+					<button @onclick="CancelEdit" disabled="@IsSaving">Cancel</button>
+				}
+			</div>
+		</div>
+	</article>
+
+	<article class="categories-panel">
+		<h2>Category Catalog</h2>
+		@if (IsLoading)
+		{
+			<p>Loading categories...</p>
+		}
+		else if (CategoryItems.Count == 0)
+		{
+			<p>No categories found for current filters.</p>
+		}
+		else
+		{
+			<table class="categories-table">
+				<thead>
+					<tr>
+						<th>Order</th>
+						<th>Code</th>
+						<th>Name</th>
+						<th>Enabled</th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					@for (var i = 0; i < CategoryItems.Count; i++)
+					{
+						var category = CategoryItems[i];
+						<tr>
+							<td>@category.SortOrder</td>
+							<td>@category.Code</td>
+							<td>@category.Name</td>
+							<td>@(category.IsEnabled ? "Yes" : "No")</td>
+							<td>
+								<button @onclick="() => MoveUp(i)" disabled="@(i == 0 || IsSaving)">Up</button>
+								<button @onclick="() => MoveDown(i)" disabled="@(i == CategoryItems.Count - 1 || IsSaving)">Down</button>
+								<button @onclick="() => BeginEdit(category)" disabled="@IsSaving">Edit</button>
+								@if (category.IsEnabled)
+								{
+									<button @onclick="() => DisableAsync(category)" disabled="@IsSaving">Disable</button>
+								}
+							</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	</article>
+</section>
+
+<style>
+	.categories-layout {
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	}
+
+	.categories-panel {
+		border: 1px solid #d8dde6;
+		border-radius: 8px;
+		padding: 1rem;
+		background: #ffffff;
+	}
+
+	.categories-actions {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		margin-bottom: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.categories-form {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.categories-form-actions {
+		margin-top: 0.5rem;
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.categories-checkbox {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+
+	.categories-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.categories-table th,
+	.categories-table td {
+		border-bottom: 1px solid #e6ebf2;
+		text-align: left;
+		padding: 0.5rem;
+		vertical-align: top;
+	}
+
+	.categories-error {
+		color: #b42318;
+	}
+
+	.categories-notice {
+		color: #175cd3;
+	}
+</style>
+
+@code {
+	private readonly CategoryEditorModel Form = new();
+
+	private List<CategoryResponse> CategoryItems { get; set; } = [];
+
+	private CategoryResponse? EditTarget { get; set; }
+
+	private bool IncludeDisabled { get; set; }
+
+	private bool IsLoading { get; set; }
+
+	private bool IsSaving { get; set; }
+
+	private bool HasPendingReorder { get; set; }
+
+	private string? ErrorMessage { get; set; }
+
+	private string? Notice { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		await this.ReloadAsync();
+	}
+
+	private async Task ReloadAsync()
+	{
+		this.IsLoading = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			this.CategoryItems = (await this.CategoriesApiClient.ListAsync(this.IncludeDisabled))
+				.OrderBy(x => x.SortOrder)
+				.ThenBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+				.ToList();
+			this.HasPendingReorder = false;
+		}
+		catch (ManagementCategoriesApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsLoading = false;
+		}
+	}
+
+	private async Task SaveAsync()
+	{
+		this.IsSaving = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			if (this.EditTarget is null)
+			{
+				await this.CategoriesApiClient.CreateAsync(new CreateCategoryRequest
+				{
+					Code = this.Form.Code,
+					Name = this.Form.Name,
+					SortOrder = this.Form.SortOrder,
+				});
+				this.Notice = "Category created.";
+			}
+			else
+			{
+				await this.CategoriesApiClient.UpdateAsync(this.EditTarget.CategoryId ?? string.Empty, new UpdateCategoryRequest
+				{
+					Code = this.Form.Code,
+					Name = this.Form.Name,
+					SortOrder = this.Form.SortOrder,
+					IsEnabled = this.Form.IsEnabled,
+				});
+				this.Notice = "Category updated.";
+			}
+
+			this.EditTarget = null;
+			this.Form.Reset();
+			await this.ReloadAsync();
+		}
+		catch (ManagementCategoriesApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsSaving = false;
+		}
+	}
+
+	private async Task DisableAsync(CategoryResponse category)
+	{
+		this.IsSaving = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			await this.CategoriesApiClient.DisableAsync(category.CategoryId ?? string.Empty);
+			this.Notice = "Category disabled.";
+			await this.ReloadAsync();
+		}
+		catch (ManagementCategoriesApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsSaving = false;
+		}
+	}
+
+	private void BeginEdit(CategoryResponse category)
+	{
+		this.EditTarget = category;
+		this.Form.Code = category.Code ?? string.Empty;
+		this.Form.Name = category.Name ?? string.Empty;
+		this.Form.SortOrder = category.SortOrder;
+		this.Form.IsEnabled = category.IsEnabled;
+		this.ErrorMessage = null;
+		this.Notice = null;
+	}
+
+	private void CancelEdit()
+	{
+		this.EditTarget = null;
+		this.Form.Reset();
+		this.ErrorMessage = null;
+	}
+
+	private void MoveUp(int index)
+	{
+		if (index <= 0)
+		{
+			return;
+		}
+
+		(this.CategoryItems[index - 1], this.CategoryItems[index]) = (this.CategoryItems[index], this.CategoryItems[index - 1]);
+		RecalculateSortOrder();
+	}
+
+	private void MoveDown(int index)
+	{
+		if (index >= this.CategoryItems.Count - 1)
+		{
+			return;
+		}
+
+		(this.CategoryItems[index + 1], this.CategoryItems[index]) = (this.CategoryItems[index], this.CategoryItems[index + 1]);
+		RecalculateSortOrder();
+	}
+
+	private async Task SaveReorderAsync()
+	{
+		this.IsSaving = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			this.CategoryItems = (await this.CategoriesApiClient.ReorderAsync(new ReorderCategoriesRequest
+			{
+				Items = this.CategoryItems
+					.Select(x => new ReorderCategoryItemRequest
+					{
+						CategoryId = x.CategoryId,
+						SortOrder = x.SortOrder,
+					})
+					.ToArray(),
+			}))
+				.OrderBy(x => x.SortOrder)
+				.ThenBy(x => x.Code, StringComparer.OrdinalIgnoreCase)
+				.ToList();
+
+			this.HasPendingReorder = false;
+			this.Notice = "Category order updated.";
+		}
+		catch (ManagementCategoriesApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsSaving = false;
+		}
+	}
+
+	private void RecalculateSortOrder()
+	{
+		for (var i = 0; i < this.CategoryItems.Count; i++)
+		{
+			this.CategoryItems[i].SortOrder = i;
+		}
+
+		this.HasPendingReorder = true;
+	}
+
+	private sealed class CategoryEditorModel
+	{
+		public string Code { get; set; } = string.Empty;
+
+		public string Name { get; set; } = string.Empty;
+
+		public int SortOrder { get; set; }
+
+		public bool IsEnabled { get; set; } = true;
+
+		public void Reset()
+		{
+			this.Code = string.Empty;
+			this.Name = string.Empty;
+			this.SortOrder = 0;
+			this.IsEnabled = true;
+		}
+	}
+}

@@ -132,7 +132,7 @@
 	{
 		return InvokeAsync(() =>
 		{
-			if (fetchState.Data is null || !OperationalRealtimeMapper.TryParseRequestStatus(payload.CurrentStatus, out var currentStatus))
+			if (fetchState.Data is null || !OperationalRealtimeMapper.TryParseRequestStage(payload.CurrentStatus, out var currentStatus))
 			{
 				return;
 			}
@@ -155,7 +155,7 @@
 	private static List<OperationsBoardColumn> ApplyStatusUpdate(
 		IReadOnlyList<OperationsBoardColumn> columns,
 		string requestId,
-		RequestStatus currentStatus,
+		RequestStage currentStatus,
 		DateTime updatedAtUtc)
 	{
 		var stageName = OperationalRealtimeMapper.MapPipelineStage(currentStatus);

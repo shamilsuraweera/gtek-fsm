@@ -27,7 +27,7 @@ public class SecurityRehearsalIntegrationTests
     [Fact]
     public async Task SecurityRehearsal_UnauthenticatedPath_ReturnsUnauthorized()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/auth/bootstrap/authenticated");
@@ -41,7 +41,7 @@ public class SecurityRehearsalIntegrationTests
     [Fact]
     public async Task SecurityRehearsal_WrongTenantPath_ReturnsForbidden()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var claimTenant = Guid.NewGuid();
@@ -63,7 +63,7 @@ public class SecurityRehearsalIntegrationTests
     [Fact]
     public async Task SecurityRehearsal_WrongRolePath_ReturnsForbidden()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var tenantId = Guid.NewGuid();
@@ -82,7 +82,7 @@ public class SecurityRehearsalIntegrationTests
     [Fact]
     public async Task SecurityRehearsal_ValidRolePath_ReturnsSuccess()
     {
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         using var client = app.GetTestClient();
 
         var tenantId = Guid.NewGuid();

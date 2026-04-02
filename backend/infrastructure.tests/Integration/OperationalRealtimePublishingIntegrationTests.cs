@@ -48,7 +48,7 @@ public class OperationalRealtimePublishingIntegrationTests
         var jobStore = new InMemoryJobStore();
         var userStore = new InMemoryUserStore();
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), role: null, includeAuthorizationHeader: false);
 
         await Assert.ThrowsAnyAsync<Exception>(async () => await connection.StartAsync());
@@ -62,7 +62,7 @@ public class OperationalRealtimePublishingIntegrationTests
         var jobStore = new InMemoryJobStore();
         var userStore = new InMemoryUserStore();
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Guest");
 
         await Assert.ThrowsAnyAsync<Exception>(async () => await connection.StartAsync());
@@ -77,7 +77,7 @@ public class OperationalRealtimePublishingIntegrationTests
         var jobStore = new InMemoryJobStore();
         var userStore = new InMemoryUserStore();
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         await using var connection = CreateConnection(app, currentTenantId, Guid.NewGuid(), "Manager");
 
         await connection.StartAsync();
@@ -98,7 +98,7 @@ public class OperationalRealtimePublishingIntegrationTests
         var userStore = new InMemoryUserStore();
         requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Water leak in lobby"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
         await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
 
@@ -145,7 +145,7 @@ public class OperationalRealtimePublishingIntegrationTests
         userStore.Seed(new User(firstWorkerId, tenantId, "wrk-01", "Worker One"));
         userStore.Seed(new User(secondWorkerId, tenantId, "wrk-02", "Worker Two"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
         await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Support");
 
@@ -210,7 +210,7 @@ public class OperationalRealtimePublishingIntegrationTests
         var userStore = new InMemoryUserStore();
         requestStore.Seed(new ServiceRequest(requestId, sourceTenantId, Guid.NewGuid(), "Power outage in level 2"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
         await using var connection = CreateConnection(app, otherTenantId, Guid.NewGuid(), "Manager");
 
@@ -251,7 +251,7 @@ public class OperationalRealtimePublishingIntegrationTests
         requestStore.Seed(new ServiceRequest(requestId, sourceTenantId, Guid.NewGuid(), "Security gate malfunction"));
         userStore.Seed(new User(workerId, sourceTenantId, "wrk-iso-01", "Worker Isolation"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
         await using var connection = CreateConnection(app, otherTenantId, Guid.NewGuid(), "Manager");
 
@@ -288,7 +288,7 @@ public class OperationalRealtimePublishingIntegrationTests
         var userStore = new InMemoryUserStore();
         requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Reconnect scenario request"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
 
         var connection1 = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
@@ -337,7 +337,7 @@ public class OperationalRealtimePublishingIntegrationTests
         requestStore.Seed(new ServiceRequest(requestId2, tenantId, Guid.NewGuid(), "Ordered event two"));
         requestStore.Seed(new ServiceRequest(requestId3, tenantId, Guid.NewGuid(), "Ordered event three"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
         await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
 
@@ -383,7 +383,7 @@ public class OperationalRealtimePublishingIntegrationTests
         var userStore = new InMemoryUserStore();
         requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Duplicate transition scenario"));
 
-        var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
         await using var connection = CreateConnection(app, tenantId, Guid.NewGuid(), "Customer");
 

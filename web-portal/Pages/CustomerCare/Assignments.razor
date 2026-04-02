@@ -126,7 +126,7 @@
 		}
 
 		request.AssignedWorker = worker.Name;
-		request.Status = RequestStatus.Assigned;
+		request.Status = RequestStage.Assigned;
 		request.Stage = "Dispatch";
 		request.UpdatedAtUtc = DateTime.UtcNow;
 
@@ -152,7 +152,7 @@
 				Priority = "Critical",
 				Summary = "Escalated outage requires immediate reassignment.",
 				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-5),
-				Status = RequestStatus.Escalated,
+				Status = RequestStage.Assigned,
 				UrgencyLevel = UrgencyLevel.Critical,
 				AgeMinutes = 185,
 				IsEscalated = true,
@@ -170,7 +170,7 @@
 				Priority = "High",
 				Summary = "Worker requested spare part verification.",
 				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-18),
-				Status = RequestStatus.Waiting,
+				Status = RequestStage.OnHold,
 				UrgencyLevel = UrgencyLevel.High,
 				AgeMinutes = 122,
 				IsEscalated = false,
@@ -188,7 +188,7 @@
 				Priority = "Medium",
 				Summary = "On-site diagnostics active; ETA review pending.",
 				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-31),
-				Status = RequestStatus.Active,
+				Status = RequestStage.InProgress,
 				UrgencyLevel = UrgencyLevel.Moderate,
 				AgeMinutes = 81,
 				IsEscalated = false,
@@ -206,7 +206,7 @@
 				Priority = "Low",
 				Summary = "New assignment candidate awaiting workload check.",
 				UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-52),
-				Status = RequestStatus.New,
+				Status = RequestStage.New,
 				UrgencyLevel = UrgencyLevel.Normal,
 				AgeMinutes = 52,
 				IsEscalated = false,
@@ -256,7 +256,7 @@
 
 			request.AssignedWorkerId = payload.CurrentWorkerUserId;
 			request.AssignedWorker = currentWorker?.Name ?? payload.CurrentWorkerUserId;
-			request.Status = OperationalRealtimeMapper.MapAssignmentStatus(payload.AssignmentStatus);
+			request.Status = OperationalRealtimeMapper.MapAssignmentStage(payload.AssignmentStatus);
 			request.Stage = OperationalRealtimeMapper.MapWorkspaceStage(request.Status);
 			request.UpdatedAtUtc = payload.UpdatedAtUtc;
 			fetchState.LastSuccessFetchedAt = payload.UpdatedAtUtc;

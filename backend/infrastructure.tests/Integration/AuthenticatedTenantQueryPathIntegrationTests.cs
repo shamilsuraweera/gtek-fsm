@@ -38,7 +38,7 @@ public class AuthenticatedTenantQueryPathIntegrationTests
         var tenantA = Guid.NewGuid();
         var tenantB = Guid.NewGuid();
 
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         await SeedUsersAsync(
             app,
             new User(Guid.NewGuid(), tenantA, "ext-a-1", "Alpha A1"),
@@ -69,7 +69,7 @@ public class AuthenticatedTenantQueryPathIntegrationTests
         var tenantA = Guid.NewGuid();
         var tenantB = Guid.NewGuid();
 
-        var app = await BuildTestApplicationAsync();
+        await using var app = await BuildTestApplicationAsync();
         await SeedUsersAsync(
             app,
             new User(Guid.NewGuid(), tenantA, "shared-a", "Shared Person"),
