@@ -38,6 +38,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkerQueryService, WorkerQueryService>();
         services.AddScoped<IWorkerManagementService, WorkerManagementService>();
         services.AddScoped<IWorkerMatchingService, WorkerMatchingService>();
+        services.AddSingleton<IDecisioningMetricsCollector, InMemoryDecisioningMetricsCollector>();
 
         return services;
     }

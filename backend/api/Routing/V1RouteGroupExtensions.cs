@@ -1529,6 +1529,35 @@ public static class V1RouteGroupExtensions
             ActiveJobs = overview.ActiveJobs,
             SensitiveActions24h = overview.SensitiveActions24h,
             DeniedActions24h = overview.DeniedActions24h,
+            DecisioningMetrics = new ManagementDecisioningMetricsResponse
+            {
+                MatchEvaluationCount = overview.DecisioningMetrics.MatchEvaluationCount,
+                AverageMatchLatencyMs = overview.DecisioningMetrics.AverageMatchLatencyMs,
+                P95MatchLatencyMs = overview.DecisioningMetrics.P95MatchLatencyMs,
+                AverageTopMatchScore = overview.DecisioningMetrics.AverageTopMatchScore,
+                HighConfidenceMatchRatePercent = overview.DecisioningMetrics.HighConfidenceMatchRatePercent,
+                MatchLatencyTrend = overview.DecisioningMetrics.MatchLatencyTrend
+                    .Select(x => new ManagementTrendPointResponse
+                    {
+                        DateUtc = x.DateUtc,
+                        Value = x.Value,
+                    })
+                    .ToArray(),
+                SlaOutcomes = new ManagementSlaOutcomeSummaryResponse
+                {
+                    ResponseOnTrack = overview.DecisioningMetrics.SlaOutcomes.ResponseOnTrack,
+                    ResponseAtRisk = overview.DecisioningMetrics.SlaOutcomes.ResponseAtRisk,
+                    ResponseBreached = overview.DecisioningMetrics.SlaOutcomes.ResponseBreached,
+                    AssignmentOnTrack = overview.DecisioningMetrics.SlaOutcomes.AssignmentOnTrack,
+                    AssignmentAtRisk = overview.DecisioningMetrics.SlaOutcomes.AssignmentAtRisk,
+                    AssignmentBreached = overview.DecisioningMetrics.SlaOutcomes.AssignmentBreached,
+                    CompletionOnTrack = overview.DecisioningMetrics.SlaOutcomes.CompletionOnTrack,
+                    CompletionAtRisk = overview.DecisioningMetrics.SlaOutcomes.CompletionAtRisk,
+                    CompletionBreached = overview.DecisioningMetrics.SlaOutcomes.CompletionBreached,
+                    EscalationsAtRiskInWindow = overview.DecisioningMetrics.SlaOutcomes.EscalationsAtRiskInWindow,
+                    EscalationsBreachedInWindow = overview.DecisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow,
+                },
+            },
             IntakeTrend = overview.IntakeTrend
                 .Select(x => new ManagementTrendPointResponse
                 {

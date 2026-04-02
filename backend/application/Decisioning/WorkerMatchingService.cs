@@ -4,27 +4,41 @@ using GTEK.FSM.Backend.Domain.Enums;
 
 namespace GTEK.FSM.Backend.Application.Decisioning;
 
+/// <summary>
+/// Ranks worker candidates using weighted skill, load, rating, and distance scoring.
+/// </summary>
 internal sealed class WorkerMatchingService : IWorkerMatchingService
 {
     private const decimal NeutralDistanceScore = 0.5m;
     private readonly IWorkerProfileRepository workerProfileRepository;
     private readonly IJobRepository jobRepository;
     private readonly IRoadDistanceProvider roadDistanceProvider;
+    private readonly IDecisioningMetricsCollector decisioningMetricsCollector;
 
+    /// <summary>
+    /// Creates a new worker matching service.
+    /// </summary>
     public WorkerMatchingService(
         IWorkerProfileRepository workerProfileRepository,
         IJobRepository jobRepository,
-        IRoadDistanceProvider roadDistanceProvider)
+        IRoadDistanceProvider roadDistanceProvider,
+        IDecisioningMetricsCollector decisioningMetricsCollector)
     {
         this.workerProfileRepository = workerProfileRepository;
         this.jobRepository = jobRepository;
         this.roadDistanceProvider = roadDistanceProvider;
+        this.decisioningMetricsCollector = decisioningMetricsCollector;
     }
 
+    /// <summary>
+    /// Produces deterministic ranked worker candidates for a request context.
+    /// </summary>
     public async Task<IReadOnlyList<RankedWorkerCandidate>> GetRankedCandidatesAsync(
         WorkerMatchingQuery query,
         CancellationToken cancellationToken = default)
     {
+        var startedAt = DateTime.UtcNow;
+        var startedAtTicks = DateTime.UtcNow.Ticks;
         var topN = Math.Clamp(query.TopN, 1, WorkerMatchingQuery.MaxTopN);
 
         // Fetch all active workers for the tenant (no paging; matching scans the full set).
@@ -36,6 +50,13 @@ internal sealed class WorkerMatchingService : IWorkerMatchingService
 
         if (workers.Count == 0)
         {
+            this.decisioningMetricsCollector.RecordMatchEvaluation(
+                tenantId: query.TenantId,
+                observedAtUtc: startedAt,
+                matchLatencyMs: 0,
+                candidateCount: 0,
+                topCandidateScore: null);
+
             return Array.Empty<RankedWorkerCandidate>();
         }
 
@@ -108,11 +129,23 @@ internal sealed class WorkerMatchingService : IWorkerMatchingService
         var candidates = BuildRankedCandidates(workingCandidates, requiredSkills, query.Weights);
 
         // Primary: total score descending. Tie-break: WorkerCode ascending (deterministic).
-        return candidates
+        var ranked = candidates
             .OrderByDescending(c => c.TotalScore)
             .ThenBy(c => c.WorkerCode, StringComparer.Ordinal)
             .Take(topN)
             .ToList();
+
+        var elapsedTicks = DateTime.UtcNow.Ticks - startedAtTicks;
+        var elapsedMs = elapsedTicks <= 0 ? 0L : elapsedTicks / TimeSpan.TicksPerMillisecond;
+
+        this.decisioningMetricsCollector.RecordMatchEvaluation(
+            tenantId: query.TenantId,
+            observedAtUtc: startedAt,
+            matchLatencyMs: elapsedMs,
+            candidateCount: ranked.Count,
+            topCandidateScore: ranked.Count > 0 ? ranked[0].TotalScore : null);
+
+        return ranked;
     }
 
     private static IReadOnlyList<RankedWorkerCandidate> BuildRankedCandidates(
@@ -210,7 +243,7 @@ internal sealed class WorkerMatchingService : IWorkerMatchingService
         double lat2 = ToRadians((double)destination.Latitude);
 
         double a = Math.Pow(Math.Sin(dLat / 2.0), 2.0)
-            + Math.Cos(lat1) * Math.Cos(lat2) * Math.Pow(Math.Sin(dLon / 2.0), 2.0);
+            + ((Math.Cos(lat1) * Math.Cos(lat2)) * Math.Pow(Math.Sin(dLon / 2.0), 2.0));
 
         double c = 2.0 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1.0 - a));
         var distance = earthRadiusKm * c;

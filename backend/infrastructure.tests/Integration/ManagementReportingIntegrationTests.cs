@@ -8,6 +8,7 @@ using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Api.Tenancy;
 using GTEK.FSM.Backend.Application;
+using GTEK.FSM.Backend.Application.Decisioning;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
@@ -37,7 +38,7 @@ public class ManagementReportingIntegrationTests
 
         var requestStore = new InMemoryServiceRequestStore();
         requestStore.Seed(tenantId, ServiceRequestStatus.New, DateTime.UtcNow.AddDays(-1));
-        requestStore.Seed(tenantId, ServiceRequestStatus.Completed, DateTime.UtcNow.AddDays(-1));
+        requestStore.Seed(tenantId, ServiceRequestStatus.Completed, DateTime.UtcNow.AddDays(-1), completionSlaState: SlaState.Breached);
         requestStore.Seed(otherTenantId, ServiceRequestStatus.New, DateTime.UtcNow.AddDays(-1));
 
         var jobStore = new InMemoryJobStore();
@@ -50,6 +51,16 @@ public class ManagementReportingIntegrationTests
             Id = Guid.NewGuid(),
             TenantId = tenantId,
             Action = "REQUEST_COMPLETED",
+            Outcome = "Success",
+            OccurredAtUtc = DateTimeOffset.UtcNow.AddHours(-1),
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+        });
+        auditStore.Seed(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Action = "SlaEscalation:Completion:Breached",
             Outcome = "Success",
             OccurredAtUtc = DateTimeOffset.UtcNow.AddHours(-1),
             EntityType = "ServiceRequest",
@@ -76,7 +87,12 @@ public class ManagementReportingIntegrationTests
             EntityId = Guid.NewGuid(),
         });
 
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, auditStore);
+        var metricsCollector = new SeededDecisioningMetricsCollector();
+        metricsCollector.RecordMatchEvaluation(tenantId, DateTime.UtcNow.AddMinutes(-30), 100, 4, 0.92m);
+        metricsCollector.RecordMatchEvaluation(tenantId, DateTime.UtcNow.AddMinutes(-20), 200, 5, 0.84m);
+        metricsCollector.RecordMatchEvaluation(tenantId, DateTime.UtcNow.AddMinutes(-10), 300, 3, 0.74m);
+
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, auditStore, metricsCollector);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/reports/overview?windowDays=7&trendBuckets=7", "Manager", tenantId, Guid.NewGuid());
@@ -91,8 +107,13 @@ public class ManagementReportingIntegrationTests
         Assert.Equal(2, envelope.Data!.TotalRequestsInWindow);
         Assert.Equal(1, envelope.Data.CompletedRequestsInWindow);
         Assert.Equal(1, envelope.Data.ActiveJobs);
-        Assert.Equal(2, envelope.Data.SensitiveActions24h);
+        Assert.Equal(3, envelope.Data.SensitiveActions24h);
         Assert.Equal(1, envelope.Data.DeniedActions24h);
+        Assert.Equal(3, envelope.Data.DecisioningMetrics.MatchEvaluationCount);
+        Assert.Equal(200m, envelope.Data.DecisioningMetrics.AverageMatchLatencyMs);
+        Assert.True(envelope.Data.DecisioningMetrics.P95MatchLatencyMs >= 200m);
+        Assert.Equal(1, envelope.Data.DecisioningMetrics.SlaOutcomes.CompletionBreached);
+        Assert.Equal(1, envelope.Data.DecisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow);
     }
 
     [Fact]
@@ -103,7 +124,8 @@ public class ManagementReportingIntegrationTests
         await using var app = await BuildTestApplicationAsync(
             new InMemoryServiceRequestStore(),
             new InMemoryJobStore(),
-            new InMemoryAuditLogStore());
+            new InMemoryAuditLogStore(),
+            null);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/reports/overview", "Customer", tenantId, Guid.NewGuid());
@@ -126,7 +148,8 @@ public class ManagementReportingIntegrationTests
     private static async Task<WebApplication> BuildTestApplicationAsync(
         InMemoryServiceRequestStore requestStore,
         InMemoryJobStore jobStore,
-        InMemoryAuditLogStore auditStore)
+        InMemoryAuditLogStore auditStore,
+        IDecisioningMetricsCollector? metricsCollector)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -138,6 +161,10 @@ public class ManagementReportingIntegrationTests
         builder.Services.AddScoped<IServiceRequestRepository>(_ => requestStore);
         builder.Services.AddScoped<IJobRepository>(_ => jobStore);
         builder.Services.AddScoped<IAuditLogRepository>(_ => auditStore);
+        if (metricsCollector is not null)
+        {
+            builder.Services.AddSingleton<IDecisioningMetricsCollector>(_ => metricsCollector);
+        }
         builder.Services.Configure<TenantResolutionOptions>(_ => { });
 
         builder.Services.AddAuthentication(options =>
@@ -230,9 +257,21 @@ public class ManagementReportingIntegrationTests
     {
         private readonly List<RequestRow> rows = [];
 
-        public void Seed(Guid tenantId, ServiceRequestStatus status, DateTime createdAtUtc)
+        public void Seed(
+            Guid tenantId,
+            ServiceRequestStatus status,
+            DateTime createdAtUtc,
+            SlaState responseSlaState = SlaState.OnTrack,
+            SlaState assignmentSlaState = SlaState.OnTrack,
+            SlaState completionSlaState = SlaState.OnTrack)
         {
-            this.rows.Add(new RequestRow(tenantId, status, createdAtUtc));
+            this.rows.Add(new RequestRow(
+                TenantId: tenantId,
+                Status: status,
+                CreatedAtUtc: createdAtUtc,
+                ResponseSlaState: responseSlaState,
+                AssignmentSlaState: assignmentSlaState,
+                CompletionSlaState: completionSlaState));
         }
 
         public Task<int> CountAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default)
@@ -267,13 +306,69 @@ public class ManagementReportingIntegrationTests
 
         public Task<IReadOnlyList<ServiceRequest>> ListByCustomerAsync(Guid tenantId, Guid customerUserId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
-        public Task<IReadOnlyList<ServiceRequest>> QueryAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<ServiceRequest>> QueryAsync(ServiceRequestQuerySpecification specification, CancellationToken cancellationToken = default)
+        {
+            var query = this.rows.Where(x => x.TenantId == specification.TenantId);
+
+            if (specification.Status.HasValue)
+            {
+                query = query.Where(x => x.Status == specification.Status.Value);
+            }
+
+            if (specification.CreatedFromUtc.HasValue)
+            {
+                query = query.Where(x => x.CreatedAtUtc >= specification.CreatedFromUtc.Value);
+            }
+
+            if (specification.CreatedToUtc.HasValue)
+            {
+                query = query.Where(x => x.CreatedAtUtc <= specification.CreatedToUtc.Value);
+            }
+
+            query = specification.SortDirection == SortDirection.Ascending
+                ? query.OrderBy(x => x.CreatedAtUtc)
+                : query.OrderByDescending(x => x.CreatedAtUtc);
+
+            var page = specification.Page ?? new PageSpecification();
+            IReadOnlyList<ServiceRequest> result = query
+                .Skip(page.Skip)
+                .Take(page.Take)
+                .Select(ToAggregate)
+                .ToArray();
+
+            return Task.FromResult(result);
+        }
 
         public void Remove(ServiceRequest aggregate) => throw new NotImplementedException();
 
         public void Update(ServiceRequest aggregate) => throw new NotImplementedException();
 
-        private sealed record RequestRow(Guid TenantId, ServiceRequestStatus Status, DateTime CreatedAtUtc);
+        private static ServiceRequest ToAggregate(RequestRow row)
+        {
+            var aggregate = new ServiceRequest(Guid.NewGuid(), row.TenantId, Guid.NewGuid(), "report-row");
+            typeof(ServiceRequest).GetProperty(nameof(ServiceRequest.Status))!.SetValue(aggregate, row.Status);
+            typeof(ServiceRequest).GetProperty(nameof(ServiceRequest.CreatedAtUtc))!.SetValue(aggregate, row.CreatedAtUtc);
+            typeof(ServiceRequest).GetProperty(nameof(ServiceRequest.UpdatedAtUtc))!.SetValue(aggregate, row.CreatedAtUtc);
+
+            aggregate.ApplySlaSnapshot(
+                responseDueAtUtc: row.CreatedAtUtc.AddMinutes(15),
+                assignmentDueAtUtc: row.CreatedAtUtc.AddMinutes(30),
+                completionDueAtUtc: row.CreatedAtUtc.AddMinutes(240),
+                responseSlaState: row.ResponseSlaState,
+                assignmentSlaState: row.AssignmentSlaState,
+                completionSlaState: row.CompletionSlaState,
+                nextSlaDeadlineAtUtc: row.CreatedAtUtc.AddMinutes(15));
+
+            return aggregate;
+        }
+
+        private sealed record RequestRow(
+            Guid TenantId,
+            ServiceRequestStatus Status,
+            DateTime CreatedAtUtc,
+            SlaState ResponseSlaState,
+            SlaState AssignmentSlaState,
+            SlaState CompletionSlaState);
     }
 
     private sealed class InMemoryJobStore : IJobRepository
@@ -368,6 +463,33 @@ public class ManagementReportingIntegrationTests
             }
 
             return query;
+        }
+    }
+
+    private sealed class SeededDecisioningMetricsCollector : IDecisioningMetricsCollector
+    {
+        private readonly List<DecisioningMatchMetricSample> samples = [];
+
+        public void RecordMatchEvaluation(
+            Guid tenantId,
+            DateTime observedAtUtc,
+            long matchLatencyMs,
+            int candidateCount,
+            decimal? topCandidateScore)
+        {
+            this.samples.Add(new DecisioningMatchMetricSample(
+                TenantId: tenantId,
+                ObservedAtUtc: observedAtUtc,
+                MatchLatencyMs: matchLatencyMs,
+                CandidateCount: candidateCount,
+                TopCandidateScore: topCandidateScore));
+        }
+
+        public IReadOnlyList<DecisioningMatchMetricSample> GetMatchEvaluations(Guid tenantId, DateTime fromUtc, DateTime toUtc)
+        {
+            return this.samples
+                .Where(x => x.TenantId == tenantId && x.ObservedAtUtc >= fromUtc && x.ObservedAtUtc <= toUtc)
+                .ToArray();
         }
     }
 }
