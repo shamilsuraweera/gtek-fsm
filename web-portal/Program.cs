@@ -19,6 +19,7 @@ builder.Services.AddScoped<ResilientDataFetcher>();
 builder.Services.AddScoped<UiSecurityContext>();
 builder.Services.AddScoped<IRequestWorkspaceApiClient, RequestWorkspaceApiClient>();
 builder.Services.AddScoped<IManagementWorkersApiClient, ManagementWorkersApiClient>();
+builder.Services.AddScoped<IManagementSubscriptionsApiClient, ManagementSubscriptionsApiClient>();
 builder.Services.AddScoped<IPortalAccessTokenProvider, NullPortalAccessTokenProvider>();
 builder.Services.AddScoped<IOperationalRealtimeClient, SignalROperationalRealtimeClient>();
 

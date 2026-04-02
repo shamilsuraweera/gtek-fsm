@@ -1,6 +1,390 @@
 @page "/management/subscriptions"
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses
+@using GTEK.FSM.WebPortal.Services.Management
+@inject IManagementSubscriptionsApiClient SubscriptionsApiClient
 
 <PageTitle>Management Subscriptions</PageTitle>
 
 <h1>Management Subscriptions</h1>
-<p>Placeholder page for subscription plan administration.</p>
+
+<div class="subs-actions">
+	<button @onclick="ReloadAsync" disabled="@IsLoading">Refresh</button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(Notice))
+{
+	<p class="subs-notice">@Notice</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(ErrorMessage))
+{
+	<p class="subs-error">@ErrorMessage</p>
+}
+
+<section class="subs-layout">
+	<article class="subs-panel">
+		<h2>Organisation Subscription</h2>
+		@if (IsLoading)
+		{
+			<p>Loading subscription...</p>
+		}
+		else if (OrgSubscription is not null)
+		{
+			<dl class="subs-detail">
+				<dt>Plan</dt>
+				<dd><span class="subs-plan-badge subs-plan-@OrgSubscription.PlanCode.ToLowerInvariant()">@OrgSubscription.PlanCode</span></dd>
+				<dt>User Limit</dt>
+				<dd>@OrgSubscription.UserLimit</dd>
+				<dt>Active Users</dt>
+				<dd>@OrgSubscription.ActiveUsers</dd>
+				<dt>Available Slots</dt>
+				<dd>@OrgSubscription.AvailableUserSlots</dd>
+				<dt>Starts</dt>
+				<dd>@OrgSubscription.StartsOnUtc.ToString("yyyy-MM-dd")</dd>
+				<dt>Expires</dt>
+				<dd>@(OrgSubscription.EndsOnUtc.HasValue ? OrgSubscription.EndsOnUtc.Value.ToString("yyyy-MM-dd") : "—")</dd>
+			</dl>
+
+			@if (!IsEditing)
+			{
+				<button class="subs-edit-btn" @onclick="BeginEdit">Edit Plan</button>
+			}
+			else
+			{
+				<div class="subs-form">
+					<label>Plan</label>
+					<select @bind="Form.PlanCode">
+						@foreach (var plan in PlanOptions)
+						{
+							<option value="@plan">@plan</option>
+						}
+					</select>
+
+					<label>User Limit</label>
+					<input type="number" min="1" max="10000" step="1" @bind="Form.UserLimit" />
+
+					<div class="subs-form-actions">
+						<button @onclick="SaveAsync" disabled="@IsSaving">Save</button>
+						<button @onclick="CancelEdit">Cancel</button>
+					</div>
+				</div>
+			}
+		}
+		else if (!IsLoading)
+		{
+			<p>No active subscription found.</p>
+		}
+	</article>
+
+	<article class="subs-panel">
+		<h2>Tenant Users</h2>
+		<div class="subs-users-actions">
+			<input class="subs-search" @bind="UserSearchText" placeholder="Search users..." />
+			<button @onclick="ReloadUsersAsync" disabled="@IsUsersLoading">Search</button>
+		</div>
+
+		@if (IsUsersLoading)
+		{
+			<p>Loading users...</p>
+		}
+		else if (UserItems.Count == 0)
+		{
+			<p>No users found.</p>
+		}
+		else
+		{
+			<table class="subs-table">
+				<thead>
+					<tr>
+						<th>Display Name</th>
+						<th>Identity</th>
+						<th>Within Limit</th>
+					</tr>
+				</thead>
+				<tbody>
+					@foreach (var user in UserItems)
+					{
+						<tr>
+							<td>@user.DisplayName</td>
+							<td>@user.ExternalIdentity</td>
+							<td>@(user.IsWithinCurrentPlanLimit ? "Yes" : "No")</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+
+			@if (UsersTotalPages > 1)
+			{
+				<div class="subs-pager">
+					<button @onclick="PrevUsersPage" disabled="@(UsersPage <= 1 || IsUsersLoading)">Prev</button>
+					<span>Page @UsersPage of @UsersTotalPages</span>
+					<button @onclick="NextUsersPage" disabled="@(UsersPage >= UsersTotalPages || IsUsersLoading)">Next</button>
+				</div>
+			}
+		}
+	</article>
+</section>
+
+<style>
+	.subs-layout {
+		display: grid;
+		gap: 1rem;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	}
+
+	.subs-panel {
+		border: 1px solid #d8dde6;
+		border-radius: 8px;
+		padding: 1rem;
+		background: #ffffff;
+	}
+
+	.subs-actions {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		margin-bottom: 1rem;
+	}
+
+	.subs-users-actions {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		margin-bottom: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.subs-search {
+		min-width: 200px;
+	}
+
+	.subs-detail {
+		display: grid;
+		grid-template-columns: 1fr 2fr;
+		gap: 0.35rem 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.subs-detail dt {
+		font-weight: 600;
+		color: #4a5568;
+	}
+
+	.subs-plan-badge {
+		display: inline-block;
+		padding: 0.1rem 0.5rem;
+		border-radius: 4px;
+		font-size: 0.85rem;
+		font-weight: 600;
+		text-transform: uppercase;
+	}
+
+	.subs-plan-free { background: #e2e8f0; color: #2d3748; }
+	.subs-plan-pro { background: #ebf4ff; color: #2b6cb0; }
+	.subs-plan-enterprise { background: #faf5ff; color: #553c9a; }
+
+	.subs-edit-btn {
+		margin-top: 0.5rem;
+	}
+
+	.subs-form {
+		display: grid;
+		gap: 0.5rem;
+	}
+
+	.subs-form-actions {
+		margin-top: 0.5rem;
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.subs-table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.subs-table th,
+	.subs-table td {
+		border-bottom: 1px solid #e6ebf2;
+		text-align: left;
+		padding: 0.5rem;
+		vertical-align: top;
+	}
+
+	.subs-pager {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		margin-top: 0.75rem;
+	}
+
+	.subs-error {
+		color: #b42318;
+	}
+
+	.subs-notice {
+		color: #175cd3;
+	}
+</style>
+
+@code {
+	private static readonly string[] PlanOptions = ["FREE", "PRO", "ENTERPRISE"];
+	private const int UsersPageSize = 25;
+
+	private readonly SubscriptionEditorModel Form = new();
+
+	private GetOrganizationSubscriptionResponse? OrgSubscription { get; set; }
+
+	private List<GetSubscriptionUserResponse> UserItems { get; set; } = [];
+
+	private string? UserSearchText { get; set; }
+
+	private int UsersPage { get; set; } = 1;
+
+	private int UsersTotal { get; set; }
+
+	private int UsersTotalPages => UsersTotal == 0 ? 1 : (int)Math.Ceiling((double)UsersTotal / UsersPageSize);
+
+	private bool IsLoading { get; set; }
+
+	private bool IsUsersLoading { get; set; }
+
+	private bool IsSaving { get; set; }
+
+	private bool IsEditing { get; set; }
+
+	private string? ErrorMessage { get; set; }
+
+	private string? Notice { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		await this.ReloadAsync();
+	}
+
+	private async Task ReloadAsync()
+	{
+		this.IsLoading = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			this.OrgSubscription = await this.SubscriptionsApiClient.GetOrganizationAsync();
+		}
+		catch (ManagementSubscriptionsApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsLoading = false;
+		}
+
+		this.UsersPage = 1;
+		await this.ReloadUsersAsync();
+	}
+
+	private async Task ReloadUsersAsync()
+	{
+		this.IsUsersLoading = true;
+
+		try
+		{
+			var result = await this.SubscriptionsApiClient.GetUsersAsync(this.UserSearchText, this.UsersPage, UsersPageSize);
+			this.UserItems = result.Items.ToList();
+			this.UsersTotal = (int)(result.Pagination?.Total ?? this.UserItems.Count);
+		}
+		catch (ManagementSubscriptionsApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsUsersLoading = false;
+		}
+	}
+
+	private void BeginEdit()
+	{
+		if (this.OrgSubscription is null)
+		{
+			return;
+		}
+
+		this.Form.PlanCode = this.OrgSubscription.PlanCode;
+		this.Form.UserLimit = this.OrgSubscription.UserLimit;
+		this.IsEditing = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+	}
+
+	private void CancelEdit()
+	{
+		this.IsEditing = false;
+		this.ErrorMessage = null;
+	}
+
+	private async Task SaveAsync()
+	{
+		if (this.OrgSubscription is null)
+		{
+			return;
+		}
+
+		this.IsSaving = true;
+		this.ErrorMessage = null;
+		this.Notice = null;
+
+		try
+		{
+			this.OrgSubscription = await this.SubscriptionsApiClient.UpdateOrganizationAsync(new UpdateOrganizationSubscriptionRequest
+			{
+				PlanCode = this.Form.PlanCode,
+				UserLimit = this.Form.UserLimit,
+				RowVersion = this.OrgSubscription.RowVersion,
+			});
+
+			this.IsEditing = false;
+			this.Notice = "Subscription updated successfully.";
+		}
+		catch (ManagementSubscriptionsApiException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+		{
+			this.ErrorMessage = "The subscription was modified by another session — refresh to reload and try again.";
+		}
+		catch (ManagementSubscriptionsApiException ex)
+		{
+			this.ErrorMessage = ex.Message;
+		}
+		finally
+		{
+			this.IsSaving = false;
+		}
+	}
+
+	private async Task PrevUsersPage()
+	{
+		if (this.UsersPage > 1)
+		{
+			this.UsersPage--;
+			await this.ReloadUsersAsync();
+		}
+	}
+
+	private async Task NextUsersPage()
+	{
+		if (this.UsersPage < this.UsersTotalPages)
+		{
+			this.UsersPage++;
+			await this.ReloadUsersAsync();
+		}
+	}
+
+	private sealed class SubscriptionEditorModel
+	{
+		public string PlanCode { get; set; } = "FREE";
+
+		public int UserLimit { get; set; } = 25;
+	}
+}

@@ -7,6 +7,9 @@ using GTEK.FSM.WebPortal.Services.Management;
 using GTEK.FSM.WebPortal.Services.Security;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Responses;
 using Microsoft.Extensions.DependencyInjection;
 
 public sealed class ManagementSecurityIntegrationTests : TestContext
@@ -16,6 +19,7 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
         this.Services.AddScoped<ResilientDataFetcher>();
         this.Services.AddScoped<UiSecurityContext>();
         this.Services.AddScoped<IManagementWorkersApiClient>(_ => new FakeManagementWorkersApiClient());
+        this.Services.AddScoped<IManagementSubscriptionsApiClient>(_ => new FakeManagementSubscriptionsApiClient());
     }
 
     [Fact]
@@ -59,6 +63,21 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
             Assert.Contains("Worker Profiles", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("WRK-OPS-01", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("Ops Worker", cut.Markup, StringComparison.Ordinal);
+        }, TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void SubscriptionsPage_LoadsAndRendersOrgSubscription_FromManagementApiClient()
+    {
+        // Arrange + Act
+        var cut = this.RenderComponent<Subscriptions>();
+
+        // Assert
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Organisation Subscription", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("PRO", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("50", cut.Markup, StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(3));
     }
 
@@ -121,6 +140,43 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
 
             worker.UpdatedAtUtc = DateTime.UtcNow;
             return Task.FromResult(worker);
+        }
+    }
+
+    private sealed class FakeManagementSubscriptionsApiClient : IManagementSubscriptionsApiClient
+    {
+        private readonly GetOrganizationSubscriptionResponse org = new()
+        {
+            SubscriptionId = Guid.NewGuid().ToString(),
+            TenantId = Guid.NewGuid().ToString(),
+            PlanCode = "PRO",
+            UserLimit = 50,
+            ActiveUsers = 12,
+            AvailableUserSlots = 38,
+            StartsOnUtc = DateTime.UtcNow.AddYears(-1),
+            EndsOnUtc = DateTime.UtcNow.AddYears(1),
+            RowVersion = Convert.ToBase64String(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 }),
+        };
+
+        public Task<GetOrganizationSubscriptionResponse> GetOrganizationAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(this.org);
+        }
+
+        public Task<GetOrganizationSubscriptionResponse> UpdateOrganizationAsync(UpdateOrganizationSubscriptionRequest request, CancellationToken cancellationToken = default)
+        {
+            this.org.PlanCode = request.PlanCode ?? this.org.PlanCode;
+            this.org.UserLimit = request.UserLimit ?? this.org.UserLimit;
+            return Task.FromResult(this.org);
+        }
+
+        public Task<GetSubscriptionUsersListResponse> GetUsersAsync(string? searchText, int page, int pageSize, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new GetSubscriptionUsersListResponse
+            {
+                Items = Array.Empty<GetSubscriptionUserResponse>(),
+                Pagination = new PaginationMetadata { Total = 0, Limit = pageSize, Offset = 0 },
+            });
         }
     }
 }
