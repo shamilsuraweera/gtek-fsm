@@ -39,6 +39,14 @@ public sealed class WorkerProfileConfiguration : IEntityTypeConfiguration<Worker
             .HasMaxLength(1024)
             .IsRequired();
 
+        builder.Property(x => x.BaseLatitude)
+            .HasColumnType("decimal(9,6)")
+            .IsRequired(false);
+
+        builder.Property(x => x.BaseLongitude)
+            .HasColumnType("decimal(9,6)")
+            .IsRequired(false);
+
         builder.Property(x => x.AvailabilityStatus)
             .HasConversion<int>()
             .IsRequired();

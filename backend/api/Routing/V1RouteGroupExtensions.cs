@@ -2,6 +2,7 @@ using System.Text;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
+using GTEK.FSM.Backend.Application.Decisioning;
 using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
@@ -349,6 +350,10 @@ public static class V1RouteGroupExtensions
                         CreatedByRole = "Customer",
                         CreatedUtc = x.CreatedAtUtc,
                         UpdatedUtc = x.UpdatedAtUtc,
+                        ResponseSlaStatus = x.ResponseSlaStatus,
+                        AssignmentSlaStatus = x.AssignmentSlaStatus,
+                        CompletionSlaStatus = x.CompletionSlaStatus,
+                        NextSlaDeadlineUtc = x.NextSlaDeadlineAtUtc,
                     })
                     .ToArray(),
                 Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
@@ -411,6 +416,13 @@ public static class V1RouteGroupExtensions
                 ActiveJobId = query.Payload.ActiveJobId?.ToString(),
                 AssignedWorkerUserId = query.Payload.AssignedWorkerUserId?.ToString(),
                 ActiveJobStatus = query.Payload.ActiveJobStatus,
+                ResponseDueAtUtc = query.Payload.ResponseDueAtUtc,
+                AssignmentDueAtUtc = query.Payload.AssignmentDueAtUtc,
+                CompletionDueAtUtc = query.Payload.CompletionDueAtUtc,
+                ResponseSlaStatus = query.Payload.ResponseSlaStatus,
+                AssignmentSlaStatus = query.Payload.AssignmentSlaStatus,
+                CompletionSlaStatus = query.Payload.CompletionSlaStatus,
+                NextSlaDeadlineAtUtc = query.Payload.NextSlaDeadlineAtUtc,
                 Timeline = query.Payload.Timeline
                     .Select(x => new DetailTimelineItemResponse
                     {
@@ -911,6 +923,103 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
+        v1.MapGet("/workers/candidates", async (
+            [AsParameters] GetWorkerCandidatesRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IWorkerMatchingService workerMatchingService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var topN = Math.Clamp(request.TopN ?? WorkerMatchingQuery.DefaultTopN, 1, WorkerMatchingQuery.MaxTopN);
+            var skillWeight = request.SkillWeight ?? 0.4m;
+            var loadWeight = request.LoadWeight ?? 0.25m;
+            var ratingWeight = request.RatingWeight ?? 0.15m;
+            var distanceWeight = request.DistanceWeight ?? 0.2m;
+
+            if (request.RequestLatitude.HasValue != request.RequestLongitude.HasValue)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_COORDINATES", "requestLatitude and requestLongitude must be supplied together.");
+            }
+
+            if (request.RequestLatitude is < -90m or > 90m)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_COORDINATES", "requestLatitude must be between -90 and 90.");
+            }
+
+            if (request.RequestLongitude is < -180m or > 180m)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_COORDINATES", "requestLongitude must be between -180 and 180.");
+            }
+
+            WorkerMatchingWeights weights;
+            try
+            {
+                weights = new WorkerMatchingWeights(skillWeight, loadWeight, ratingWeight, distanceWeight);
+            }
+            catch (ArgumentException ex)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_WEIGHTS", ex.Message);
+            }
+
+            var requiredSkills = request.Skills is not null
+                ? request.Skills.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : Array.Empty<string>();
+
+            var query = new WorkerMatchingQuery(
+                TenantId: resolvedTenantId.Value,
+                RequiredSkills: requiredSkills,
+                TopN: topN,
+                Weights: weights,
+                RequestLatitude: request.RequestLatitude,
+                RequestLongitude: request.RequestLongitude);
+
+            var candidates = await workerMatchingService.GetRankedCandidatesAsync(query, cancellationToken);
+
+            var responsePayload = new RankedWorkerCandidatesResponse
+            {
+                TotalEvaluated = candidates.Count,
+                SkillWeight = weights.SkillWeight,
+                LoadWeight = weights.LoadWeight,
+                RatingWeight = weights.RatingWeight,
+                DistanceWeight = weights.DistanceWeight,
+                Candidates = candidates.Select(c => new RankedWorkerCandidateItem
+                {
+                    WorkerId = c.WorkerId.ToString(),
+                    WorkerCode = c.WorkerCode,
+                    DisplayName = c.DisplayName,
+                    InternalRating = c.InternalRating,
+                    Skills = c.Skills.ToArray(),
+                    ActiveJobCount = c.ActiveJobCount,
+                    TotalScore = c.TotalScore,
+                    SkillScore = c.SkillScore,
+                    LoadScore = c.LoadScore,
+                    RatingScore = c.RatingScore,
+                    DistanceScore = c.DistanceScore,
+                    DistanceKm = c.DistanceKm,
+                    DistanceSource = c.DistanceSource,
+                }).ToArray(),
+            };
+
+            return Results.Ok(ApiResponse<RankedWorkerCandidatesResponse>.Ok(
+                responsePayload,
+                $"{candidates.Count} candidate(s) ranked.",
+                context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SupportFlow);
+
         v1.MapGet("/management/subscriptions/organization", async (
             HttpContext context,
             IAuthenticatedPrincipalAccessor principalAccessor,
@@ -1388,6 +1497,8 @@ public static class V1RouteGroupExtensions
             AvailabilityStatus = worker.AvailabilityStatus.ToString(),
             IsActive = worker.IsActive,
             Skills = worker.Skills.ToArray(),
+            BaseLatitude = worker.BaseLatitude,
+            BaseLongitude = worker.BaseLongitude,
             CreatedAtUtc = worker.CreatedAtUtc,
             UpdatedAtUtc = worker.UpdatedAtUtc,
         };
@@ -1418,6 +1529,35 @@ public static class V1RouteGroupExtensions
             ActiveJobs = overview.ActiveJobs,
             SensitiveActions24h = overview.SensitiveActions24h,
             DeniedActions24h = overview.DeniedActions24h,
+            DecisioningMetrics = new ManagementDecisioningMetricsResponse
+            {
+                MatchEvaluationCount = overview.DecisioningMetrics.MatchEvaluationCount,
+                AverageMatchLatencyMs = overview.DecisioningMetrics.AverageMatchLatencyMs,
+                P95MatchLatencyMs = overview.DecisioningMetrics.P95MatchLatencyMs,
+                AverageTopMatchScore = overview.DecisioningMetrics.AverageTopMatchScore,
+                HighConfidenceMatchRatePercent = overview.DecisioningMetrics.HighConfidenceMatchRatePercent,
+                MatchLatencyTrend = overview.DecisioningMetrics.MatchLatencyTrend
+                    .Select(x => new ManagementTrendPointResponse
+                    {
+                        DateUtc = x.DateUtc,
+                        Value = x.Value,
+                    })
+                    .ToArray(),
+                SlaOutcomes = new ManagementSlaOutcomeSummaryResponse
+                {
+                    ResponseOnTrack = overview.DecisioningMetrics.SlaOutcomes.ResponseOnTrack,
+                    ResponseAtRisk = overview.DecisioningMetrics.SlaOutcomes.ResponseAtRisk,
+                    ResponseBreached = overview.DecisioningMetrics.SlaOutcomes.ResponseBreached,
+                    AssignmentOnTrack = overview.DecisioningMetrics.SlaOutcomes.AssignmentOnTrack,
+                    AssignmentAtRisk = overview.DecisioningMetrics.SlaOutcomes.AssignmentAtRisk,
+                    AssignmentBreached = overview.DecisioningMetrics.SlaOutcomes.AssignmentBreached,
+                    CompletionOnTrack = overview.DecisioningMetrics.SlaOutcomes.CompletionOnTrack,
+                    CompletionAtRisk = overview.DecisioningMetrics.SlaOutcomes.CompletionAtRisk,
+                    CompletionBreached = overview.DecisioningMetrics.SlaOutcomes.CompletionBreached,
+                    EscalationsAtRiskInWindow = overview.DecisioningMetrics.SlaOutcomes.EscalationsAtRiskInWindow,
+                    EscalationsBreachedInWindow = overview.DecisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow,
+                },
+            },
             IntakeTrend = overview.IntakeTrend
                 .Select(x => new ManagementTrendPointResponse
                 {

@@ -12,6 +12,8 @@ public sealed class GetManagementAnalyticsOverviewResponse
 
     public int DeniedActions24h { get; set; }
 
+    public ManagementDecisioningMetricsResponse DecisioningMetrics { get; set; } = new();
+
     public IReadOnlyList<ManagementTrendPointResponse> IntakeTrend { get; set; } = Array.Empty<ManagementTrendPointResponse>();
 
     public IReadOnlyList<ManagementTrendPointResponse> CompletionTrend { get; set; } = Array.Empty<ManagementTrendPointResponse>();
@@ -21,6 +23,48 @@ public sealed class GetManagementAnalyticsOverviewResponse
     public IReadOnlyList<ManagementDrilldownItemResponse> ActionDrilldown { get; set; } = Array.Empty<ManagementDrilldownItemResponse>();
 
     public IReadOnlyList<ManagementDrilldownItemResponse> OutcomeDrilldown { get; set; } = Array.Empty<ManagementDrilldownItemResponse>();
+}
+
+public sealed class ManagementDecisioningMetricsResponse
+{
+    public int MatchEvaluationCount { get; set; }
+
+    public decimal AverageMatchLatencyMs { get; set; }
+
+    public decimal P95MatchLatencyMs { get; set; }
+
+    public decimal AverageTopMatchScore { get; set; }
+
+    public decimal HighConfidenceMatchRatePercent { get; set; }
+
+    public IReadOnlyList<ManagementTrendPointResponse> MatchLatencyTrend { get; set; } = Array.Empty<ManagementTrendPointResponse>();
+
+    public ManagementSlaOutcomeSummaryResponse SlaOutcomes { get; set; } = new();
+}
+
+public sealed class ManagementSlaOutcomeSummaryResponse
+{
+    public int ResponseOnTrack { get; set; }
+
+    public int ResponseAtRisk { get; set; }
+
+    public int ResponseBreached { get; set; }
+
+    public int AssignmentOnTrack { get; set; }
+
+    public int AssignmentAtRisk { get; set; }
+
+    public int AssignmentBreached { get; set; }
+
+    public int CompletionOnTrack { get; set; }
+
+    public int CompletionAtRisk { get; set; }
+
+    public int CompletionBreached { get; set; }
+
+    public int EscalationsAtRiskInWindow { get; set; }
+
+    public int EscalationsBreachedInWindow { get; set; }
 }
 
 public sealed class ManagementTrendPointResponse

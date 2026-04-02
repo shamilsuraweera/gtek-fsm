@@ -11,6 +11,7 @@ internal sealed class ServiceRequestCreationService : IServiceRequestCreationSer
 
     private readonly IServiceRequestRepository serviceRequestRepository;
     private readonly IUnitOfWork unitOfWork;
+    private readonly ServiceRequestSlaOptions slaOptions = new();
 
     public ServiceRequestCreationService(
         IServiceRequestRepository serviceRequestRepository,
@@ -42,6 +43,21 @@ internal sealed class ServiceRequestCreationService : IServiceRequestCreationSer
             tenantId: principal.TenantId,
             customerUserId: principal.UserId,
             title: normalizedTitle);
+
+        var snapshot = ServiceRequestSlaCalculator.Compute(
+            request,
+            assignmentStatus: null,
+            nowUtc: DateTime.UtcNow,
+            options: this.slaOptions);
+
+        request.ApplySlaSnapshot(
+            snapshot.ResponseDueAtUtc,
+            snapshot.AssignmentDueAtUtc,
+            snapshot.CompletionDueAtUtc,
+            snapshot.ResponseSlaState,
+            snapshot.AssignmentSlaState,
+            snapshot.CompletionSlaState,
+            snapshot.NextSlaDeadlineAtUtc);
 
         await this.serviceRequestRepository.AddAsync(request, cancellationToken);
         await this.unitOfWork.SaveChangesAsync(cancellationToken);

@@ -18,6 +18,10 @@ public sealed class WorkerProfileResponse
 
     public string[] Skills { get; set; } = [];
 
+    public decimal? BaseLatitude { get; set; }
+
+    public decimal? BaseLongitude { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime UpdatedAtUtc { get; set; }

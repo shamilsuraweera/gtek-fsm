@@ -62,6 +62,26 @@ public class GetRequestsResponse
     public DateTime UpdatedUtc { get; set; }
 
     /// <summary>
+    /// Current response SLA state.
+    /// </summary>
+    public string? ResponseSlaStatus { get; set; }
+
+    /// <summary>
+    /// Current assignment SLA state.
+    /// </summary>
+    public string? AssignmentSlaStatus { get; set; }
+
+    /// <summary>
+    /// Current completion SLA state.
+    /// </summary>
+    public string? CompletionSlaStatus { get; set; }
+
+    /// <summary>
+    /// Nearest upcoming SLA deadline in UTC.
+    /// </summary>
+    public DateTime? NextSlaDeadlineUtc { get; set; }
+
+    /// <summary>
     /// Metadata for the list page this item came from (set by controller).
     /// </summary>
     public PaginationMetadata? Pagination { get; set; }

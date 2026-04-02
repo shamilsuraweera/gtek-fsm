@@ -1,5 +1,6 @@
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
+using GTEK.FSM.Backend.Application.Decisioning;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.Realtime;
@@ -36,6 +37,8 @@ public static class DependencyInjection
         services.AddScoped<ISubscriptionManagementService, SubscriptionManagementService>();
         services.AddScoped<IWorkerQueryService, WorkerQueryService>();
         services.AddScoped<IWorkerManagementService, WorkerManagementService>();
+        services.AddScoped<IWorkerMatchingService, WorkerMatchingService>();
+        services.AddSingleton<IDecisioningMetricsCollector, InMemoryDecisioningMetricsCollector>();
 
         return services;
     }
@@ -64,6 +67,11 @@ public static class DependencyInjection
         }
 
         public Task PublishJobAssignmentUpdatedAsync(AssignedServiceRequestPayload payload, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
+        public Task PublishSlaEscalationTriggeredAsync(SlaEscalationTriggeredPayload payload, CancellationToken cancellationToken = default)
         {
             return Task.CompletedTask;
         }

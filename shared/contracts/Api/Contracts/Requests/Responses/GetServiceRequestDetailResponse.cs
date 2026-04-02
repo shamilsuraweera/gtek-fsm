@@ -27,5 +27,19 @@ public class GetServiceRequestDetailResponse
 
     public string? ActiveJobStatus { get; set; }
 
+    public DateTime? ResponseDueAtUtc { get; set; }
+
+    public DateTime? AssignmentDueAtUtc { get; set; }
+
+    public DateTime? CompletionDueAtUtc { get; set; }
+
+    public string? ResponseSlaStatus { get; set; }
+
+    public string? AssignmentSlaStatus { get; set; }
+
+    public string? CompletionSlaStatus { get; set; }
+
+    public DateTime? NextSlaDeadlineAtUtc { get; set; }
+
     public IReadOnlyList<DetailTimelineItemResponse> Timeline { get; set; } = Array.Empty<DetailTimelineItemResponse>();
 }

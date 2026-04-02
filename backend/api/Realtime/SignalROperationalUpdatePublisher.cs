@@ -11,6 +11,7 @@ public sealed class SignalROperationalUpdatePublisher : IOperationalUpdatePublis
     public const string OperationalUpdateReceivedMethod = "OperationalUpdateReceived";
     private const string ServiceRequestStatusUpdatedEventType = "service_request.status_updated";
     private const string JobAssignmentUpdatedEventType = "job.assignment_updated";
+    private const string ServiceRequestSlaEscalatedEventType = "service_request.sla_escalated";
 
     private readonly IHubContext<OperationsHub> hubContext;
 
@@ -69,6 +70,33 @@ public sealed class SignalROperationalUpdatePublisher : IOperationalUpdatePublis
                 OperationsHubGroups.ForTenant(payload.TenantId),
                 OperationsHubGroups.ForRequest(payload.TenantId, payload.RequestId),
                 OperationsHubGroups.ForJob(payload.TenantId, payload.JobId))
+            .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken);
+    }
+
+    public Task PublishSlaEscalationTriggeredAsync(SlaEscalationTriggeredPayload payload, CancellationToken cancellationToken = default)
+    {
+        var envelope = new OperationalUpdateEnvelope
+        {
+            EventType = ServiceRequestSlaEscalatedEventType,
+            TenantId = payload.TenantId.ToString(),
+            OccurredAtUtc = payload.TriggeredAtUtc,
+            ServiceRequestSlaEscalated = new ServiceRequestSlaEscalatedEvent
+            {
+                RequestId = payload.RequestId.ToString(),
+                TenantId = payload.TenantId.ToString(),
+                SlaDimension = payload.SlaDimension,
+                PreviousSlaStatus = payload.PreviousSlaStatus,
+                CurrentSlaStatus = payload.CurrentSlaStatus,
+                DueAtUtc = payload.DueAtUtc,
+                TriggeredAtUtc = payload.TriggeredAtUtc,
+                RowVersion = payload.RowVersion,
+            },
+        };
+
+        return this.hubContext.Clients
+            .Groups(
+                OperationsHubGroups.ForTenant(payload.TenantId),
+                OperationsHubGroups.ForRequest(payload.TenantId, payload.RequestId))
             .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken);
     }
 }

@@ -130,7 +130,11 @@ internal sealed class ServiceRequestQueryService : IServiceRequestQueryService
                 CreatedAtUtc: item.CreatedAtUtc,
                 UpdatedAtUtc: item.UpdatedAtUtc,
                 ActiveJobId: item.ActiveJobId,
-                AssignedWorkerUserId: assignedWorkerUserId));
+                AssignedWorkerUserId: assignedWorkerUserId,
+                ResponseSlaStatus: item.ResponseSlaState.ToString(),
+                AssignmentSlaStatus: item.AssignmentSlaState.ToString(),
+                CompletionSlaStatus: item.CompletionSlaState.ToString(),
+                NextSlaDeadlineAtUtc: item.NextSlaDeadlineAtUtc));
         }
 
         return ServiceRequestQueryResult.Success(
@@ -213,6 +217,13 @@ internal sealed class ServiceRequestQueryService : IServiceRequestQueryService
                 ActiveJobId: request.ActiveJobId,
                 AssignedWorkerUserId: activeJob?.AssignedWorkerUserId,
                 ActiveJobStatus: activeJob?.AssignmentStatus.ToString(),
+                ResponseDueAtUtc: request.ResponseDueAtUtc,
+                AssignmentDueAtUtc: request.AssignmentDueAtUtc,
+                CompletionDueAtUtc: request.CompletionDueAtUtc,
+                ResponseSlaStatus: request.ResponseSlaState.ToString(),
+                AssignmentSlaStatus: request.AssignmentSlaState.ToString(),
+                CompletionSlaStatus: request.CompletionSlaState.ToString(),
+                NextSlaDeadlineAtUtc: request.NextSlaDeadlineAtUtc,
                 Timeline: timeline));
     }
 

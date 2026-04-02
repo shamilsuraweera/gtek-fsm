@@ -51,7 +51,9 @@ internal sealed class WorkerManagementService : IWorkerManagementService
                 workerCode: normalizedWorkerCode,
                 displayName: request.DisplayName ?? string.Empty,
                 internalRating: request.InternalRating ?? 3.0m,
-                skills: request.Skills ?? Array.Empty<string>());
+                skills: request.Skills ?? Array.Empty<string>(),
+                baseLatitude: request.BaseLatitude,
+                baseLongitude: request.BaseLongitude);
 
             worker.SetAvailability(ParseAvailabilityStatus(request.AvailabilityStatus));
             if (request.IsActive.HasValue && !request.IsActive.Value)
@@ -107,6 +109,11 @@ internal sealed class WorkerManagementService : IWorkerManagementService
                 worker.ReplaceSkills(request.Skills);
             }
 
+            if (request.BaseLatitude.HasValue || request.BaseLongitude.HasValue)
+            {
+                worker.SetBaseLocation(request.BaseLatitude, request.BaseLongitude);
+            }
+
             if (!string.IsNullOrWhiteSpace(request.AvailabilityStatus))
             {
                 worker.SetAvailability(ParseAvailabilityStatus(request.AvailabilityStatus));
@@ -147,6 +154,8 @@ internal sealed class WorkerManagementService : IWorkerManagementService
             AvailabilityStatus: worker.AvailabilityStatus,
             IsActive: worker.IsActive,
             Skills: worker.GetSkills(),
+            BaseLatitude: worker.BaseLatitude,
+            BaseLongitude: worker.BaseLongitude,
             CreatedAtUtc: worker.CreatedAtUtc,
             UpdatedAtUtc: worker.UpdatedAtUtc);
     }

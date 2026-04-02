@@ -9,11 +9,15 @@ using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Api.Tenancy;
 using GTEK.FSM.Backend.Application;
+using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
 using GTEK.FSM.Backend.Application.Persistence.Transactions;
+using GTEK.FSM.Backend.Application.Realtime;
+using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Domain.Aggregates;
+using GTEK.FSM.Backend.Domain.Audit;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Backend.Infrastructure.Identity;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
@@ -159,6 +163,51 @@ public class ServiceRequestLifecycleIntegrationTests
         Assert.Contains("CONCURRENCY_CONFLICT", body);
     }
 
+    [Fact]
+    public async Task TransitionStatus_SlaEscalation_WritesAuditAndPublishesRealtimeEvent()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var store = new InMemoryServiceRequestStore();
+        var request = new ServiceRequest(requestId, tenantId, userId, "Aged request");
+        request.TransitionTo(ServiceRequestStatus.Assigned);
+
+        var createdAtUtc = DateTime.UtcNow.AddHours(-5);
+        typeof(ServiceRequest).GetProperty(nameof(ServiceRequest.CreatedAtUtc))!.SetValue(request, createdAtUtc);
+        typeof(ServiceRequest).GetProperty(nameof(ServiceRequest.UpdatedAtUtc))!.SetValue(request, createdAtUtc);
+        request.ApplySlaSnapshot(
+            responseDueAtUtc: null,
+            assignmentDueAtUtc: createdAtUtc.AddMinutes(30),
+            completionDueAtUtc: createdAtUtc.AddMinutes(240),
+            responseSlaState: SlaState.NotApplicable,
+            assignmentSlaState: SlaState.OnTrack,
+            completionSlaState: SlaState.OnTrack,
+            nextSlaDeadlineAtUtc: createdAtUtc.AddMinutes(240));
+
+        store.Seed(request);
+
+        var auditWriter = new CapturingAuditLogWriter();
+        var realtimePublisher = new CapturingOperationalUpdatePublisher();
+
+        await using var app = await BuildTestApplicationAsync(store, auditWriter, realtimePublisher);
+        using var client = app.GetTestClient();
+
+        using var httpRequest = CreateAuthenticatedRequest(
+            method: HttpMethod.Patch,
+            route: $"/api/v1/requests/{requestId}/status",
+            role: "Customer",
+            tenantId: tenantId,
+            userId: userId,
+            body: new TransitionServiceRequestStatusRequest { NextStatus = "InProgress" });
+
+        var response = await client.SendAsync(httpRequest);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(auditWriter.Items, x => x.Action == "SlaEscalation:Completion:Breached");
+        Assert.Contains(realtimePublisher.SlaEscalations, x => x.SlaDimension == "Completion" && x.CurrentSlaStatus == "Breached");
+    }
+
     private static HttpRequestMessage CreateAuthenticatedRequest(
         HttpMethod method,
         string route,
@@ -177,7 +226,10 @@ public class ServiceRequestLifecycleIntegrationTests
         return request;
     }
 
-    private static async Task<WebApplication> BuildTestApplicationAsync(InMemoryServiceRequestStore store)
+    private static async Task<WebApplication> BuildTestApplicationAsync(
+        InMemoryServiceRequestStore store,
+        CapturingAuditLogWriter? auditWriter = null,
+        CapturingOperationalUpdatePublisher? realtimePublisher = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -189,6 +241,15 @@ public class ServiceRequestLifecycleIntegrationTests
 
         builder.Services.AddScoped<IServiceRequestRepository>(_ => store);
         builder.Services.AddScoped<IUnitOfWork, NoOpUnitOfWork>();
+        if (auditWriter is not null)
+        {
+            builder.Services.AddScoped<IAuditLogWriter>(_ => auditWriter);
+        }
+
+        if (realtimePublisher is not null)
+        {
+            builder.Services.AddScoped<IOperationalUpdatePublisher>(_ => realtimePublisher);
+        }
 
         builder.Services.Configure<TenantResolutionOptions>(_ => { });
 
@@ -419,6 +480,44 @@ public class ServiceRequestLifecycleIntegrationTests
         public void Remove(ServiceRequest aggregate)
         {
             this.items.Remove(aggregate);
+        }
+    }
+
+    private sealed class CapturingAuditLogWriter : IAuditLogWriter
+    {
+        public List<AuditLog> Items { get; } = new();
+
+        public Task WriteAsync(AuditLog log, CancellationToken cancellationToken = default)
+        {
+            this.Items.Add(log);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CapturingOperationalUpdatePublisher : IOperationalUpdatePublisher
+    {
+        public List<TransitionedServiceRequestPayload> StatusUpdates { get; } = new();
+
+        public List<AssignedServiceRequestPayload> AssignmentUpdates { get; } = new();
+
+        public List<SlaEscalationTriggeredPayload> SlaEscalations { get; } = new();
+
+        public Task PublishServiceRequestStatusUpdatedAsync(TransitionedServiceRequestPayload payload, CancellationToken cancellationToken = default)
+        {
+            this.StatusUpdates.Add(payload);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishJobAssignmentUpdatedAsync(AssignedServiceRequestPayload payload, CancellationToken cancellationToken = default)
+        {
+            this.AssignmentUpdates.Add(payload);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishSlaEscalationTriggeredAsync(SlaEscalationTriggeredPayload payload, CancellationToken cancellationToken = default)
+        {
+            this.SlaEscalations.Add(payload);
+            return Task.CompletedTask;
         }
     }
 }

@@ -35,6 +35,10 @@ public class MapsServiceOptions
     public string BaseUrl { get; set; } = string.Empty;
 
     public string ApiKey { get; set; } = string.Empty;
+
+    public int RouteCacheTtlMinutes { get; set; } = 15;
+
+    public int RequestTimeoutSeconds { get; set; } = 10;
 }
 
 public class PaymentServiceOptions

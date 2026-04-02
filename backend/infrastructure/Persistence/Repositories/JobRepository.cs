@@ -1,6 +1,7 @@
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
 using GTEK.FSM.Backend.Domain.Aggregates;
+using GTEK.FSM.Backend.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace GTEK.FSM.Backend.Infrastructure.Persistence.Repositories;
@@ -58,6 +59,24 @@ internal sealed class JobRepository : EfRepository<Job>, IJobRepository
     {
         return ApplyFilters(this.Queryable().AsNoTracking(), specification)
             .CountAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, int>> GetActiveJobCountsByWorkerAsync(
+        Guid tenantId,
+        IReadOnlyList<Guid> workerIds,
+        CancellationToken cancellationToken = default)
+    {
+        var activeStatuses = new[] { AssignmentStatus.PendingAcceptance, AssignmentStatus.Accepted };
+
+        var counts = await ApplyTenantFilter(this.Queryable().AsNoTracking(), tenantId)
+            .Where(x => x.AssignedWorkerUserId.HasValue
+                        && workerIds.Contains(x.AssignedWorkerUserId!.Value)
+                        && activeStatuses.Contains(x.AssignmentStatus))
+            .GroupBy(x => x.AssignedWorkerUserId!.Value)
+            .Select(g => new { WorkerId = g.Key, Count = g.Count() })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(x => x.WorkerId, x => x.Count);
     }
 
     private static IQueryable<Job> ApplyFilters(

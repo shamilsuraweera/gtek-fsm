@@ -10,6 +10,10 @@ public sealed class UpdateWorkerProfileRequest
 
     public string[]? Skills { get; set; }
 
+    public decimal? BaseLatitude { get; set; }
+
+    public decimal? BaseLongitude { get; set; }
+
     public bool? IsActive { get; set; }
 
     public string? AvailabilityStatus { get; set; }

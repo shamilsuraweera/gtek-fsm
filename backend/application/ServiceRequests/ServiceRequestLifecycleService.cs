@@ -5,6 +5,7 @@ using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Backend.Domain.Audit;
+using System.Text.Json;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
 
@@ -14,6 +15,7 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
     private readonly IUnitOfWork unitOfWork;
     private readonly IAuditLogWriter auditLogWriter;
     private readonly IOperationalUpdatePublisher operationalUpdatePublisher;
+    private readonly ServiceRequestSlaOptions slaOptions = new();
 
     public ServiceRequestLifecycleService(
         IServiceRequestRepository serviceRequestRepository,
@@ -68,6 +70,9 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
         }
 
         var previousStatus = request.Status;
+        var previousResponseSlaState = request.ResponseSlaState;
+        var previousAssignmentSlaState = request.AssignmentSlaState;
+        var previousCompletionSlaState = request.CompletionSlaState;
 
         try
         {
@@ -80,6 +85,27 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
                 errorCode: "REQUEST_TRANSITION_INVALID",
                 statusCode: 400);
         }
+
+        var snapshot = ServiceRequestSlaCalculator.Compute(
+            request,
+            assignmentStatus: null,
+            nowUtc: DateTime.UtcNow,
+            options: this.slaOptions);
+
+        var escalations = ServiceRequestSlaEscalationEvaluator.Evaluate(
+            previousResponseSlaState,
+            previousAssignmentSlaState,
+            previousCompletionSlaState,
+            snapshot);
+
+        request.ApplySlaSnapshot(
+            snapshot.ResponseDueAtUtc,
+            snapshot.AssignmentDueAtUtc,
+            snapshot.CompletionDueAtUtc,
+            snapshot.ResponseSlaState,
+            snapshot.AssignmentSlaState,
+            snapshot.CompletionSlaState,
+            snapshot.NextSlaDeadlineAtUtc);
 
         this.serviceRequestRepository.Update(request);
         try
@@ -108,6 +134,43 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
             Details = null,
         };
         await this.auditLogWriter.WriteAsync(auditLog, cancellationToken);
+
+        foreach (var escalation in escalations)
+        {
+            var escalationAudit = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = null,
+                TenantId = principal.TenantId,
+                EntityType = "ServiceRequest",
+                EntityId = request.Id,
+                Action = $"SlaEscalation:{escalation.SlaDimension}:{escalation.CurrentState}",
+                Outcome = "Success",
+                OccurredAtUtc = DateTimeOffset.UtcNow,
+                Details = JsonSerializer.Serialize(new
+                {
+                    escalation.SlaDimension,
+                    PreviousState = escalation.PreviousState.ToString(),
+                    CurrentState = escalation.CurrentState.ToString(),
+                    escalation.DueAtUtc,
+                    TriggeredByUserId = principal.UserId,
+                }),
+            };
+
+            await this.auditLogWriter.WriteAsync(escalationAudit, cancellationToken);
+
+            var escalationPayload = new SlaEscalationTriggeredPayload(
+                RequestId: request.Id,
+                TenantId: request.TenantId,
+                SlaDimension: escalation.SlaDimension,
+                PreviousSlaStatus: escalation.PreviousState.ToString(),
+                CurrentSlaStatus: escalation.CurrentState.ToString(),
+                DueAtUtc: escalation.DueAtUtc,
+                TriggeredAtUtc: DateTime.UtcNow,
+                RowVersion: Convert.ToBase64String(request.RowVersion));
+
+            await this.operationalUpdatePublisher.PublishSlaEscalationTriggeredAsync(escalationPayload, cancellationToken);
+        }
 
         var payload = new TransitionedServiceRequestPayload(
             RequestId: request.Id,

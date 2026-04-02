@@ -39,6 +39,25 @@ public sealed class CreateWorkerProfileRequestValidator : AbstractValidator<Crea
             .Must(BeAvailabilityValue)
             .When(x => !string.IsNullOrWhiteSpace(x.AvailabilityStatus))
             .WithMessage("availabilityStatus is invalid.");
+
+        RuleFor(x => x.BaseLatitude)
+            .InclusiveBetween(-90m, 90m)
+            .When(x => x.BaseLatitude.HasValue)
+            .WithMessage("baseLatitude must be between -90 and 90.");
+
+        RuleFor(x => x.BaseLongitude)
+            .InclusiveBetween(-180m, 180m)
+            .When(x => x.BaseLongitude.HasValue)
+            .WithMessage("baseLongitude must be between -180 and 180.");
+
+        RuleFor(x => x)
+            .Must(HaveBothCoordinatesOrNeither)
+            .WithMessage("baseLatitude and baseLongitude must be supplied together.");
+    }
+
+    private static bool HaveBothCoordinatesOrNeither(CreateWorkerProfileRequest request)
+    {
+        return request.BaseLatitude.HasValue == request.BaseLongitude.HasValue;
     }
 
     private static bool BeAvailabilityValue(string? value)
