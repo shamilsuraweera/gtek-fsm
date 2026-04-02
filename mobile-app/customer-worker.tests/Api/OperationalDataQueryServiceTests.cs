@@ -77,7 +77,7 @@ public sealed class OperationalDataQueryServiceTests
 
         var result = await service.CreateRequestAsync("Electrical: Main panel trips every evening");
 
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsSuccess, result.Message);
         Assert.NotNull(result.Request);
         Assert.Equal("REQ-901", result.Request!.RequestId);
         Assert.Equal("New", result.Request.Status);
@@ -96,6 +96,76 @@ public sealed class OperationalDataQueryServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(string.Empty, result.Request.RequestId);
         Assert.Equal("Missing token", result.Message);
+    }
+
+    [Fact]
+    public async Task GetJobDetailAsync_ReturnsDetail_WhenEnvelopeContainsData()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            Assert.Equal(HttpMethod.Get, request.Method);
+            Assert.Contains("/api/v1/jobs/11111111-1111-1111-1111-111111111111", request.RequestUri?.ToString());
+
+            var responseJson = """
+            {
+              "success": true,
+              "data": {
+                "jobId": "11111111-1111-1111-1111-111111111111",
+                "requestId": "22222222-2222-2222-2222-222222222222",
+                "requestTitle": "Cooling failure at warehouse gate",
+                "requestStatus": "Assigned"
+              }
+            }
+            """;
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(responseJson, Encoding.UTF8, "application/json"),
+            });
+        });
+
+        var service = BuildService(handler, token: "jwt-token");
+
+        var result = await service.GetJobDetailAsync("11111111-1111-1111-1111-111111111111");
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("22222222-2222-2222-2222-222222222222", result.Detail.RequestId);
+        Assert.Equal("Assigned", result.Detail.RequestStatus);
+    }
+
+    [Fact]
+    public async Task TransitionRequestStatusAsync_ReturnsConflict_WhenApiReturns409()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            Assert.Equal(HttpMethod.Patch, request.Method);
+            Assert.Contains("/api/v1/requests/22222222-2222-2222-2222-222222222222/status", request.RequestUri?.ToString());
+
+            var responseJson = """
+            {
+              "success": false,
+              "message": "Concurrency conflict detected.",
+              "errorCode": "CONCURRENCY_CONFLICT"
+            }
+            """;
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict)
+            {
+                Content = new StringContent(responseJson, Encoding.UTF8, "application/json"),
+            });
+        });
+
+        var service = BuildService(handler, token: "jwt-token");
+
+        var result = await service.TransitionRequestStatusAsync(
+            requestId: "22222222-2222-2222-2222-222222222222",
+            nextStatus: "InProgress",
+            rowVersion: "AQID");
+
+        Assert.False(result.IsSuccess);
+        Assert.True(result.IsConflict, result.Message);
+        Assert.Equal("CONCURRENCY_CONFLICT", result.ErrorCode);
+        Assert.Contains("Concurrency conflict", result.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     private static OperationalDataQueryService BuildService(HttpMessageHandler handler, string token)

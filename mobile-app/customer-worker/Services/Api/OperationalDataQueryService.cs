@@ -1,9 +1,12 @@
 namespace GTEK.FSM.MobileApp.Services.Api;
 
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Common;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
@@ -34,7 +37,26 @@ public interface IServiceRequestCreationService
     Task<RequestCreationResult> CreateRequestAsync(string title, CancellationToken cancellationToken = default);
 }
 
-public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService, ICategoryQueryService, IServiceRequestCreationService
+public sealed record JobDetailQueryResult(bool IsSuccess, GetJobDetailResponse Detail, string Message = "", string ErrorCode = "", bool IsConflict = false);
+
+public sealed record RequestDetailQueryResult(bool IsSuccess, GetServiceRequestDetailResponse Detail, string Message = "", string ErrorCode = "", bool IsConflict = false);
+
+public sealed record RequestStatusTransitionResult(bool IsSuccess, TransitionServiceRequestStatusResponse Transition, string Message = "", string ErrorCode = "", bool IsConflict = false);
+
+public interface IWorkerExecutionService
+{
+    Task<JobDetailQueryResult> GetJobDetailAsync(string jobId, CancellationToken cancellationToken = default);
+
+    Task<RequestDetailQueryResult> GetRequestDetailAsync(string requestId, CancellationToken cancellationToken = default);
+
+    Task<RequestStatusTransitionResult> TransitionRequestStatusAsync(
+        string requestId,
+        string nextStatus,
+        string rowVersion,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService, ICategoryQueryService, IServiceRequestCreationService, IWorkerExecutionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -46,6 +68,9 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
     private readonly IMobileDiagnosticsLogger _diagnostics;
 
     private static readonly CreateServiceRequestResponse EmptyCreateResponse = new();
+    private static readonly GetJobDetailResponse EmptyJobDetail = new();
+    private static readonly GetServiceRequestDetailResponse EmptyRequestDetail = new();
+    private static readonly TransitionServiceRequestStatusResponse EmptyRequestTransition = new();
 
     public OperationalDataQueryService(
         HttpClient httpClient,
@@ -129,6 +154,101 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
             _diagnostics.Error("requests.create", $"Create request threw an exception: {ex.Message}");
             return new RequestCreationResult(IsSuccess: false, Request: EmptyCreateResponse, Message: ex.Message);
         }
+    }
+
+    public async Task<JobDetailQueryResult> GetJobDetailAsync(string jobId, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(jobId, out _))
+        {
+            return new JobDetailQueryResult(false, EmptyJobDetail, "Invalid job ID.", "INVALID_JOB_ID");
+        }
+
+        var token = _tokenProvider.GetAccessToken();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _diagnostics.Warn("jobs.detail", "Job detail query skipped because JWT token is missing.");
+            return new JobDetailQueryResult(false, EmptyJobDetail, "Missing token", "AUTH_MISSING_TOKEN");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/jobs/{jobId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return await SendForItemAsync(
+            request,
+            "jobs.detail",
+            EmptyJobDetail,
+            static (isSuccess, data, message, errorCode, isConflict) => new JobDetailQueryResult(isSuccess, data, message, errorCode, isConflict),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<RequestDetailQueryResult> GetRequestDetailAsync(string requestId, CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(requestId, out _))
+        {
+            return new RequestDetailQueryResult(false, EmptyRequestDetail, "Invalid request ID.", "INVALID_REQUEST_ID");
+        }
+
+        var token = _tokenProvider.GetAccessToken();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _diagnostics.Warn("requests.detail", "Request detail query skipped because JWT token is missing.");
+            return new RequestDetailQueryResult(false, EmptyRequestDetail, "Missing token", "AUTH_MISSING_TOKEN");
+        }
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/requests/{requestId}");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return await SendForItemAsync(
+            request,
+            "requests.detail",
+            EmptyRequestDetail,
+            static (isSuccess, data, message, errorCode, isConflict) => new RequestDetailQueryResult(isSuccess, data, message, errorCode, isConflict),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<RequestStatusTransitionResult> TransitionRequestStatusAsync(
+        string requestId,
+        string nextStatus,
+        string rowVersion,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(requestId, out _))
+        {
+            return new RequestStatusTransitionResult(false, EmptyRequestTransition, "Invalid request ID.", "INVALID_REQUEST_ID");
+        }
+
+        if (string.IsNullOrWhiteSpace(nextStatus))
+        {
+            return new RequestStatusTransitionResult(false, EmptyRequestTransition, "Next status is required.", "VALIDATION_FAILED");
+        }
+
+        var token = _tokenProvider.GetAccessToken();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _diagnostics.Warn("requests.transition", "Status transition skipped because JWT token is missing.");
+            return new RequestStatusTransitionResult(false, EmptyRequestTransition, "Missing token", "AUTH_MISSING_TOKEN");
+        }
+
+        var payload = new TransitionServiceRequestStatusRequest
+        {
+            NextStatus = nextStatus,
+            RowVersion = rowVersion,
+        };
+
+        var jsonPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        using var request = new HttpRequestMessage(HttpMethod.Patch, $"/api/v1/requests/{requestId}/status")
+        {
+            Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json"),
+        };
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return await SendForItemAsync(
+            request,
+            "requests.transition",
+            EmptyRequestTransition,
+            static (isSuccess, data, message, errorCode, isConflict) => new RequestStatusTransitionResult(isSuccess, data, message, errorCode, isConflict),
+            cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<LiveQueryResult<T>> QueryListAsync<T>(
@@ -283,4 +403,92 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
 
         return true;
     }
+
+    private async Task<TResult> SendForItemAsync<TItem, TResult>(
+        HttpRequestMessage request,
+        string category,
+        TItem fallback,
+        Func<bool, TItem, string, string, bool, TResult> resultFactory,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            _diagnostics.Info(category, $"Dispatching request to '{request.RequestUri}'.");
+            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            var json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var failure = ExtractFailure(json, response.StatusCode);
+                _diagnostics.Warn(category, $"Request failed with HTTP {(int)response.StatusCode}: {failure.Message}");
+                return resultFactory(false, fallback, failure.Message, failure.ErrorCode, failure.IsConflict);
+            }
+
+            if (TryExtractItem<TItem>(json, out var item) && item is not null)
+            {
+                _diagnostics.Info(category, "Request succeeded.");
+                return resultFactory(true, item, "OK", string.Empty, false);
+            }
+
+            _diagnostics.Warn(category, "Request succeeded but payload shape was unexpected.");
+            return resultFactory(false, fallback, "Unexpected payload", "UNEXPECTED_PAYLOAD", false);
+        }
+        catch (Exception ex)
+        {
+            _diagnostics.Error(category, $"Request threw an exception: {ex.Message}");
+            return resultFactory(false, fallback, ex.Message, "CLIENT_EXCEPTION", false);
+        }
+    }
+
+    private static ApiFailure ExtractFailure(string json, HttpStatusCode statusCode)
+    {
+        var fallbackMessage = $"HTTP {(int)statusCode}";
+        var fallbackErrorCode = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return new ApiFailure(fallbackMessage, fallbackErrorCode, statusCode == HttpStatusCode.Conflict);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(json);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                return new ApiFailure(fallbackMessage, fallbackErrorCode, statusCode == HttpStatusCode.Conflict);
+            }
+
+            var message = ReadStringProperty(root, "message") ?? fallbackMessage;
+            var errorCode = ReadStringProperty(root, "errorCode") ?? string.Empty;
+
+            if (statusCode == HttpStatusCode.Conflict && TryExtractItem<ConflictResponse>(json, out var conflict) && conflict is not null)
+            {
+                if (!string.IsNullOrWhiteSpace(conflict.Message))
+                {
+                    message = conflict.Message;
+                }
+
+                if (!string.IsNullOrWhiteSpace(conflict.ErrorCode))
+                {
+                    errorCode = conflict.ErrorCode;
+                }
+            }
+
+            return new ApiFailure(message, errorCode, statusCode == HttpStatusCode.Conflict || string.Equals(errorCode, "CONCURRENCY_CONFLICT", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return new ApiFailure(fallbackMessage, fallbackErrorCode, statusCode == HttpStatusCode.Conflict);
+        }
+    }
+
+    private static string ReadStringProperty(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? string.Empty
+            : string.Empty;
+    }
+
+    private sealed record ApiFailure(string Message, string ErrorCode, bool IsConflict);
 }

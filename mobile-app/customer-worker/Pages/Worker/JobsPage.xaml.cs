@@ -3,35 +3,39 @@ namespace GTEK.FSM.MobileApp.Pages.Worker;
 using System.Collections.ObjectModel;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Realtime;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using Microsoft.Extensions.DependencyInjection;
 
 public partial class JobsPage : ContentPage, IDisposable
 {
+    private static readonly string[] RequestLifecycleStatuses =
+    {
+        "Assigned",
+        "InProgress",
+        "OnHold",
+        "Completed",
+    };
+
     private readonly ObservableCollection<WorkerJobViewModel> _jobs;
     private readonly IJobQueryService _jobQueryService;
+    private readonly IWorkerExecutionService _workerExecutionService;
     private readonly IMobileOperationalRealtimeClient? _realtimeClient;
     private readonly IDisposable? _assignmentSubscription;
     private WorkerJobViewModel _selectedJob;
+    private bool _isSubmitting;
 
     public JobsPage()
     {
         InitializeComponent();
 
-        StatusPicker.ItemsSource = new[]
-        {
-            "Available",
-            "Accepted",
-            "On Route",
-            "On Site",
-            "In Progress",
-            "Completed",
-        };
+        StatusPicker.ItemsSource = RequestLifecycleStatuses;
 
         _jobs = new ObservableCollection<WorkerJobViewModel>
         {
             new WorkerJobViewModel(
                 id: "JOB-884",
+                requestId: "REQ-2304",
                 title: "Rooftop AC Compressor Fault",
                 description: "Inspect compressor overload alert and restore cooling output.",
                 location: "Lakepoint Towers, Colombo 03",
@@ -42,6 +46,7 @@ public partial class JobsPage : ContentPage, IDisposable
                 accepted: false),
             new WorkerJobViewModel(
                 id: "JOB-876",
+                requestId: "REQ-2301",
                 title: "Generator Runtime Inspection",
                 description: "Run full safety and load handover checklist.",
                 location: "Central Arcade, Colombo 07",
@@ -52,6 +57,7 @@ public partial class JobsPage : ContentPage, IDisposable
                 accepted: true),
             new WorkerJobViewModel(
                 id: "JOB-861",
+                requestId: "REQ-2294",
                 title: "Water Pump Pressure Recalibration",
                 description: "Calibrate pressure switches and verify line stability.",
                 location: "Palm Residency, Nugegoda",
@@ -67,6 +73,7 @@ public partial class JobsPage : ContentPage, IDisposable
         RenderSelectedJob(_jobs[0]);
 
         _jobQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IJobQueryService>();
+        _workerExecutionService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IWorkerExecutionService>();
         _realtimeClient = Application.Current?.Handler?.MauiContext?.Services?.GetService<IMobileOperationalRealtimeClient>();
         if (_realtimeClient is not null)
         {
@@ -87,31 +94,13 @@ public partial class JobsPage : ContentPage, IDisposable
         if (e.CurrentSelection?.FirstOrDefault() is WorkerJobViewModel selected)
         {
             RenderSelectedJob(selected);
+            _ = LoadSelectedJobExecutionContextAsync(selected);
         }
     }
 
     private async void OnAcceptAssignmentClicked(object sender, EventArgs e)
     {
-        if (_selectedJob is null)
-        {
-            return;
-        }
-
-        if (_selectedJob.Accepted)
-        {
-            await DisplayAlertAsync("Assignment", "This assignment is already accepted.", "OK");
-            return;
-        }
-
-        var updated = _selectedJob with
-        {
-            Accepted = true,
-            StatusLabel = "Accepted",
-            StatusColor = Color.FromArgb("#166534"),
-        };
-
-        ReplaceJob(_selectedJob, updated);
-        StatusResultLabel.Text = $"Assignment accepted for {_selectedJob.Id}.";
+        await ApplyTransitionAsync("Assigned", "Assignment accepted");
     }
 
     private async void OnPublishStatusClicked(object sender, EventArgs e)
@@ -127,40 +116,37 @@ public partial class JobsPage : ContentPage, IDisposable
             return;
         }
 
-        var updated = _selectedJob with
-        {
-            StatusLabel = newStatus,
-            StatusColor = ResolveStatusColor(newStatus),
-            Accepted = newStatus == "Accepted" || _selectedJob.Accepted,
-        };
-
-        ReplaceJob(_selectedJob, updated);
-        StatusResultLabel.Text = $"Published status '{newStatus}' for {updated.Id} at {DateTime.Now:t}.";
+        await ApplyTransitionAsync(newStatus, $"Published status '{newStatus}'");
     }
 
-    private async void OnOpenMapClicked(object sender, EventArgs e)
+    private async void OnRefreshDetailClicked(object sender, EventArgs e)
     {
         if (_selectedJob is null)
         {
             return;
         }
 
-        await DisplayAlertAsync("Navigation", $"Map launch placeholder for {_selectedJob.Location}.", "OK");
+        await LoadSelectedJobExecutionContextAsync(_selectedJob);
     }
 
-    private void OnStartTravelClicked(object sender, EventArgs e)
+    private async void OnStartWorkClicked(object sender, EventArgs e)
     {
-        ApplyQuickStatus("On Route");
+        await ApplyTransitionAsync("InProgress", "Work started");
     }
 
-    private void OnMarkOnSiteClicked(object sender, EventArgs e)
+    private async void OnPlaceOnHoldClicked(object sender, EventArgs e)
     {
-        ApplyQuickStatus("On Site");
+        await ApplyTransitionAsync("OnHold", "Request placed on hold");
     }
 
-    private void OnCompleteJobClicked(object sender, EventArgs e)
+    private async void OnCompleteRequestClicked(object sender, EventArgs e)
     {
-        ApplyQuickStatus("Completed");
+        await ApplyTransitionAsync("Completed", "Request completed");
+    }
+
+    private async void OnResumeWorkClicked(object sender, EventArgs e)
+    {
+        await ApplyTransitionAsync("InProgress", "Work resumed");
     }
 
     private void RenderSelectedJob(WorkerJobViewModel selected)
@@ -168,16 +154,10 @@ public partial class JobsPage : ContentPage, IDisposable
         _selectedJob = selected;
         SelectedJobTitleLabel.Text = selected.Title;
         SelectedJobDescriptionLabel.Text = selected.Description;
-        SelectedJobMetaLabel.Text = $"{selected.Id} • {selected.Location} • {selected.StatusLabel}";
+        SelectedJobMetaLabel.Text = $"{selected.Id} • {selected.RequestId} • {selected.Location} • {selected.StatusLabel}";
         AcceptAssignmentButton.IsEnabled = !selected.Accepted;
-        StatusPicker.SelectedItem = selected.StatusLabel;
+        StatusPicker.SelectedItem = ToApiStatus(selected.StatusLabel);
         StatusResultLabel.Text ??= string.Empty;
-    }
-
-    private void RefreshJobsList()
-    {
-        JobsCollectionView.ItemsSource = null;
-        JobsCollectionView.ItemsSource = _jobs;
     }
 
     private static Color ResolveStatusColor(string status)
@@ -185,23 +165,112 @@ public partial class JobsPage : ContentPage, IDisposable
         return MobileOperationalRealtimeMapper.ResolveJobStatusColor(status);
     }
 
-    private void ApplyQuickStatus(string quickStatus)
+    private async Task LoadSelectedJobExecutionContextAsync(WorkerJobViewModel selected)
     {
-        if (_selectedJob is null)
+        if (_workerExecutionService is null)
         {
             return;
         }
 
-        var updated = _selectedJob with
+        var detail = await _workerExecutionService.GetJobDetailAsync(selected.Id);
+        if (!detail.IsSuccess)
         {
-            StatusLabel = quickStatus,
-            StatusColor = ResolveStatusColor(quickStatus),
-            Accepted = quickStatus == "Accepted" || _selectedJob.Accepted,
+            StatusResultLabel.Text = $"Unable to load job detail: {detail.Message}";
+            return;
+        }
+
+        var requestId = detail.Detail.RequestId ?? selected.RequestId;
+        var requestStatus = detail.Detail.RequestStatus ?? selected.StatusLabel;
+        var requestRowVersion = selected.RequestRowVersion;
+
+        if (!string.IsNullOrWhiteSpace(requestId))
+        {
+            var requestDetail = await _workerExecutionService.GetRequestDetailAsync(requestId);
+            if (requestDetail.IsSuccess)
+            {
+                requestStatus = requestDetail.Detail.Status ?? requestStatus;
+                requestRowVersion = requestDetail.Detail.RowVersion ?? requestRowVersion;
+            }
+            else
+            {
+                StatusResultLabel.Text = $"Loaded job detail, but request detail failed: {requestDetail.Message}";
+            }
+        }
+
+        var normalizedStatus = NormalizeStatus(requestStatus);
+        var updated = selected with
+        {
+            RequestId = requestId,
+            RequestRowVersion = requestRowVersion,
+            Title = detail.Detail.RequestTitle ?? selected.Title,
+            Description = BuildDescription(detail.Detail, selected.Description),
+            StatusLabel = normalizedStatus,
+            StatusColor = ResolveStatusColor(normalizedStatus),
+            Accepted = IsAcceptedStatus(normalizedStatus),
         };
 
-        ReplaceJob(_selectedJob, updated);
-        StatusPicker.SelectedItem = quickStatus;
-        StatusResultLabel.Text = $"Quick action applied: '{quickStatus}' for {updated.Id} at {DateTime.Now:t}.";
+        ReplaceJob(selected, updated);
+        StatusPicker.SelectedItem = ToApiStatus(normalizedStatus);
+    }
+
+    private async Task ApplyTransitionAsync(string nextStatus, string successMessage)
+    {
+        if (_selectedJob is null || _workerExecutionService is null || _isSubmitting)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedJob.RequestId))
+        {
+            StatusResultLabel.Text = "Missing request linkage. Refresh detail and retry.";
+            return;
+        }
+
+        _isSubmitting = true;
+
+        try
+        {
+            var workingSelection = _selectedJob;
+            if (string.IsNullOrWhiteSpace(workingSelection.RequestRowVersion))
+            {
+                await LoadSelectedJobExecutionContextAsync(workingSelection);
+                workingSelection = _selectedJob;
+            }
+
+            var transition = await _workerExecutionService.TransitionRequestStatusAsync(
+                requestId: workingSelection.RequestId,
+                nextStatus: nextStatus,
+                rowVersion: workingSelection.RequestRowVersion);
+
+            if (!transition.IsSuccess)
+            {
+                StatusResultLabel.Text = transition.IsConflict
+                    ? $"Conflict detected: {transition.Message}. Refreshing latest state."
+                    : $"Status update failed: {transition.Message}";
+
+                await LoadSelectedJobExecutionContextAsync(workingSelection);
+                return;
+            }
+
+            var normalizedStatus = NormalizeStatus(transition.Transition.CurrentStatus);
+            var updated = workingSelection with
+            {
+                StatusLabel = normalizedStatus,
+                StatusColor = ResolveStatusColor(normalizedStatus),
+                RequestRowVersion = transition.Transition.RowVersion ?? workingSelection.RequestRowVersion,
+                Accepted = IsAcceptedStatus(normalizedStatus),
+            };
+
+            ReplaceJob(workingSelection, updated);
+            StatusPicker.SelectedItem = ToApiStatus(transition.Transition.CurrentStatus);
+            StatusResultLabel.Text = $"{successMessage} for {updated.Id} at {DateTime.Now:t}.";
+
+            await LoadLiveJobsAsync();
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
     }
 
     private async Task LoadLiveJobsAsync()
@@ -223,6 +292,7 @@ public partial class JobsPage : ContentPage, IDisposable
             var status = NormalizeStatus(item.Status);
             _jobs.Add(new WorkerJobViewModel(
                 id: item.JobId ?? "JOB-UNKNOWN",
+                requestId: item.RequestId ?? string.Empty,
                 title: item.Title ?? "Untitled Job",
                 description: BuildDescription(item),
                 location: BuildLocation(item),
@@ -237,16 +307,27 @@ public partial class JobsPage : ContentPage, IDisposable
         {
             JobsCollectionView.SelectedItem = _jobs[0];
             RenderSelectedJob(_jobs[0]);
+            await LoadSelectedJobExecutionContextAsync(_jobs[0]);
         }
     }
 
-    private static string BuildDescription(GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses.GetJobsResponse item)
+    private static string BuildDescription(GetJobsResponse item)
     {
         var requestReference = string.IsNullOrWhiteSpace(item.RequestId) ? "N/A" : item.RequestId;
         return $"Linked request: {requestReference}";
     }
 
-    private static string BuildLocation(GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses.GetJobsResponse item)
+    private static string BuildDescription(GetJobDetailResponse detail, string fallback)
+    {
+        if (!string.IsNullOrWhiteSpace(detail.RequestTitle))
+        {
+            return detail.RequestTitle;
+        }
+
+        return fallback;
+    }
+
+    private static string BuildLocation(GetJobsResponse item)
     {
         if (!string.IsNullOrWhiteSpace(item.AssignedTo))
         {
@@ -264,6 +345,19 @@ public partial class JobsPage : ContentPage, IDisposable
     private static string NormalizeStatus(string status)
     {
         return MobileOperationalRealtimeMapper.NormalizeStatus(status);
+    }
+
+    private static string ToApiStatus(string status)
+    {
+        var normalized = NormalizeStatus(status).ToLowerInvariant();
+        return normalized switch
+        {
+            "assigned" => "Assigned",
+            "in progress" => "InProgress",
+            "on hold" => "OnHold",
+            "completed" => "Completed",
+            _ => "Assigned",
+        };
     }
 
     private Task HandleAssignmentUpdateAsync(JobAssignmentUpdatedEvent payload)
@@ -311,6 +405,7 @@ internal sealed record WorkerJobViewModel
 {
     public WorkerJobViewModel(
         string id,
+        string requestId,
         string title,
         string description,
         string location,
@@ -318,9 +413,11 @@ internal sealed record WorkerJobViewModel
         Color priorityColor,
         string statusLabel,
         Color statusColor,
-        bool accepted)
+        bool accepted,
+        string requestRowVersion = "")
     {
         Id = id;
+        RequestId = requestId;
         Title = title;
         Description = description;
         Location = location;
@@ -329,13 +426,16 @@ internal sealed record WorkerJobViewModel
         StatusLabel = statusLabel;
         StatusColor = statusColor;
         Accepted = accepted;
+        RequestRowVersion = requestRowVersion;
     }
 
     public string Id { get; }
 
-    public string Title { get; }
+    public string RequestId { get; init; }
 
-    public string Description { get; }
+    public string Title { get; init; }
+
+    public string Description { get; init; }
 
     public string Location { get; }
 
@@ -348,4 +448,6 @@ internal sealed record WorkerJobViewModel
     public Color StatusColor { get; init; }
 
     public bool Accepted { get; init; }
+
+    public string RequestRowVersion { get; init; }
 }
