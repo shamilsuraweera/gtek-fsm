@@ -38,6 +38,8 @@
     <Compile Include="../customer-worker/State/TenantContextState.cs" Link="State/TenantContextState.cs" />
     <Compile Include="../customer-worker/Navigation/RoleGateResolver.cs" Link="Navigation/RoleGateResolver.cs" />
     <Compile Include="../customer-worker/Services/Security/JwtTokenInspector.cs" Link="Security/JwtTokenInspector.cs" />
+    <Compile Include="../customer-worker/Workflows/CustomerRequestJourney.cs" Link="Workflows/CustomerRequestJourney.cs" />
+    <Compile Include="../customer-worker/Workflows/WorkerJobJourney.cs" Link="Workflows/WorkerJobJourney.cs" />
   </ItemGroup>
 
 </Project>

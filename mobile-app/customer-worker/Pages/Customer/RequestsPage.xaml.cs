@@ -3,6 +3,7 @@ namespace GTEK.FSM.MobileApp.Pages.Customer;
 using System.Collections.ObjectModel;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Realtime;
+using GTEK.FSM.MobileApp.Workflows;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using Microsoft.Extensions.DependencyInjection;
@@ -258,23 +259,12 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             return;
         }
 
-        if (CategoryPicker.SelectedItem is not RequestCategoryViewModel selectedCategory)
+        var submission = CustomerRequestJourney.PlanSubmission(
+            (CategoryPicker.SelectedItem as RequestCategoryViewModel)?.Name,
+            RequestDetailsEditor.Text);
+        if (!submission.IsValid)
         {
-            CreateRequestFeedbackLabel.Text = "Select a category before submitting.";
-            return;
-        }
-
-        var details = RequestDetailsEditor.Text?.Trim() ?? string.Empty;
-        if (details.Length < 10)
-        {
-            CreateRequestFeedbackLabel.Text = "Provide at least 10 characters of details.";
-            return;
-        }
-
-        var title = BuildRequestTitle(selectedCategory.Name, details);
-        if (title.Length > 180)
-        {
-            CreateRequestFeedbackLabel.Text = "Combined category and details must be 180 characters or less.";
+            CreateRequestFeedbackLabel.Text = submission.FeedbackMessage;
             return;
         }
 
@@ -283,7 +273,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
 
         try
         {
-            var creation = await _requestCreationService.CreateRequestAsync(title);
+            var creation = await _requestCreationService.CreateRequestAsync(submission.Title);
             if (!creation.IsSuccess)
             {
                 CreateRequestFeedbackLabel.Text = "Request submission failed. Please try again.";
@@ -307,14 +297,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         var existing = _requests.FirstOrDefault(item => string.Equals(item.Id, createdRequest.RequestId, StringComparison.Ordinal));
         if (existing is null)
         {
-            var fallback = new CustomerRequestViewModel(
-                id: createdRequest.RequestId,
-                title: createdRequest.Title,
-                summary: createdRequest.Title,
-                etaText: $"Updated {createdRequest.UpdatedAtUtc:g}",
-                statusLabel: createdRequest.Status,
-                statusColor: ResolveStageColor(createdRequest.Status),
-                currentStage: ResolveStageIndex(createdRequest.Status));
+            var fallback = ToViewModel(CustomerRequestJourney.BuildFallbackCreatedRequest(createdRequest));
 
             _requests.Insert(0, fallback);
             RequestsCollectionView.SelectedItem = fallback;
@@ -339,12 +322,6 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             ? summary
             : $"{summary[..33]}...";
     }
-
-    private static string BuildRequestTitle(string categoryName, string details)
-    {
-        return $"{categoryName}: {details}";
-    }
-
     private void TrySelectPendingRequest()
     {
         if (string.IsNullOrWhiteSpace(_pendingRequestId) || _requests.Count == 0)
@@ -352,7 +329,8 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             return;
         }
 
-        var target = _requests.FirstOrDefault(request => string.Equals(request.Id, _pendingRequestId, StringComparison.OrdinalIgnoreCase));
+        var targetId = CustomerRequestJourney.ResolvePendingRequestId(_pendingRequestId, _requests.Select(ToSnapshot));
+        var target = _requests.FirstOrDefault(request => string.Equals(request.Id, targetId, StringComparison.OrdinalIgnoreCase));
         if (target is null)
         {
             return;
@@ -374,10 +352,11 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         var detail = await _requestDetailQueryService.GetRequestDetailAsync(request.Id);
         if (!detail.IsSuccess)
         {
-            SelectedRequestWorkerLabel.Text = $"Assigned worker: unavailable ({detail.Message})";
-            SelectedRequestJobLabel.Text = "Active job: unavailable";
-            SelectedRequestUpdatedLabel.Text = string.Empty;
-            RenderTimeline(Array.Empty<DetailTimelineItemResponse>());
+            var unavailable = CustomerRequestJourney.BuildUnavailableDetailPresentation(detail.Message);
+            SelectedRequestWorkerLabel.Text = unavailable.WorkerText;
+            SelectedRequestJobLabel.Text = unavailable.JobText;
+            SelectedRequestUpdatedLabel.Text = unavailable.UpdatedText;
+            RenderTimeline(unavailable.TimelineLines);
             return;
         }
 
@@ -386,34 +365,24 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             return;
         }
 
-        var resolvedStatus = detail.Detail.Status ?? request.StatusLabel;
-        var syncedRequest = request with
-        {
-            StatusLabel = resolvedStatus,
-            StatusColor = ResolveStageColor(resolvedStatus),
-            CurrentStage = ResolveStageIndex(resolvedStatus),
-            EtaText = $"Updated {detail.Detail.UpdatedAtUtc:g}",
-        };
+        var syncedRequest = ToViewModel(CustomerRequestJourney.SyncDetail(ToSnapshot(request), detail.Detail));
 
         ReplaceRequest(request, syncedRequest);
 
-        SelectedRequestLifecycleLabel.Text = $"Current lifecycle: {resolvedStatus}";
-        SelectedRequestWorkerLabel.Text = string.IsNullOrWhiteSpace(detail.Detail.AssignedWorkerUserId)
-            ? "Assigned worker: Not assigned yet"
-            : $"Assigned worker ID: {detail.Detail.AssignedWorkerUserId}";
-        SelectedRequestJobLabel.Text = string.IsNullOrWhiteSpace(detail.Detail.ActiveJobId)
-            ? "Active job: No active job yet"
-            : $"Active job {detail.Detail.ActiveJobId} • Status: {detail.Detail.ActiveJobStatus ?? "Unknown"}";
-        SelectedRequestUpdatedLabel.Text = $"Last updated {detail.Detail.UpdatedAtUtc:g}";
+        var presentation = CustomerRequestJourney.BuildDetailPresentation(detail.Detail);
+        SelectedRequestLifecycleLabel.Text = presentation.LifecycleText;
+        SelectedRequestWorkerLabel.Text = presentation.WorkerText;
+        SelectedRequestJobLabel.Text = presentation.JobText;
+        SelectedRequestUpdatedLabel.Text = presentation.UpdatedText;
 
-        RenderTimeline(detail.Detail.Timeline);
+        RenderTimeline(presentation.TimelineLines);
     }
 
-    private void RenderTimeline(IReadOnlyList<DetailTimelineItemResponse> timeline)
+    private void RenderTimeline(IReadOnlyList<string> timelineLines)
     {
         RequestTimelineLayout.Children.Clear();
 
-        if (timeline.Count == 0)
+        if (timelineLines.Count == 0)
         {
             RequestTimelineLayout.Children.Add(new Label
             {
@@ -424,12 +393,11 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             return;
         }
 
-        foreach (var item in timeline.OrderByDescending(entry => entry.OccurredAtUtc))
+        foreach (var line in timelineLines)
         {
-            var actorText = string.IsNullOrWhiteSpace(item.ActorUserId) ? string.Empty : $" • Actor {item.ActorUserId}";
             RequestTimelineLayout.Children.Add(new Label
             {
-                Text = $"{item.OccurredAtUtc:g} • {item.EventType ?? "UPDATE"} • {item.Message ?? "Activity recorded"}{actorText}",
+                Text = line,
                 FontSize = 12,
                 LineBreakMode = LineBreakMode.WordWrap,
             });
@@ -456,14 +424,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
                 return;
             }
 
-            var updatedStatus = MobileOperationalRealtimeMapper.NormalizeStatus(payload.CurrentStatus);
-            var updated = target with
-            {
-                StatusLabel = updatedStatus,
-                StatusColor = ResolveStageColor(updatedStatus),
-                CurrentStage = ResolveStageIndex(updatedStatus),
-                EtaText = $"Updated {payload.UpdatedAtUtc:g}",
-            };
+            var updated = ToViewModel(CustomerRequestJourney.ApplyStatusUpdate(ToSnapshot(target), payload));
 
             ReplaceRequest(target, updated);
 
@@ -489,6 +450,29 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         {
             RenderRequestDetail(updated);
         }
+    }
+
+    private static CustomerRequestSnapshot ToSnapshot(CustomerRequestViewModel viewModel)
+    {
+        return new CustomerRequestSnapshot(
+            Id: viewModel.Id,
+            Title: viewModel.Title,
+            Summary: viewModel.Summary,
+            EtaText: viewModel.EtaText,
+            StatusLabel: viewModel.StatusLabel,
+            CurrentStage: viewModel.CurrentStage);
+    }
+
+    private static CustomerRequestViewModel ToViewModel(CustomerRequestSnapshot snapshot)
+    {
+        return new CustomerRequestViewModel(
+            id: snapshot.Id,
+            title: snapshot.Title,
+            summary: snapshot.Summary,
+            etaText: snapshot.EtaText,
+            statusLabel: snapshot.StatusLabel,
+            statusColor: ResolveStageColor(snapshot.StatusLabel),
+            currentStage: snapshot.CurrentStage);
     }
 }
 

@@ -3,6 +3,7 @@ namespace GTEK.FSM.MobileApp.Pages.Worker;
 using System.Collections.ObjectModel;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Realtime;
+using GTEK.FSM.MobileApp.Workflows;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using Microsoft.Extensions.DependencyInjection;
@@ -173,7 +174,7 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
         SelectedJobDescriptionLabel.Text = selected.Description;
         SelectedJobMetaLabel.Text = $"{selected.Id} • {selected.RequestId} • {selected.Location} • {selected.StatusLabel}";
         AcceptAssignmentButton.IsEnabled = !selected.Accepted;
-        StatusPicker.SelectedItem = ToApiStatus(selected.StatusLabel);
+        StatusPicker.SelectedItem = WorkerJobJourney.ToApiStatus(selected.StatusLabel);
         StatusResultLabel.Text ??= string.Empty;
     }
 
@@ -214,20 +215,31 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
             }
         }
 
-        var normalizedStatus = NormalizeStatus(requestStatus);
+        var merged = WorkerJobJourney.MergeExecutionContext(
+            ToSnapshot(selected),
+            detail.Detail,
+            requestDetail: string.IsNullOrWhiteSpace(requestId)
+                ? null
+                : new GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses.GetServiceRequestDetailResponse
+                {
+                    RequestId = requestId,
+                    Status = requestStatus,
+                    RowVersion = requestRowVersion,
+                });
+
         var updated = selected with
         {
-            RequestId = requestId,
-            RequestRowVersion = requestRowVersion,
-            Title = detail.Detail.RequestTitle ?? selected.Title,
-            Description = BuildDescription(detail.Detail, selected.Description),
-            StatusLabel = normalizedStatus,
-            StatusColor = ResolveStatusColor(normalizedStatus),
-            Accepted = IsAcceptedStatus(normalizedStatus),
+            RequestId = merged.RequestId,
+            RequestRowVersion = merged.RequestRowVersion,
+            Title = merged.Title,
+            Description = merged.Description,
+            StatusLabel = merged.StatusLabel,
+            StatusColor = ResolveStatusColor(merged.StatusLabel),
+            Accepted = merged.Accepted,
         };
 
         ReplaceJob(selected, updated);
-        StatusPicker.SelectedItem = ToApiStatus(normalizedStatus);
+        StatusPicker.SelectedItem = WorkerJobJourney.ToApiStatus(merged.StatusLabel);
     }
 
     private async Task ApplyTransitionAsync(string nextStatus, string successMessage)
@@ -261,26 +273,24 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
 
             if (!transition.IsSuccess)
             {
-                StatusResultLabel.Text = transition.IsConflict
-                    ? $"Conflict detected: {transition.Message}. Refreshing latest state."
-                    : $"Status update failed: {transition.Message}";
+                StatusResultLabel.Text = WorkerJobJourney.BuildTransitionFailureMessage(transition.IsConflict, transition.Message);
 
                 await LoadSelectedJobExecutionContextAsync(workingSelection);
                 return;
             }
 
-            var normalizedStatus = NormalizeStatus(transition.Transition.CurrentStatus);
+            var transitioned = WorkerJobJourney.ApplyTransition(ToSnapshot(workingSelection), transition.Transition);
             var updated = workingSelection with
             {
-                StatusLabel = normalizedStatus,
-                StatusColor = ResolveStatusColor(normalizedStatus),
-                RequestRowVersion = transition.Transition.RowVersion ?? workingSelection.RequestRowVersion,
-                Accepted = IsAcceptedStatus(normalizedStatus),
+                StatusLabel = transitioned.StatusLabel,
+                StatusColor = ResolveStatusColor(transitioned.StatusLabel),
+                RequestRowVersion = transitioned.RequestRowVersion,
+                Accepted = transitioned.Accepted,
             };
 
             ReplaceJob(workingSelection, updated);
-            StatusPicker.SelectedItem = ToApiStatus(transition.Transition.CurrentStatus);
-            StatusResultLabel.Text = $"{successMessage} for {updated.Id} at {DateTime.Now:t}.";
+            StatusPicker.SelectedItem = WorkerJobJourney.ToApiStatus(transition.Transition.CurrentStatus);
+            StatusResultLabel.Text = WorkerJobJourney.BuildTransitionSuccessMessage(successMessage, updated.Id, DateTime.Now);
 
             await LoadLiveJobsAsync();
         }
@@ -317,7 +327,7 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
                 priorityColor: Color.FromArgb("#0F6ABD"),
                 statusLabel: status,
                 statusColor: ResolveStatusColor(status),
-                accepted: IsAcceptedStatus(status)));
+                accepted: MobileOperationalRealtimeMapper.IsAcceptedStatus(status)));
         }
 
         if (_jobs.Count > 0)
@@ -334,17 +344,6 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
         var requestReference = string.IsNullOrWhiteSpace(item.RequestId) ? "N/A" : item.RequestId;
         return $"Linked request: {requestReference}";
     }
-
-    private static string BuildDescription(GetJobDetailResponse detail, string fallback)
-    {
-        if (!string.IsNullOrWhiteSpace(detail.RequestTitle))
-        {
-            return detail.RequestTitle;
-        }
-
-        return fallback;
-    }
-
     private static string BuildLocation(GetJobsResponse item)
     {
         if (!string.IsNullOrWhiteSpace(item.AssignedTo))
@@ -354,28 +353,9 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
 
         return "Field location unavailable";
     }
-
-    private static bool IsAcceptedStatus(string status)
-    {
-        return MobileOperationalRealtimeMapper.IsAcceptedStatus(status);
-    }
-
     private static string NormalizeStatus(string status)
     {
         return MobileOperationalRealtimeMapper.NormalizeStatus(status);
-    }
-
-    private static string ToApiStatus(string status)
-    {
-        var normalized = NormalizeStatus(status).ToLowerInvariant();
-        return normalized switch
-        {
-            "assigned" => "Assigned",
-            "in progress" => "InProgress",
-            "on hold" => "OnHold",
-            "completed" => "Completed",
-            _ => "Assigned",
-        };
     }
 
     private void TrySelectPendingJob()
@@ -385,17 +365,8 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
             return;
         }
 
-        WorkerJobViewModel target = null!;
-
-        if (!string.IsNullOrWhiteSpace(_pendingJobId))
-        {
-            target = _jobs.FirstOrDefault(job => string.Equals(job.Id, _pendingJobId, StringComparison.OrdinalIgnoreCase));
-        }
-
-        if (target is null && !string.IsNullOrWhiteSpace(_pendingRequestId))
-        {
-            target = _jobs.FirstOrDefault(job => string.Equals(job.RequestId, _pendingRequestId, StringComparison.OrdinalIgnoreCase));
-        }
+        var targetId = WorkerJobJourney.ResolvePendingJobId(_pendingJobId, _pendingRequestId, _jobs.Select(ToSnapshot));
+        var target = _jobs.FirstOrDefault(job => string.Equals(job.Id, targetId, StringComparison.OrdinalIgnoreCase));
 
         if (target is null)
         {
@@ -419,16 +390,16 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
                 return;
             }
 
-            var normalizedStatus = NormalizeStatus(payload.AssignmentStatus);
+            var assignment = WorkerJobJourney.ApplyAssignmentUpdate(ToSnapshot(target), payload.AssignmentStatus);
             var updated = target with
             {
-                StatusLabel = normalizedStatus,
-                StatusColor = ResolveStatusColor(normalizedStatus),
-                Accepted = IsAcceptedStatus(normalizedStatus),
+                StatusLabel = assignment.StatusLabel,
+                StatusColor = ResolveStatusColor(assignment.StatusLabel),
+                Accepted = assignment.Accepted,
             };
 
             ReplaceJob(target, updated);
-            StatusResultLabel.Text = $"Live update: {updated.Id} is now {normalizedStatus} ({payload.UpdatedAtUtc:t}).";
+            StatusResultLabel.Text = $"Live update: {updated.Id} is now {assignment.StatusLabel} ({payload.UpdatedAtUtc:t}).";
         });
 
         return Task.CompletedTask;
@@ -447,6 +418,18 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
         {
             RenderSelectedJob(updated);
         }
+    }
+
+    private static WorkerJobSnapshot ToSnapshot(WorkerJobViewModel viewModel)
+    {
+        return new WorkerJobSnapshot(
+            Id: viewModel.Id,
+            RequestId: viewModel.RequestId,
+            Title: viewModel.Title,
+            Description: viewModel.Description,
+            StatusLabel: viewModel.StatusLabel,
+            Accepted: viewModel.Accepted,
+            RequestRowVersion: viewModel.RequestRowVersion);
     }
 }
 
