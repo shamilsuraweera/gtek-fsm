@@ -5,6 +5,7 @@ using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Backend.Domain.Audit;
+using System.Text.Json;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
 
@@ -69,6 +70,9 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
         }
 
         var previousStatus = request.Status;
+        var previousResponseSlaState = request.ResponseSlaState;
+        var previousAssignmentSlaState = request.AssignmentSlaState;
+        var previousCompletionSlaState = request.CompletionSlaState;
 
         try
         {
@@ -87,6 +91,12 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
             assignmentStatus: null,
             nowUtc: DateTime.UtcNow,
             options: this.slaOptions);
+
+        var escalations = ServiceRequestSlaEscalationEvaluator.Evaluate(
+            previousResponseSlaState,
+            previousAssignmentSlaState,
+            previousCompletionSlaState,
+            snapshot);
 
         request.ApplySlaSnapshot(
             snapshot.ResponseDueAtUtc,
@@ -124,6 +134,43 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
             Details = null,
         };
         await this.auditLogWriter.WriteAsync(auditLog, cancellationToken);
+
+        foreach (var escalation in escalations)
+        {
+            var escalationAudit = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                ActorUserId = null,
+                TenantId = principal.TenantId,
+                EntityType = "ServiceRequest",
+                EntityId = request.Id,
+                Action = $"SlaEscalation:{escalation.SlaDimension}:{escalation.CurrentState}",
+                Outcome = "Success",
+                OccurredAtUtc = DateTimeOffset.UtcNow,
+                Details = JsonSerializer.Serialize(new
+                {
+                    escalation.SlaDimension,
+                    PreviousState = escalation.PreviousState.ToString(),
+                    CurrentState = escalation.CurrentState.ToString(),
+                    escalation.DueAtUtc,
+                    TriggeredByUserId = principal.UserId,
+                }),
+            };
+
+            await this.auditLogWriter.WriteAsync(escalationAudit, cancellationToken);
+
+            var escalationPayload = new SlaEscalationTriggeredPayload(
+                RequestId: request.Id,
+                TenantId: request.TenantId,
+                SlaDimension: escalation.SlaDimension,
+                PreviousSlaStatus: escalation.PreviousState.ToString(),
+                CurrentSlaStatus: escalation.CurrentState.ToString(),
+                DueAtUtc: escalation.DueAtUtc,
+                TriggeredAtUtc: DateTime.UtcNow,
+                RowVersion: Convert.ToBase64String(request.RowVersion));
+
+            await this.operationalUpdatePublisher.PublishSlaEscalationTriggeredAsync(escalationPayload, cancellationToken);
+        }
 
         var payload = new TransitionedServiceRequestPayload(
             RequestId: request.Id,

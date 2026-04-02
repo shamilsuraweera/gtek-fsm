@@ -11,4 +11,6 @@ public sealed class OperationalUpdateEnvelope
     public ServiceRequestStatusUpdatedEvent? ServiceRequestStatusUpdated { get; set; }
 
     public JobAssignmentUpdatedEvent? JobAssignmentUpdated { get; set; }
+
+    public ServiceRequestSlaEscalatedEvent? ServiceRequestSlaEscalated { get; set; }
 }

@@ -69,5 +69,10 @@ public static class DependencyInjection
         {
             return Task.CompletedTask;
         }
+
+        public Task PublishSlaEscalationTriggeredAsync(SlaEscalationTriggeredPayload payload, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
     }
 }
