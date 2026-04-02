@@ -7,7 +7,9 @@ using GTEK.FSM.WebPortal.Components;
 using GTEK.FSM.WebPortal.Models;
 using GTEK.FSM.WebPortal.Pages.Management;
 using GTEK.FSM.WebPortal.Services;
+using GTEK.FSM.WebPortal.Services.Management;
 using GTEK.FSM.WebPortal.Services.Security;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Responses;
 using Microsoft.Extensions.DependencyInjection;
 
 public sealed class Phase5PerformanceBudgetTests : TestContext
@@ -16,6 +18,7 @@ public sealed class Phase5PerformanceBudgetTests : TestContext
     {
         this.Services.AddScoped<ResilientDataFetcher>();
         this.Services.AddScoped<UiSecurityContext>();
+        this.Services.AddScoped<IManagementReportsApiClient>(_ => new FakeManagementReportsApiClient());
     }
 
     [Fact]
@@ -47,7 +50,7 @@ public sealed class Phase5PerformanceBudgetTests : TestContext
 
         // Act
         var cut = this.RenderComponent<Reports>();
-        cut.WaitForAssertion(() => Assert.Contains("Audit Event Stream", cut.Markup, StringComparison.Ordinal), TimeSpan.FromSeconds(5));
+        cut.WaitForAssertion(() => Assert.Contains("Anomaly Indicators", cut.Markup, StringComparison.Ordinal), TimeSpan.FromSeconds(5));
         stopwatch.Stop();
 
         // Assert: includes fetch delay + render under a practical UI budget.
@@ -97,5 +100,47 @@ public sealed class Phase5PerformanceBudgetTests : TestContext
         }
 
         return result;
+    }
+
+    private sealed class FakeManagementReportsApiClient : IManagementReportsApiClient
+    {
+        public Task<GetManagementAnalyticsOverviewResponse> GetOverviewAsync(int? windowDays = null, int? trendBuckets = null, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new GetManagementAnalyticsOverviewResponse
+            {
+                TotalRequestsInWindow = 40,
+                CompletedRequestsInWindow = 25,
+                ActiveJobs = 12,
+                SensitiveActions24h = 11,
+                DeniedActions24h = 2,
+                IntakeTrend =
+                [
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow.AddDays(-1), Value = 7 },
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow, Value = 8 },
+                ],
+                CompletionTrend =
+                [
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow.AddDays(-1), Value = 4 },
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow, Value = 5 },
+                ],
+                Anomalies =
+                [
+                    new ManagementAnomalyIndicatorResponse
+                    {
+                        Code = "NO_CRITICAL_ANOMALY",
+                        Severity = "Low",
+                        Message = "No high-risk anomaly indicators detected.",
+                    },
+                ],
+                ActionDrilldown =
+                [
+                    new ManagementDrilldownItemResponse { Key = "CATEGORY_UPDATED", Count = 8 },
+                ],
+                OutcomeDrilldown =
+                [
+                    new ManagementDrilldownItemResponse { Key = "Success", Count = 9 },
+                ],
+            });
+        }
     }
 }

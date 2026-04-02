@@ -9,6 +9,8 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Responses;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,6 +23,7 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
         this.Services.AddScoped<UiSecurityContext>();
         this.Services.AddScoped<IManagementWorkersApiClient>(_ => new FakeManagementWorkersApiClient());
         this.Services.AddScoped<IManagementSubscriptionsApiClient>(_ => new FakeManagementSubscriptionsApiClient());
+        this.Services.AddScoped<IManagementCategoriesApiClient>(_ => new FakeManagementCategoriesApiClient());
         this.Services.AddScoped<IManagementReportsApiClient>(_ => new FakeManagementReportsApiClient());
     }
 
@@ -80,6 +83,21 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
             Assert.Contains("Organisation Subscription", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("PRO", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("50", cut.Markup, StringComparison.Ordinal);
+        }, TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
+    public void CategoriesPage_LoadsAndRendersCategoryRows_FromManagementApiClient()
+    {
+        // Arrange + Act
+        var cut = this.RenderComponent<Categories>();
+
+        // Assert
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Category Catalog", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("ELEC", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Electrical", cut.Markup, StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(3));
     }
 
@@ -221,6 +239,95 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
                     new ManagementDrilldownItemResponse { Key = "Success", Count = 6 },
                 ],
             });
+        }
+    }
+
+    private sealed class FakeManagementCategoriesApiClient : IManagementCategoriesApiClient
+    {
+        private readonly List<CategoryResponse> categories =
+        [
+            new CategoryResponse
+            {
+                CategoryId = Guid.NewGuid().ToString(),
+                TenantId = Guid.NewGuid().ToString(),
+                Code = "ELEC",
+                Name = "Electrical",
+                SortOrder = 0,
+                IsEnabled = true,
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-20),
+                UpdatedAtUtc = DateTime.UtcNow,
+            },
+            new CategoryResponse
+            {
+                CategoryId = Guid.NewGuid().ToString(),
+                TenantId = Guid.NewGuid().ToString(),
+                Code = "HVAC",
+                Name = "HVAC",
+                SortOrder = 1,
+                IsEnabled = true,
+                CreatedAtUtc = DateTime.UtcNow.AddDays(-12),
+                UpdatedAtUtc = DateTime.UtcNow,
+            },
+        ];
+
+        public Task<IReadOnlyList<CategoryResponse>> ListAsync(bool includeDisabled, CancellationToken cancellationToken = default)
+        {
+            var result = includeDisabled
+                ? this.categories.ToList()
+                : this.categories.Where(x => x.IsEnabled).ToList();
+            return Task.FromResult<IReadOnlyList<CategoryResponse>>(result);
+        }
+
+        public Task<CategoryResponse> CreateAsync(CreateCategoryRequest request, CancellationToken cancellationToken = default)
+        {
+            var item = new CategoryResponse
+            {
+                CategoryId = Guid.NewGuid().ToString(),
+                TenantId = Guid.NewGuid().ToString(),
+                Code = request.Code,
+                Name = request.Name,
+                SortOrder = request.SortOrder ?? this.categories.Count,
+                IsEnabled = true,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow,
+            };
+
+            this.categories.Add(item);
+            return Task.FromResult(item);
+        }
+
+        public Task<CategoryResponse> UpdateAsync(string categoryId, UpdateCategoryRequest request, CancellationToken cancellationToken = default)
+        {
+            var item = this.categories.First(x => string.Equals(x.CategoryId, categoryId, StringComparison.Ordinal));
+            item.Code = request.Code ?? item.Code;
+            item.Name = request.Name ?? item.Name;
+            item.SortOrder = request.SortOrder ?? item.SortOrder;
+            item.IsEnabled = request.IsEnabled ?? item.IsEnabled;
+            item.UpdatedAtUtc = DateTime.UtcNow;
+            return Task.FromResult(item);
+        }
+
+        public Task<CategoryResponse> DisableAsync(string categoryId, CancellationToken cancellationToken = default)
+        {
+            var item = this.categories.First(x => string.Equals(x.CategoryId, categoryId, StringComparison.Ordinal));
+            item.IsEnabled = false;
+            item.UpdatedAtUtc = DateTime.UtcNow;
+            return Task.FromResult(item);
+        }
+
+        public Task<IReadOnlyList<CategoryResponse>> ReorderAsync(ReorderCategoriesRequest request, CancellationToken cancellationToken = default)
+        {
+            foreach (var reorderItem in request.Items)
+            {
+                var item = this.categories.FirstOrDefault(x => string.Equals(x.CategoryId, reorderItem.CategoryId, StringComparison.Ordinal));
+                if (item is not null)
+                {
+                    item.SortOrder = reorderItem.SortOrder ?? item.SortOrder;
+                }
+            }
+
+            var ordered = this.categories.OrderBy(x => x.SortOrder).ToList();
+            return Task.FromResult<IReadOnlyList<CategoryResponse>>(ordered);
         }
     }
 }
