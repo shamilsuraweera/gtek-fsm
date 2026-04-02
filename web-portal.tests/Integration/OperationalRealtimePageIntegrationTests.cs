@@ -94,7 +94,7 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Equal(1, workspaceApiClient.TransitionCallCount);
-            Assert.Contains("Waiting", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("On Hold", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("Lifecycle action applied: Hold.", cut.Markup, StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(3));
     }
@@ -268,7 +268,7 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
                         Reference = "REQ-1001",
                         Customer = "Contoso Facilities",
                         TenantId = "TENANT-01",
-                        Stage = "Dispatch",
+                        Stage = "Assigned",
                         Priority = "High",
                         Summary = "HVAC outage escalation with tenant comfort impact.",
                         UpdatedAtUtc = DateTime.UtcNow.AddMinutes(-5),

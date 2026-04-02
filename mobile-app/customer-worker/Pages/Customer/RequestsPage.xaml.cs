@@ -41,7 +41,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
                 title: "Water Pressure Drop",
                 summary: "Low pressure in kitchen and bathroom lines.",
                 etaText: "Awaiting schedule confirmation",
-                statusLabel: "Scheduled",
+                statusLabel: "Assigned",
                 statusColor: Color.FromArgb("#166534"),
                 currentStage: 1),
             new CustomerRequestViewModel(
@@ -111,7 +111,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         SelectedRequestJobLabel.Text = "Active job: checking detail...";
         SelectedRequestUpdatedLabel.Text = string.Empty;
 
-        var stageLabels = new[] { "Submitted", "Scheduled", "In Progress", "Completed" };
+        var stageLabels = new[] { "New", "Assigned", "In Progress", "Completed" };
         StatusTimelineLayout.Children.Clear();
         RequestTimelineLayout.Children.Clear();
 
@@ -186,7 +186,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         _requests.Clear();
         foreach (var item in result.Items)
         {
-            var stage = item.Stage ?? "Submitted";
+            var stage = MobileOperationalRealtimeMapper.NormalizeStatus(item.Stage ?? "New");
             var summary = item.Summary ?? "Request details unavailable.";
             var requestId = item.RequestId ?? "REQ-UNKNOWN";
             var title = BuildTitle(summary, requestId);

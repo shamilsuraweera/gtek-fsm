@@ -1,59 +1,43 @@
 namespace GTEK.FSM.MobileApp.Services.Realtime;
 
+using GTEK.FSM.Shared.Contracts.Vocabulary;
+
 public static class MobileOperationalRealtimeMapper
 {
     public static string NormalizeStatus(string status)
     {
         if (string.IsNullOrWhiteSpace(status))
         {
-            return "Available";
+            return RequestLifecycleTerminology.GetDisplayLabel(RequestStage.New.ToString());
         }
 
         var normalized = status.Trim().ToLowerInvariant();
         return normalized switch
         {
-            "new" => "Available",
-            "pending" => "Available",
-            "scheduled" => "Scheduled",
-            "assigned" => "Assigned",
             "accepted" => "Accepted",
             "onroute" => "On Route",
             "on_route" => "On Route",
             "onsite" => "On Site",
             "on_site" => "On Site",
-            "inprogress" => "In Progress",
-            "in_progress" => "In Progress",
-            "completed" => "Completed",
-            _ => status,
+            _ => RequestLifecycleTerminology.GetDisplayLabel(status),
         };
     }
 
     public static int ResolveRequestStageIndex(string status)
     {
-        var normalized = NormalizeStatus(status).ToLowerInvariant();
-        return normalized switch
-        {
-            "available" => 0,
-            "submitted" => 0,
-            "scheduled" => 1,
-            "assigned" => 1,
-            "on route" => 2,
-            "in progress" => 2,
-            "completed" => 3,
-            _ => 0,
-        };
+        return RequestLifecycleTerminology.ResolveStageIndex(status);
     }
 
     public static Color ResolveRequestStageColor(string status)
     {
-        var normalized = NormalizeStatus(status).ToLowerInvariant();
+        var normalized = RequestLifecycleTerminology.NormalizeStatus(status);
         return normalized switch
         {
-            "completed" => Color.FromArgb("#166534"),
-            "scheduled" => Color.FromArgb("#166534"),
-            "assigned" => Color.FromArgb("#0F6ABD"),
-            "on route" => Color.FromArgb("#B45309"),
-            "in progress" => Color.FromArgb("#0F6ABD"),
+            nameof(RequestStage.Completed) => Color.FromArgb("#166534"),
+            nameof(RequestStage.Cancelled) => Color.FromArgb("#6B7280"),
+            nameof(RequestStage.Assigned) => Color.FromArgb("#0F6ABD"),
+            nameof(RequestStage.InProgress) => Color.FromArgb("#0F6ABD"),
+            nameof(RequestStage.OnHold) => Color.FromArgb("#B45309"),
             _ => Color.FromArgb("#6B7280"),
         };
     }

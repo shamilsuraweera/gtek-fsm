@@ -32,8 +32,8 @@ public sealed class CustomerRequestJourneyTests
     {
         var requests = new[]
         {
-            new CustomerRequestSnapshot("REQ-100", "A", "A", "Updated", "Submitted", 0),
-            new CustomerRequestSnapshot("REQ-200", "B", "B", "Updated", "Scheduled", 1),
+            new CustomerRequestSnapshot("REQ-100", "A", "A", "Updated", "New", 0),
+            new CustomerRequestSnapshot("REQ-200", "B", "B", "Updated", "Assigned", 1),
         };
 
         var resolved = CustomerRequestJourney.ResolvePendingRequestId("req-200", requests);
@@ -44,7 +44,7 @@ public sealed class CustomerRequestJourneyTests
     [Fact]
     public void SyncDetail_UpdatesLifecycleStageAndEta()
     {
-        var request = new CustomerRequestSnapshot("REQ-200", "Cooling issue", "Cooling issue", "Updated old", "Submitted", 0);
+        var request = new CustomerRequestSnapshot("REQ-200", "Cooling issue", "Cooling issue", "Updated old", "New", 0);
         var detail = new GetServiceRequestDetailResponse
         {
             Status = "InProgress",
@@ -53,7 +53,7 @@ public sealed class CustomerRequestJourneyTests
 
         var synced = CustomerRequestJourney.SyncDetail(request, detail);
 
-        Assert.Equal("InProgress", synced.StatusLabel);
+        Assert.Equal("In Progress", synced.StatusLabel);
         Assert.Equal(2, synced.CurrentStage);
         Assert.Contains("Updated", synced.EtaText);
     }
@@ -92,7 +92,7 @@ public sealed class CustomerRequestJourneyTests
     [Fact]
     public void ApplyStatusUpdate_NormalizesStatusAndRefreshesEta()
     {
-        var request = new CustomerRequestSnapshot("REQ-200", "Cooling issue", "Cooling issue", "Updated old", "Submitted", 0);
+        var request = new CustomerRequestSnapshot("REQ-200", "Cooling issue", "Cooling issue", "Updated old", "New", 0);
         var payload = new ServiceRequestStatusUpdatedEvent
         {
             RequestId = "REQ-200",
