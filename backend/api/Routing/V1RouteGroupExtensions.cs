@@ -2,6 +2,7 @@ using System.Text;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
+using GTEK.FSM.Backend.Application.Decisioning;
 using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
@@ -910,6 +911,81 @@ public static class V1RouteGroupExtensions
             return Results.Ok(ApiResponse<WorkerProfileResponse>.Ok(payload, mutation.Message, context.TraceIdentifier));
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapGet("/workers/candidates", async (
+            [AsParameters] GetWorkerCandidatesRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IWorkerMatchingService workerMatchingService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var topN = Math.Clamp(request.TopN ?? WorkerMatchingQuery.DefaultTopN, 1, WorkerMatchingQuery.MaxTopN);
+            var skillWeight = request.SkillWeight ?? 0.5m;
+            var loadWeight = request.LoadWeight ?? 0.3m;
+            var ratingWeight = request.RatingWeight ?? 0.2m;
+
+            WorkerMatchingWeights weights;
+            try
+            {
+                weights = new WorkerMatchingWeights(skillWeight, loadWeight, ratingWeight);
+            }
+            catch (ArgumentException ex)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_WEIGHTS", ex.Message);
+            }
+
+            var requiredSkills = request.Skills is not null
+                ? request.Skills.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                : Array.Empty<string>();
+
+            var query = new WorkerMatchingQuery(
+                TenantId: resolvedTenantId.Value,
+                RequiredSkills: requiredSkills,
+                TopN: topN,
+                Weights: weights);
+
+            var candidates = await workerMatchingService.GetRankedCandidatesAsync(query, cancellationToken);
+
+            var responsePayload = new RankedWorkerCandidatesResponse
+            {
+                TotalEvaluated = candidates.Count,
+                SkillWeight = weights.SkillWeight,
+                LoadWeight = weights.LoadWeight,
+                RatingWeight = weights.RatingWeight,
+                Candidates = candidates.Select(c => new RankedWorkerCandidateItem
+                {
+                    WorkerId = c.WorkerId.ToString(),
+                    WorkerCode = c.WorkerCode,
+                    DisplayName = c.DisplayName,
+                    InternalRating = c.InternalRating,
+                    Skills = c.Skills.ToArray(),
+                    ActiveJobCount = c.ActiveJobCount,
+                    TotalScore = c.TotalScore,
+                    SkillScore = c.SkillScore,
+                    LoadScore = c.LoadScore,
+                    RatingScore = c.RatingScore,
+                }).ToArray(),
+            };
+
+            return Results.Ok(ApiResponse<RankedWorkerCandidatesResponse>.Ok(
+                responsePayload,
+                $"{candidates.Count} candidate(s) ranked.",
+                context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.SupportFlow);
 
         v1.MapGet("/management/subscriptions/organization", async (
             HttpContext context,

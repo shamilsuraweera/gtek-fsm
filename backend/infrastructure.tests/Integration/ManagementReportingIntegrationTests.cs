@@ -308,6 +308,9 @@ public class ManagementReportingIntegrationTests
 
         public Task<IReadOnlyList<Job>> QueryAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
+        public Task<IReadOnlyDictionary<Guid, int>> GetActiveJobCountsByWorkerAsync(
+            Guid tenantId, IReadOnlyList<Guid> workerIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
         public void Remove(Job aggregate) => throw new NotImplementedException();
 
         public void Update(Job aggregate) => throw new NotImplementedException();

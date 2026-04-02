@@ -742,6 +742,19 @@ public class QueryEndpointsIntegrationTests
             return Task.FromResult(query.Count());
         }
 
+        public Task<IReadOnlyDictionary<Guid, int>> GetActiveJobCountsByWorkerAsync(
+            Guid tenantId, IReadOnlyList<Guid> workerIds, CancellationToken cancellationToken = default)
+        {
+            var activeStatuses = new[] { AssignmentStatus.PendingAcceptance, AssignmentStatus.Accepted };
+            IReadOnlyDictionary<Guid, int> result = this.items
+                .Where(x => x.TenantId == tenantId && x.AssignedWorkerUserId.HasValue
+                    && workerIds.Contains(x.AssignedWorkerUserId!.Value)
+                    && activeStatuses.Contains(x.AssignmentStatus))
+                .GroupBy(x => x.AssignedWorkerUserId!.Value)
+                .ToDictionary(g => g.Key, g => g.Count());
+            return Task.FromResult(result);
+        }
+
         public void Update(Job aggregate)
         {
             // No-op for in-memory store.
