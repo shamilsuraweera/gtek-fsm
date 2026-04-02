@@ -11,28 +11,29 @@ public sealed class WorkerMatchingScorerTests
     public void Weights_DefaultValues_SumToOne()
     {
         var w = WorkerMatchingWeights.Default;
-        Assert.Equal(1.0m, w.SkillWeight + w.LoadWeight + w.RatingWeight);
+        Assert.Equal(1.0m, w.SkillWeight + w.LoadWeight + w.RatingWeight + w.DistanceWeight);
     }
 
     [Fact]
     public void Weights_CustomValid_Accepted()
     {
-        var w = new WorkerMatchingWeights(0.6m, 0.2m, 0.2m);
-        Assert.Equal(0.6m, w.SkillWeight);
+        var w = new WorkerMatchingWeights(0.5m, 0.2m, 0.2m, 0.1m);
+        Assert.Equal(0.5m, w.SkillWeight);
         Assert.Equal(0.2m, w.LoadWeight);
         Assert.Equal(0.2m, w.RatingWeight);
+        Assert.Equal(0.1m, w.DistanceWeight);
     }
 
     [Fact]
     public void Weights_DoNotSumToOne_Throws()
     {
-        Assert.Throws<ArgumentException>(() => new WorkerMatchingWeights(0.4m, 0.3m, 0.2m));
+        Assert.Throws<ArgumentException>(() => new WorkerMatchingWeights(0.4m, 0.3m, 0.2m, 0.2m));
     }
 
     [Fact]
     public void Weights_NegativeValue_Throws()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => new WorkerMatchingWeights(-0.1m, 0.6m, 0.5m));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new WorkerMatchingWeights(-0.1m, 0.6m, 0.3m, 0.2m));
     }
 
     // ── SkillScore ──────────────────────────────────────────────────────────
@@ -157,6 +158,7 @@ public sealed class WorkerMatchingScorerTests
             workerSkills: ["hvac"],
             activeJobCount: 0,
             internalRating: 5.0m,
+            distanceScore: 1.0m,
             weights: WorkerMatchingWeights.Default);
 
         Assert.Equal(1.0m, score);
@@ -166,12 +168,13 @@ public sealed class WorkerMatchingScorerTests
     public void ComputeScore_WeightsAppliedCorrectly()
     {
         // skill=1.0, load=0.5 (1 job), rating=0.8 (4.0/5.0), weights 0.5/0.3/0.2
-        var expected = (0.5m * 1.0m) + (0.3m * 0.5m) + (0.2m * 0.8m);
+        var expected = (0.4m * 1.0m) + (0.25m * 0.5m) + (0.15m * 0.8m) + (0.2m * 0.6m);
         var score = WorkerMatchingScorer.ComputeScore(
             requiredSkills: ["hvac"],
             workerSkills: ["hvac"],
             activeJobCount: 1,
             internalRating: 4.0m,
+            distanceScore: 0.6m,
             weights: WorkerMatchingWeights.Default);
 
         Assert.Equal(expected, score);
@@ -185,6 +188,7 @@ public sealed class WorkerMatchingScorerTests
             workerSkills: ["hvac"],
             activeJobCount: 0,
             internalRating: 5.0m,
+            distanceScore: 1.0m,
             weights: WorkerMatchingWeights.Default);
 
         var imperfect = WorkerMatchingScorer.ComputeScore(
@@ -192,6 +196,7 @@ public sealed class WorkerMatchingScorerTests
             workerSkills: ["hvac"],
             activeJobCount: 4,
             internalRating: 2.0m,
+            distanceScore: 0.2m,
             weights: WorkerMatchingWeights.Default);
 
         Assert.True(imperfect < perfect);
@@ -201,8 +206,8 @@ public sealed class WorkerMatchingScorerTests
     public void ComputeScore_TieBrakeByWorkerCodeIsDeterministic()
     {
         // Two identical score inputs produce the same score value (tie-break is in the service, not scorer).
-        var s1 = WorkerMatchingScorer.ComputeScore(["hvac"], ["hvac"], 0, 5.0m, WorkerMatchingWeights.Default);
-        var s2 = WorkerMatchingScorer.ComputeScore(["hvac"], ["hvac"], 0, 5.0m, WorkerMatchingWeights.Default);
+        var s1 = WorkerMatchingScorer.ComputeScore(["hvac"], ["hvac"], 0, 5.0m, 0.5m, WorkerMatchingWeights.Default);
+        var s2 = WorkerMatchingScorer.ComputeScore(["hvac"], ["hvac"], 0, 5.0m, 0.5m, WorkerMatchingWeights.Default);
         Assert.Equal(s1, s2);
     }
 }

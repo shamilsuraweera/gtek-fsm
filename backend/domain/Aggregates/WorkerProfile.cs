@@ -17,7 +17,9 @@ public sealed class WorkerProfile
         string workerCode,
         string displayName,
         decimal internalRating,
-        IEnumerable<string>? skills = null)
+        IEnumerable<string>? skills = null,
+        decimal? baseLatitude = null,
+        decimal? baseLongitude = null)
     {
         this.Id = DomainGuards.RequiredId(id, nameof(id), "Worker id cannot be empty.");
         this.TenantId = DomainGuards.RequiredId(tenantId, nameof(tenantId), "Worker must belong to a tenant.");
@@ -27,8 +29,11 @@ public sealed class WorkerProfile
         this.AvailabilityStatus = WorkerAvailabilityStatus.Available;
         this.IsActive = true;
         this.SkillTagsSerialized = string.Empty;
+        this.BaseLatitude = null;
+        this.BaseLongitude = null;
 
         this.ReplaceSkills(skills ?? Array.Empty<string>());
+        this.SetBaseLocation(baseLatitude, baseLongitude);
     }
 
     public Guid Id { get; }
@@ -42,6 +47,10 @@ public sealed class WorkerProfile
     public decimal InternalRating { get; private set; }
 
     public string SkillTagsSerialized { get; private set; }
+
+    public decimal? BaseLatitude { get; private set; }
+
+    public decimal? BaseLongitude { get; private set; }
 
     public WorkerAvailabilityStatus AvailabilityStatus { get; private set; }
 
@@ -86,6 +95,34 @@ public sealed class WorkerProfile
         }
 
         this.SkillTagsSerialized = string.Join(';', normalized);
+    }
+
+    public void SetBaseLocation(decimal? baseLatitude, decimal? baseLongitude)
+    {
+        if (baseLatitude.HasValue != baseLongitude.HasValue)
+        {
+            throw new ArgumentException("baseLatitude and baseLongitude must be supplied together.");
+        }
+
+        if (!baseLatitude.HasValue)
+        {
+            this.BaseLatitude = null;
+            this.BaseLongitude = null;
+            return;
+        }
+
+        if (baseLatitude.Value < -90m || baseLatitude.Value > 90m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(baseLatitude), "baseLatitude must be between -90 and 90.");
+        }
+
+        if (baseLongitude.Value < -180m || baseLongitude.Value > 180m)
+        {
+            throw new ArgumentOutOfRangeException(nameof(baseLongitude), "baseLongitude must be between -180 and 180.");
+        }
+
+        this.BaseLatitude = Math.Round(baseLatitude.Value, 6, MidpointRounding.AwayFromZero);
+        this.BaseLongitude = Math.Round(baseLongitude.Value, 6, MidpointRounding.AwayFromZero);
     }
 
     public void SetAvailability(WorkerAvailabilityStatus availabilityStatus)

@@ -933,14 +933,30 @@ public static class V1RouteGroupExtensions
             }
 
             var topN = Math.Clamp(request.TopN ?? WorkerMatchingQuery.DefaultTopN, 1, WorkerMatchingQuery.MaxTopN);
-            var skillWeight = request.SkillWeight ?? 0.5m;
-            var loadWeight = request.LoadWeight ?? 0.3m;
-            var ratingWeight = request.RatingWeight ?? 0.2m;
+            var skillWeight = request.SkillWeight ?? 0.4m;
+            var loadWeight = request.LoadWeight ?? 0.25m;
+            var ratingWeight = request.RatingWeight ?? 0.15m;
+            var distanceWeight = request.DistanceWeight ?? 0.2m;
+
+            if (request.RequestLatitude.HasValue != request.RequestLongitude.HasValue)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_COORDINATES", "requestLatitude and requestLongitude must be supplied together.");
+            }
+
+            if (request.RequestLatitude is < -90m or > 90m)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_COORDINATES", "requestLatitude must be between -90 and 90.");
+            }
+
+            if (request.RequestLongitude is < -180m or > 180m)
+            {
+                return BuildFailure(context, StatusCodes.Status400BadRequest, "INVALID_COORDINATES", "requestLongitude must be between -180 and 180.");
+            }
 
             WorkerMatchingWeights weights;
             try
             {
-                weights = new WorkerMatchingWeights(skillWeight, loadWeight, ratingWeight);
+                weights = new WorkerMatchingWeights(skillWeight, loadWeight, ratingWeight, distanceWeight);
             }
             catch (ArgumentException ex)
             {
@@ -955,7 +971,9 @@ public static class V1RouteGroupExtensions
                 TenantId: resolvedTenantId.Value,
                 RequiredSkills: requiredSkills,
                 TopN: topN,
-                Weights: weights);
+                Weights: weights,
+                RequestLatitude: request.RequestLatitude,
+                RequestLongitude: request.RequestLongitude);
 
             var candidates = await workerMatchingService.GetRankedCandidatesAsync(query, cancellationToken);
 
@@ -965,6 +983,7 @@ public static class V1RouteGroupExtensions
                 SkillWeight = weights.SkillWeight,
                 LoadWeight = weights.LoadWeight,
                 RatingWeight = weights.RatingWeight,
+                DistanceWeight = weights.DistanceWeight,
                 Candidates = candidates.Select(c => new RankedWorkerCandidateItem
                 {
                     WorkerId = c.WorkerId.ToString(),
@@ -977,6 +996,9 @@ public static class V1RouteGroupExtensions
                     SkillScore = c.SkillScore,
                     LoadScore = c.LoadScore,
                     RatingScore = c.RatingScore,
+                    DistanceScore = c.DistanceScore,
+                    DistanceKm = c.DistanceKm,
+                    DistanceSource = c.DistanceSource,
                 }).ToArray(),
             };
 
@@ -1464,6 +1486,8 @@ public static class V1RouteGroupExtensions
             AvailabilityStatus = worker.AvailabilityStatus.ToString(),
             IsActive = worker.IsActive,
             Skills = worker.Skills.ToArray(),
+            BaseLatitude = worker.BaseLatitude,
+            BaseLongitude = worker.BaseLongitude,
             CreatedAtUtc = worker.CreatedAtUtc,
             UpdatedAtUtc = worker.UpdatedAtUtc,
         };

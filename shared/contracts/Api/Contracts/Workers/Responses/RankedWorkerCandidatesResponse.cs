@@ -21,6 +21,12 @@ public sealed class RankedWorkerCandidateItem
     public decimal LoadScore { get; set; }
 
     public decimal RatingScore { get; set; }
+
+    public decimal DistanceScore { get; set; }
+
+    public decimal? DistanceKm { get; set; }
+
+    public string? DistanceSource { get; set; }
 }
 
 public sealed class RankedWorkerCandidatesResponse
@@ -34,4 +40,6 @@ public sealed class RankedWorkerCandidatesResponse
     public decimal LoadWeight { get; set; }
 
     public decimal RatingWeight { get; set; }
+
+    public decimal DistanceWeight { get; set; }
 }

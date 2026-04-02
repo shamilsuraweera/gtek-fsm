@@ -13,7 +13,10 @@ public sealed record RankedWorkerCandidate(
     decimal TotalScore,
     decimal SkillScore,
     decimal LoadScore,
-    decimal RatingScore);
+    decimal RatingScore,
+    decimal DistanceScore,
+    decimal? DistanceKm,
+    string DistanceSource);
 
 /// <summary>
 /// Query parameters for requesting ranked worker candidates.
@@ -22,7 +25,9 @@ public sealed record WorkerMatchingQuery(
     Guid TenantId,
     IReadOnlyList<string> RequiredSkills,
     int TopN,
-    WorkerMatchingWeights Weights)
+    WorkerMatchingWeights Weights,
+    decimal? RequestLatitude,
+    decimal? RequestLongitude)
 {
     public const int DefaultTopN = 10;
     public const int MaxTopN = 50;

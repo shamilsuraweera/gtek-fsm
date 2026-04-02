@@ -16,4 +16,13 @@ public sealed class GetWorkerCandidatesRequest
 
     /// <summary>Weight for internal rating score (0–1). Defaults to 0.2.</summary>
     public decimal? RatingWeight { get; set; }
+
+    /// <summary>Weight for distance score (0–1). Defaults to 0.2.</summary>
+    public decimal? DistanceWeight { get; set; }
+
+    /// <summary>Request latitude used for distance scoring.</summary>
+    public decimal? RequestLatitude { get; set; }
+
+    /// <summary>Request longitude used for distance scoring.</summary>
+    public decimal? RequestLongitude { get; set; }
 }

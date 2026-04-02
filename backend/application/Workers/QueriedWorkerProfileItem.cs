@@ -11,5 +11,7 @@ public sealed record QueriedWorkerProfileItem(
     WorkerAvailabilityStatus AvailabilityStatus,
     bool IsActive,
     IReadOnlyList<string> Skills,
+    decimal? BaseLatitude,
+    decimal? BaseLongitude,
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc);

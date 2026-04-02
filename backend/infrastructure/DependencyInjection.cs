@@ -1,8 +1,10 @@
 using GTEK.FSM.Backend.Infrastructure.Configuration;
+using GTEK.FSM.Backend.Infrastructure.Decisioning;
 using GTEK.FSM.Backend.Infrastructure.Identity;
 using GTEK.FSM.Backend.Infrastructure.Persistence;
 using GTEK.FSM.Backend.Infrastructure.Persistence.Repositories;
 using GTEK.FSM.Backend.Infrastructure.Persistence.Transactions;
+using GTEK.FSM.Backend.Application.Decisioning;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Transactions;
@@ -21,6 +23,8 @@ public static class DependencyInjection
         services.Configure<SignalROptions>(configuration.GetSection("SignalR"));
         services.Configure<StorageOptions>(configuration.GetSection("Storage"));
         services.Configure<ExternalServicesOptions>(configuration.GetSection("ExternalServices"));
+        services.AddMemoryCache();
+        services.AddHttpClient();
 
         var connectionString = configuration["Database:ConnectionString"]
             ?? configuration.GetConnectionString("MainDb")
@@ -44,6 +48,12 @@ public static class DependencyInjection
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IWorkerProfileRepository, WorkerProfileRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
+        services.AddScoped<OsrmRoadDistanceProvider>();
+        services.AddScoped<IRoadDistanceProvider>(sp =>
+            new CachedRoadDistanceProvider(
+                sp.GetRequiredService<OsrmRoadDistanceProvider>(),
+                sp.GetRequiredService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
+                sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ExternalServicesOptions>>()));
         services.AddHttpContextAccessor();
         services.AddScoped<IAuthorizationDecisionAuditSink, AuthorizationDecisionAuditLogger>();
         services.AddScoped<IAuthenticatedPrincipalAccessor, HttpContextAuthenticatedPrincipalAccessor>();

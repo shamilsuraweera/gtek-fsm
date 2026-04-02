@@ -60,6 +60,8 @@ internal sealed class WorkerQueryService : IWorkerQueryService
             AvailabilityStatus: profile.AvailabilityStatus,
             IsActive: profile.IsActive,
             Skills: profile.GetSkills(),
+            BaseLatitude: profile.BaseLatitude,
+            BaseLongitude: profile.BaseLongitude,
             CreatedAtUtc: profile.CreatedAtUtc,
             UpdatedAtUtc: profile.UpdatedAtUtc);
     }

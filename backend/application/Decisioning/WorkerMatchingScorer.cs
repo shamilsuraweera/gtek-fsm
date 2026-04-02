@@ -14,6 +14,7 @@ public static class WorkerMatchingScorer
     /// <param name="workerSkills">Skills the candidate worker possesses (normalized, lower-case).</param>
     /// <param name="activeJobCount">Number of currently active (PendingAcceptance or Accepted) jobs for the worker in the tenant.</param>
     /// <param name="internalRating">Worker's internal rating (expected range 0–5).</param>
+    /// <param name="distanceScore">Normalized distance score in [0,1] where higher means closer.</param>
     /// <param name="weights">Weighting configuration to apply.</param>
     /// <returns>Total score in [0, 1], higher is better.</returns>
     public static decimal ComputeScore(
@@ -21,6 +22,7 @@ public static class WorkerMatchingScorer
         IReadOnlyList<string> workerSkills,
         int activeJobCount,
         decimal internalRating,
+        decimal distanceScore,
         WorkerMatchingWeights weights)
     {
         var skillScore = ComputeSkillScore(requiredSkills, workerSkills);
@@ -29,7 +31,8 @@ public static class WorkerMatchingScorer
 
         return (weights.SkillWeight * skillScore)
              + (weights.LoadWeight * loadScore)
-             + (weights.RatingWeight * ratingScore);
+             + (weights.RatingWeight * ratingScore)
+             + (weights.DistanceWeight * Math.Clamp(distanceScore, 0.0m, 1.0m));
     }
 
     /// <summary>
