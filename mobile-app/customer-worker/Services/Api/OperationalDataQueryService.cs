@@ -12,6 +12,7 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
+using GTEK.FSM.Shared.Contracts.Results;
 
 public sealed record LiveQueryResult<T>(bool IsLive, IReadOnlyList<T> Items, string Message = "");
 
@@ -308,25 +309,13 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
 
         try
         {
-            using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
-
-            if (root.ValueKind == JsonValueKind.Array)
-            {
-                var directItems = JsonSerializer.Deserialize<List<T>>(root.GetRawText(), JsonOptions) ?? new List<T>();
-                items = directItems;
-                return true;
-            }
-
-            if (root.ValueKind != JsonValueKind.Object)
+            var envelope = JsonSerializer.Deserialize<ApiResponse<JsonElement>>(json, JsonOptions);
+            if (envelope is null || !envelope.Success || envelope.Data.ValueKind == JsonValueKind.Undefined || envelope.Data.ValueKind == JsonValueKind.Null)
             {
                 return false;
             }
 
-            if (!TryReadEnvelopeData(root, out var dataElement))
-            {
-                return false;
-            }
+            var dataElement = envelope.Data;
 
             if (dataElement.ValueKind == JsonValueKind.Array)
             {
@@ -356,23 +345,10 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
 
         try
         {
-            using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
-
-            if (root.ValueKind == JsonValueKind.Object)
+            var envelope = JsonSerializer.Deserialize<ApiResponse<JsonElement>>(json, JsonOptions);
+            if (envelope is not null && envelope.Success && envelope.Data.ValueKind == JsonValueKind.Object)
             {
-                if (TryReadEnvelopeData(root, out var dataElement))
-                {
-                    if (dataElement.ValueKind == JsonValueKind.Object)
-                    {
-                        item = JsonSerializer.Deserialize<T>(dataElement.GetRawText(), JsonOptions)!;
-                        return item is not null;
-                    }
-
-                    return false;
-                }
-
-                item = JsonSerializer.Deserialize<T>(root.GetRawText(), JsonOptions)!;
+                item = JsonSerializer.Deserialize<T>(envelope.Data.GetRawText(), JsonOptions)!;
                 return item is not null;
             }
         }
@@ -382,31 +358,6 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
         }
 
         return false;
-    }
-
-    private static bool TryReadEnvelopeData(JsonElement root, out JsonElement data)
-    {
-        data = default;
-
-        if (!root.TryGetProperty("data", out data))
-        {
-            return false;
-        }
-
-        var hasSuccess = root.TryGetProperty("success", out var success) && success.ValueKind is JsonValueKind.True or JsonValueKind.False;
-        var hasIsSuccess = root.TryGetProperty("isSuccess", out var isSuccess) && isSuccess.ValueKind is JsonValueKind.True or JsonValueKind.False;
-
-        if (hasSuccess && !success.GetBoolean())
-        {
-            return false;
-        }
-
-        if (hasIsSuccess && !isSuccess.GetBoolean())
-        {
-            return false;
-        }
-
-        return true;
     }
 
     private async Task<TResult> SendForItemAsync<TItem, TResult>(
@@ -457,15 +408,14 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
 
         try
         {
-            using var document = JsonDocument.Parse(json);
-            var root = document.RootElement;
-            if (root.ValueKind != JsonValueKind.Object)
+            var envelope = JsonSerializer.Deserialize<ApiResponse<object>>(json, JsonOptions);
+            if (envelope is null)
             {
                 return new ApiFailure(fallbackMessage, fallbackErrorCode, statusCode == HttpStatusCode.Conflict);
             }
 
-            var message = ReadStringProperty(root, "message") ?? fallbackMessage;
-            var errorCode = ReadStringProperty(root, "errorCode") ?? string.Empty;
+            var message = string.IsNullOrWhiteSpace(envelope.Message) ? fallbackMessage : envelope.Message;
+            var errorCode = envelope.ErrorCode ?? string.Empty;
 
             if (statusCode == HttpStatusCode.Conflict && TryExtractItem<ConflictResponse>(json, out var conflict) && conflict is not null)
             {
@@ -486,13 +436,6 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
         {
             return new ApiFailure(fallbackMessage, fallbackErrorCode, statusCode == HttpStatusCode.Conflict);
         }
-    }
-
-    private static string ReadStringProperty(JsonElement element, string propertyName)
-    {
-        return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString() ?? string.Empty
-            : string.Empty;
     }
 
     private sealed record ApiFailure(string Message, string ErrorCode, bool IsConflict);
