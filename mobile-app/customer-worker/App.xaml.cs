@@ -2,6 +2,7 @@
 
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Identity;
+using GTEK.FSM.MobileApp.Services.Notifications;
 using GTEK.FSM.MobileApp.Services.Realtime;
 using GTEK.FSM.MobileApp.Services.Security;
 using GTEK.FSM.MobileApp.State;
@@ -10,6 +11,8 @@ public partial class App : Application
 {
 	private readonly IMobileSecurityLifecycleService _securityLifecycleService;
 	private readonly IMobileOperationalRealtimeClient _realtimeClient;
+	private readonly IMobilePushNotificationOrchestrator _notificationOrchestrator;
+	private readonly MobileNotificationInboxState _notificationInbox;
 
 	public App(
 		ThemePreferenceState themePreferenceState,
@@ -18,10 +21,14 @@ public partial class App : Application
 		IConnectivityRecoveryService connectivityRecoveryService,
 		ITenantContextInitializer tenantContextInitializer,
 		IMobileOperationalRealtimeClient realtimeClient,
+		IMobilePushNotificationOrchestrator notificationOrchestrator,
+		MobileNotificationInboxState notificationInbox,
 		IMobileSecurityLifecycleService securityLifecycleService)
 	{
 		_securityLifecycleService = securityLifecycleService;
 		_realtimeClient = realtimeClient;
+		_notificationOrchestrator = notificationOrchestrator;
+		_notificationInbox = notificationInbox;
 		InitializeComponent();
 
 		UserAppTheme = themePreferenceState.Preference switch
@@ -43,6 +50,7 @@ public partial class App : Application
 			tenantContextInitializer.TryInitializeFromToken();
 			_ = connectivityRecoveryService.EvaluateStartupConnectivityAsync();
 			_ = _realtimeClient.EnsureConnectedAsync();
+			_ = _notificationOrchestrator.StartAsync();
 		}
 
 		MainPage = new AppShell(sessionContextState);
@@ -52,6 +60,7 @@ public partial class App : Application
 	{
 		base.OnSleep();
 		_securityLifecycleService.ApplyBackgroundPrivacyMask();
+		_notificationOrchestrator.Stop();
 	}
 
 	protected override void OnResume()
@@ -66,5 +75,12 @@ public partial class App : Application
 		}
 
 		_ = _realtimeClient.EnsureConnectedAsync();
+		_ = _notificationOrchestrator.StartAsync();
+
+		var latestNotification = _notificationInbox.PullLatest();
+		if (!string.IsNullOrWhiteSpace(latestNotification.Route))
+		{
+			_ = _notificationOrchestrator.HandleNotificationTapAsync(latestNotification);
+		}
 	}
 }

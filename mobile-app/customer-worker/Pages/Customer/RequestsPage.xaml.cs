@@ -7,7 +7,7 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using Microsoft.Extensions.DependencyInjection;
 
-public partial class RequestsPage : ContentPage, IDisposable
+public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
 {
     private readonly ObservableCollection<CustomerRequestViewModel> _requests;
     private readonly ObservableCollection<RequestCategoryViewModel> _categories;
@@ -18,6 +18,7 @@ public partial class RequestsPage : ContentPage, IDisposable
     private readonly IDisposable? _statusSubscription;
     private CustomerRequestViewModel _selectedRequest;
     private bool _isSubmitting;
+    private string _pendingRequestId;
 
     public RequestsPage()
     {
@@ -76,6 +77,15 @@ public partial class RequestsPage : ContentPage, IDisposable
     public void Dispose()
     {
         _statusSubscription?.Dispose();
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("requestId", out var requestIdValue) && requestIdValue is string requestId)
+        {
+            _pendingRequestId = Uri.UnescapeDataString(requestId);
+            TrySelectPendingRequest();
+        }
     }
 
     private void OnRequestSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -179,6 +189,7 @@ public partial class RequestsPage : ContentPage, IDisposable
         {
             RequestsCollectionView.SelectedItem = _requests[0];
             RenderRequestDetail(_requests[0]);
+            TrySelectPendingRequest();
         }
     }
 
@@ -314,6 +325,24 @@ public partial class RequestsPage : ContentPage, IDisposable
     private static string BuildRequestTitle(string categoryName, string details)
     {
         return $"{categoryName}: {details}";
+    }
+
+    private void TrySelectPendingRequest()
+    {
+        if (string.IsNullOrWhiteSpace(_pendingRequestId) || _requests.Count == 0)
+        {
+            return;
+        }
+
+        var target = _requests.FirstOrDefault(request => string.Equals(request.Id, _pendingRequestId, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            return;
+        }
+
+        RequestsCollectionView.SelectedItem = target;
+        RenderRequestDetail(target);
+        _pendingRequestId = string.Empty;
     }
 
     private static int ResolveStageIndex(string stage)

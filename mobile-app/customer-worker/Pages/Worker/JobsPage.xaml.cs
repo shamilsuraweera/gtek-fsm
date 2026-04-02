@@ -7,7 +7,7 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using Microsoft.Extensions.DependencyInjection;
 
-public partial class JobsPage : ContentPage, IDisposable
+public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
 {
     private static readonly string[] RequestLifecycleStatuses =
     {
@@ -24,6 +24,8 @@ public partial class JobsPage : ContentPage, IDisposable
     private readonly IDisposable? _assignmentSubscription;
     private WorkerJobViewModel _selectedJob;
     private bool _isSubmitting;
+    private string _pendingJobId;
+    private string _pendingRequestId;
 
     public JobsPage()
     {
@@ -87,6 +89,21 @@ public partial class JobsPage : ContentPage, IDisposable
     public void Dispose()
     {
         _assignmentSubscription?.Dispose();
+    }
+
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        if (query.TryGetValue("jobId", out var jobIdValue) && jobIdValue is string jobId)
+        {
+            _pendingJobId = Uri.UnescapeDataString(jobId);
+        }
+
+        if (query.TryGetValue("requestId", out var requestIdValue) && requestIdValue is string requestId)
+        {
+            _pendingRequestId = Uri.UnescapeDataString(requestId);
+        }
+
+        TrySelectPendingJob();
     }
 
     private void OnJobSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -308,6 +325,7 @@ public partial class JobsPage : ContentPage, IDisposable
             JobsCollectionView.SelectedItem = _jobs[0];
             RenderSelectedJob(_jobs[0]);
             await LoadSelectedJobExecutionContextAsync(_jobs[0]);
+            TrySelectPendingJob();
         }
     }
 
@@ -358,6 +376,37 @@ public partial class JobsPage : ContentPage, IDisposable
             "completed" => "Completed",
             _ => "Assigned",
         };
+    }
+
+    private void TrySelectPendingJob()
+    {
+        if (_jobs.Count == 0)
+        {
+            return;
+        }
+
+        WorkerJobViewModel target = null!;
+
+        if (!string.IsNullOrWhiteSpace(_pendingJobId))
+        {
+            target = _jobs.FirstOrDefault(job => string.Equals(job.Id, _pendingJobId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (target is null && !string.IsNullOrWhiteSpace(_pendingRequestId))
+        {
+            target = _jobs.FirstOrDefault(job => string.Equals(job.RequestId, _pendingRequestId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (target is null)
+        {
+            return;
+        }
+
+        JobsCollectionView.SelectedItem = target;
+        RenderSelectedJob(target);
+        _pendingJobId = string.Empty;
+        _pendingRequestId = string.Empty;
+        _ = LoadSelectedJobExecutionContextAsync(target);
     }
 
     private Task HandleAssignmentUpdateAsync(JobAssignmentUpdatedEvent payload)
