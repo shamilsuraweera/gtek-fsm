@@ -1,11 +1,11 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
-using GTEK.FSM.Backend.Application.Persistence.Transactions;
 using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Application.Persistence.Transactions;
 using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Domain.Aggregates;
-using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Backend.Domain.Audit;
+using GTEK.FSM.Backend.Domain.Enums;
 using System.Text.Json;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
@@ -75,6 +75,25 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
                 message: validationMessage,
                 errorCode: validationErrorCode,
                 statusCode: 409);
+        }
+
+        if (request.ActiveJobId.HasValue)
+        {
+            var existingJob = await this.jobRepository.GetForUpdateAsync(principal.TenantId, request.ActiveJobId.Value, cancellationToken);
+            if (existingJob is not null
+                && existingJob.AssignedWorkerUserId.HasValue
+                && existingJob.AssignedWorkerUserId.Value == parsedWorkerId)
+            {
+                var idempotentPayload = BuildPayload(
+                    request,
+                    existingJob,
+                    previousWorkerUserId: existingJob.AssignedWorkerUserId,
+                    currentWorkerUserId: parsedWorkerId);
+
+                return ServiceRequestAssignmentResult.Success(
+                    payload: idempotentPayload,
+                    message: "Service request assignment already reflects the requested worker.");
+            }
         }
 
         if (request.ActiveJobId.HasValue)
@@ -292,10 +311,15 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
 
         if (previousWorkerUserId.Value == parsedWorkerId)
         {
-            return ServiceRequestAssignmentResult.Failure(
-                message: "Reassignment requires a different worker.",
-                errorCode: "REQUEST_REASSIGNMENT_SAME_WORKER",
-                statusCode: 400);
+            var idempotentPayload = BuildPayload(
+                request,
+                job,
+                previousWorkerUserId,
+                parsedWorkerId);
+
+            return ServiceRequestAssignmentResult.Success(
+                payload: idempotentPayload,
+                message: "Service request assignment already reflects the requested worker.");
         }
 
         await using var tx = await this.unitOfWork.BeginTransactionAsync(cancellationToken);

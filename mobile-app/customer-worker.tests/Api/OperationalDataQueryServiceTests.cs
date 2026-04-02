@@ -83,6 +83,40 @@ public sealed class OperationalDataQueryServiceTests
         Assert.Equal("New", result.Request.Status);
     }
 
+        [Fact]
+        public async Task CreateRequestAsync_ReturnsFailure_WhenEnvelopeUsesIsSuccessInsteadOfSuccess()
+        {
+                var handler = new StubHttpMessageHandler(_ =>
+                {
+                        var responseJson = """
+                        {
+                            "isSuccess": true,
+                            "data": {
+                                "requestId": "REQ-902",
+                                "tenantId": "tenant-1",
+                                "customerUserId": "customer-1",
+                                "title": "Unexpected envelope field",
+                                "status": "New",
+                                "createdAtUtc": "2026-04-02T10:00:00Z",
+                                "updatedAtUtc": "2026-04-02T10:00:00Z"
+                            }
+                        }
+                        """;
+
+                        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created)
+                        {
+                                Content = new StringContent(responseJson, Encoding.UTF8, "application/json"),
+                        });
+                });
+
+                var service = BuildService(handler, token: "jwt-token");
+
+                var result = await service.CreateRequestAsync("Unexpected envelope field");
+
+                Assert.False(result.IsSuccess);
+                Assert.Equal("Unexpected payload", result.Message);
+        }
+
     [Fact]
     public async Task CreateRequestAsync_ReturnsFailure_WhenTokenMissing()
     {

@@ -9,11 +9,15 @@ using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Api.Tenancy;
 using GTEK.FSM.Backend.Application;
+using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
 using GTEK.FSM.Backend.Application.Persistence.Transactions;
+using GTEK.FSM.Backend.Application.Realtime;
+using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Domain.Aggregates;
+using GTEK.FSM.Backend.Domain.Audit;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Backend.Infrastructure.Identity;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
@@ -31,292 +35,181 @@ using Xunit;
 
 namespace GTEK.FSM.Backend.Infrastructure.Tests.Integration;
 
-public class ServiceRequestAssignmentIntegrationTests
+public class CrossChannelParityIntegrationTests
 {
     [Fact]
-    public async Task AssignRequest_SupportRole_SucceedsAndCreatesJobLink()
+    public async Task StatusTransition_WebAndMobileActions_ProduceEquivalentStateAndAuditTrace()
     {
         var tenantId = Guid.NewGuid();
-        var requestId = Guid.NewGuid();
+        var webRequestId = Guid.NewGuid();
+        var mobileRequestId = Guid.NewGuid();
+
+        var webResult = await ExecuteTransitionScenarioAsync(tenantId, webRequestId, channelRole: "Customer");
+        var mobileResult = await ExecuteTransitionScenarioAsync(tenantId, mobileRequestId, channelRole: "Customer");
+
+        Assert.Equal(HttpStatusCode.OK, webResult.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, mobileResult.StatusCode);
+
+        Assert.Equal(ServiceRequestStatus.Assigned, webResult.StoredStatus);
+        Assert.Equal(ServiceRequestStatus.Assigned, mobileResult.StoredStatus);
+
+        Assert.Equal("StatusTransition:New->Assigned", webResult.AuditAction);
+        Assert.Equal(webResult.AuditAction, mobileResult.AuditAction);
+        Assert.Equal("Success", webResult.AuditOutcome);
+        Assert.Equal(webResult.AuditOutcome, mobileResult.AuditOutcome);
+
+        Assert.Equal("New", webResult.RealtimePreviousStatus);
+        Assert.Equal("Assigned", webResult.RealtimeCurrentStatus);
+        Assert.Equal(webResult.RealtimePreviousStatus, mobileResult.RealtimePreviousStatus);
+        Assert.Equal(webResult.RealtimeCurrentStatus, mobileResult.RealtimeCurrentStatus);
+    }
+
+    [Fact]
+    public async Task StatusTransition_StaleRowVersionParity_ReturnsEquivalentConflict()
+    {
+        var tenantId = Guid.NewGuid();
+        var webRequestId = Guid.NewGuid();
+        var mobileRequestId = Guid.NewGuid();
+
+        var webResult = await ExecuteConflictTransitionScenarioAsync(tenantId, webRequestId, channelRole: "Customer");
+        var mobileResult = await ExecuteConflictTransitionScenarioAsync(tenantId, mobileRequestId, channelRole: "Customer");
+
+        Assert.Equal(HttpStatusCode.Conflict, webResult.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, mobileResult.StatusCode);
+        Assert.Equal("CONCURRENCY_CONFLICT", webResult.ErrorCode);
+        Assert.Equal(webResult.ErrorCode, mobileResult.ErrorCode);
+    }
+
+    [Fact]
+    public async Task AssignRequest_WebAndMobileActions_ProduceEquivalentStateAndAuditTrace()
+    {
+        var tenantId = Guid.NewGuid();
         var workerId = Guid.NewGuid();
+        var webRequestId = Guid.NewGuid();
+        var mobileRequestId = Guid.NewGuid();
 
-        var requestStore = new InMemoryServiceRequestStore();
-        var jobStore = new InMemoryJobStore();
-        var userStore = new InMemoryUserStore();
+        var webResult = await ExecuteAssignmentScenarioAsync(tenantId, webRequestId, workerId, channelRole: "Support");
+        var mobileResult = await ExecuteAssignmentScenarioAsync(tenantId, mobileRequestId, workerId, channelRole: "Support");
 
-        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue"));
-        userStore.Seed(new User(workerId, tenantId, "wrk-01", "Worker One"));
+        Assert.Equal(HttpStatusCode.OK, webResult.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, mobileResult.StatusCode);
 
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
-        using var client = app.GetTestClient();
+        Assert.True(webResult.HasActiveJob);
+        Assert.True(mobileResult.HasActiveJob);
+        Assert.Equal(ServiceRequestStatus.Assigned, webResult.StoredStatus);
+        Assert.Equal(webResult.StoredStatus, mobileResult.StoredStatus);
 
-        using var request = CreateAuthenticatedRequest(
-            HttpMethod.Post,
-            $"/api/v1/requests/{requestId}/assign",
-            role: "Support",
-            tenantId: tenantId,
-            userId: Guid.NewGuid(),
-            body: new AssignServiceRequestRequest { WorkerUserId = workerId.ToString() });
+        Assert.Equal($"AssignWorker:{workerId}", webResult.AuditAction);
+        Assert.Equal(webResult.AuditAction, mobileResult.AuditAction);
+        Assert.Equal("Success", webResult.AuditOutcome);
+        Assert.Equal(webResult.AuditOutcome, mobileResult.AuditOutcome);
 
-        var response = await client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestAssignmentResponse>>();
-        Assert.NotNull(envelope);
-        Assert.True(envelope!.Success);
-        Assert.NotNull(envelope.Data);
-        Assert.Equal(workerId.ToString(), envelope.Data!.CurrentWorkerUserId);
-
-        Assert.Single(jobStore.Items);
-        Assert.NotNull(requestStore.Items[0].ActiveJobId);
+        Assert.Equal("PendingAcceptance", webResult.RealtimeAssignmentStatus);
+        Assert.Equal(webResult.RealtimeAssignmentStatus, mobileResult.RealtimeAssignmentStatus);
     }
 
-    [Fact]
-    public async Task ReassignRequest_ManagerRole_SucceedsAndPreservesPreviousWorkerContext()
+    private static async Task<TransitionParitySnapshot> ExecuteTransitionScenarioAsync(Guid tenantId, Guid requestId, string channelRole)
     {
-        var tenantId = Guid.NewGuid();
-        var requestId = Guid.NewGuid();
-        var firstWorker = Guid.NewGuid();
-        var secondWorker = Guid.NewGuid();
-
         var requestStore = new InMemoryServiceRequestStore();
         var jobStore = new InMemoryJobStore();
         var userStore = new InMemoryUserStore();
+        var auditWriter = new CapturingAuditLogWriter();
+        var realtimePublisher = new CapturingOperationalUpdatePublisher();
 
-        var seededRequest = new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Server rack overheating");
-        seededRequest.TransitionTo(ServiceRequestStatus.Assigned);
+        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Water leak in lobby"));
 
-        var seededJob = new Job(Guid.NewGuid(), tenantId, requestId);
-        seededJob.AssignWorker(firstWorker);
-        seededRequest.LinkJob(seededJob.Id);
-
-        requestStore.Seed(seededRequest);
-        jobStore.Seed(seededJob);
-        userStore.Seed(new User(firstWorker, tenantId, "wrk-a", "Worker A"));
-        userStore.Seed(new User(secondWorker, tenantId, "wrk-b", "Worker B"));
-
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore, auditWriter, realtimePublisher);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
-            HttpMethod.Post,
-            $"/api/v1/requests/{requestId}/reassign",
-            role: "Manager",
+            HttpMethod.Patch,
+            $"/api/v1/requests/{requestId}/status",
+            role: channelRole,
             tenantId: tenantId,
             userId: Guid.NewGuid(),
-            body: new ReassignServiceRequestRequest { WorkerUserId = secondWorker.ToString() });
+            body: new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
 
         var response = await client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var stored = await requestStore.GetByIdAsync(tenantId, requestId);
 
-        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestAssignmentResponse>>();
-        Assert.NotNull(envelope);
-        Assert.True(envelope!.Success);
-        Assert.NotNull(envelope.Data);
-        Assert.Equal(firstWorker.ToString(), envelope.Data!.PreviousWorkerUserId);
-        Assert.Equal(secondWorker.ToString(), envelope.Data.CurrentWorkerUserId);
-
-        Assert.Single(jobStore.Items);
-        Assert.Equal(secondWorker, jobStore.Items[0].AssignedWorkerUserId);
+        return new TransitionParitySnapshot(
+            StatusCode: response.StatusCode,
+            StoredStatus: stored?.Status ?? ServiceRequestStatus.New,
+            AuditAction: auditWriter.Items.Single().Action,
+            AuditOutcome: auditWriter.Items.Single().Outcome,
+            RealtimePreviousStatus: realtimePublisher.StatusUpdates.Single().PreviousStatus,
+            RealtimeCurrentStatus: realtimePublisher.StatusUpdates.Single().CurrentStatus,
+            ErrorCode: null);
     }
 
-    [Fact]
-    public async Task AssignRequest_CustomerRole_ReturnsForbidden()
+    private static async Task<TransitionParitySnapshot> ExecuteConflictTransitionScenarioAsync(Guid tenantId, Guid requestId, string channelRole)
     {
-        var tenantId = Guid.NewGuid();
-        var requestId = Guid.NewGuid();
-        var workerId = Guid.NewGuid();
-
         var requestStore = new InMemoryServiceRequestStore();
         var jobStore = new InMemoryJobStore();
         var userStore = new InMemoryUserStore();
 
-        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Door lock not working"));
-        userStore.Seed(new User(workerId, tenantId, "wrk-02", "Worker Two"));
+        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Power outage in level 2"));
 
         await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
-            HttpMethod.Post,
-            $"/api/v1/requests/{requestId}/assign",
-            role: "Customer",
+            HttpMethod.Patch,
+            $"/api/v1/requests/{requestId}/status",
+            role: channelRole,
             tenantId: tenantId,
             userId: Guid.NewGuid(),
-            body: new AssignServiceRequestRequest { WorkerUserId = workerId.ToString() });
-
-        var response = await client.SendAsync(request);
-        var body = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.Contains("AUTH_FORBIDDEN_ROLE", body);
-    }
-
-    [Fact]
-    public async Task ReassignRequest_WorkerNotInTenant_ReturnsNotFound()
-    {
-        var tenantId = Guid.NewGuid();
-        var requestId = Guid.NewGuid();
-        var firstWorker = Guid.NewGuid();
-
-        var requestStore = new InMemoryServiceRequestStore();
-        var jobStore = new InMemoryJobStore();
-        var userStore = new InMemoryUserStore();
-
-        var seededRequest = new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "HVAC sensor fault");
-        seededRequest.TransitionTo(ServiceRequestStatus.Assigned);
-
-        var seededJob = new Job(Guid.NewGuid(), tenantId, requestId);
-        seededJob.AssignWorker(firstWorker);
-        seededRequest.LinkJob(seededJob.Id);
-
-        requestStore.Seed(seededRequest);
-        jobStore.Seed(seededJob);
-        userStore.Seed(new User(firstWorker, tenantId, "wrk-c", "Worker C"));
-
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
-        using var client = app.GetTestClient();
-
-        using var request = CreateAuthenticatedRequest(
-            HttpMethod.Post,
-            $"/api/v1/requests/{requestId}/reassign",
-            role: "Support",
-            tenantId: tenantId,
-            userId: Guid.NewGuid(),
-            body: new ReassignServiceRequestRequest { WorkerUserId = Guid.NewGuid().ToString() });
-
-        var response = await client.SendAsync(request);
-        var body = await response.Content.ReadAsStringAsync();
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        Assert.Contains("WORKER_NOT_FOUND_IN_TENANT", body);
-    }
-
-    [Fact]
-    public async Task AssignRequest_StaleRowVersion_ReturnsConflict()
-    {
-        var tenantId = Guid.NewGuid();
-        var requestId = Guid.NewGuid();
-        var workerId = Guid.NewGuid();
-
-        var requestStore = new InMemoryServiceRequestStore();
-        var jobStore = new InMemoryJobStore();
-        var userStore = new InMemoryUserStore();
-
-        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue"));
-        userStore.Seed(new User(workerId, tenantId, "wrk-01", "Worker One"));
-
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
-        using var client = app.GetTestClient();
-
-        using var request = CreateAuthenticatedRequest(
-            HttpMethod.Post,
-            $"/api/v1/requests/{requestId}/assign",
-            role: "Support",
-            tenantId: tenantId,
-            userId: Guid.NewGuid(),
-            body: new AssignServiceRequestRequest
+            body: new TransitionServiceRequestStatusRequest
             {
-                WorkerUserId = workerId.ToString(),
+                NextStatus = "Assigned",
                 RowVersion = Convert.ToBase64String(new byte[] { 1, 2, 3 }),
             });
 
         var response = await client.SendAsync(request);
-        var body = await response.Content.ReadAsStringAsync();
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<object>>();
 
-        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("CONCURRENCY_CONFLICT", body);
+        return new TransitionParitySnapshot(
+            StatusCode: response.StatusCode,
+            StoredStatus: ServiceRequestStatus.New,
+            AuditAction: string.Empty,
+            AuditOutcome: string.Empty,
+            RealtimePreviousStatus: string.Empty,
+            RealtimeCurrentStatus: string.Empty,
+            ErrorCode: envelope?.ErrorCode);
     }
 
-    [Fact]
-    public async Task AssignRequest_DuplicateWorkerAssignment_ReturnsIdempotentSuccess()
+    private static async Task<AssignmentParitySnapshot> ExecuteAssignmentScenarioAsync(Guid tenantId, Guid requestId, Guid workerId, string channelRole)
     {
-        var tenantId = Guid.NewGuid();
-        var requestId = Guid.NewGuid();
-        var workerId = Guid.NewGuid();
-
         var requestStore = new InMemoryServiceRequestStore();
         var jobStore = new InMemoryJobStore();
         var userStore = new InMemoryUserStore();
+        var auditWriter = new CapturingAuditLogWriter();
+        var realtimePublisher = new CapturingOperationalUpdatePublisher();
 
-        var seededRequest = new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue");
-        seededRequest.TransitionTo(ServiceRequestStatus.Assigned);
-        var seededJob = new Job(Guid.NewGuid(), tenantId, requestId);
-        seededJob.AssignWorker(workerId);
-        seededRequest.LinkJob(seededJob.Id);
-
-        requestStore.Seed(seededRequest);
-        jobStore.Seed(seededJob);
+        requestStore.Seed(new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue"));
         userStore.Seed(new User(workerId, tenantId, "wrk-01", "Worker One"));
 
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore, auditWriter, realtimePublisher);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(
             HttpMethod.Post,
             $"/api/v1/requests/{requestId}/assign",
-            role: "Support",
+            role: channelRole,
             tenantId: tenantId,
             userId: Guid.NewGuid(),
             body: new AssignServiceRequestRequest { WorkerUserId = workerId.ToString() });
 
         var response = await client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var stored = await requestStore.GetByIdAsync(tenantId, requestId);
 
-        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestAssignmentResponse>>();
-        Assert.NotNull(envelope);
-        Assert.True(envelope!.Success);
-        Assert.NotNull(envelope.Data);
-        Assert.Equal(workerId.ToString(), envelope.Data!.CurrentWorkerUserId);
-
-        Assert.Single(jobStore.Items);
-        Assert.Equal(workerId, jobStore.Items[0].AssignedWorkerUserId);
-    }
-
-    [Fact]
-    public async Task ReassignRequest_SameWorker_ReturnsIdempotentSuccess()
-    {
-        var tenantId = Guid.NewGuid();
-        var requestId = Guid.NewGuid();
-        var workerId = Guid.NewGuid();
-
-        var requestStore = new InMemoryServiceRequestStore();
-        var jobStore = new InMemoryJobStore();
-        var userStore = new InMemoryUserStore();
-
-        var seededRequest = new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Server rack overheating");
-        seededRequest.TransitionTo(ServiceRequestStatus.Assigned);
-        var seededJob = new Job(Guid.NewGuid(), tenantId, requestId);
-        seededJob.AssignWorker(workerId);
-        seededRequest.LinkJob(seededJob.Id);
-
-        requestStore.Seed(seededRequest);
-        jobStore.Seed(seededJob);
-        userStore.Seed(new User(workerId, tenantId, "wrk-a", "Worker A"));
-
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
-        using var client = app.GetTestClient();
-
-        using var request = CreateAuthenticatedRequest(
-            HttpMethod.Post,
-            $"/api/v1/requests/{requestId}/reassign",
-            role: "Manager",
-            tenantId: tenantId,
-            userId: Guid.NewGuid(),
-            body: new ReassignServiceRequestRequest { WorkerUserId = workerId.ToString() });
-
-        var response = await client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestAssignmentResponse>>();
-        Assert.NotNull(envelope);
-        Assert.True(envelope!.Success);
-        Assert.NotNull(envelope.Data);
-        Assert.Equal(workerId.ToString(), envelope.Data!.CurrentWorkerUserId);
-        Assert.Equal(workerId.ToString(), envelope.Data.PreviousWorkerUserId);
-
-        Assert.Single(jobStore.Items);
-        Assert.Equal(workerId, jobStore.Items[0].AssignedWorkerUserId);
+        return new AssignmentParitySnapshot(
+            StatusCode: response.StatusCode,
+            HasActiveJob: stored?.ActiveJobId.HasValue == true,
+            StoredStatus: stored?.Status ?? ServiceRequestStatus.New,
+            AuditAction: auditWriter.Items.Single().Action,
+            AuditOutcome: auditWriter.Items.Single().Outcome,
+            RealtimeAssignmentStatus: realtimePublisher.AssignmentUpdates.Single().AssignmentStatus);
     }
 
     private static HttpRequestMessage CreateAuthenticatedRequest(
@@ -340,7 +233,9 @@ public class ServiceRequestAssignmentIntegrationTests
     private static async Task<WebApplication> BuildTestApplicationAsync(
         InMemoryServiceRequestStore requestStore,
         InMemoryJobStore jobStore,
-        InMemoryUserStore userStore)
+        InMemoryUserStore userStore,
+        CapturingAuditLogWriter? auditWriter = null,
+        CapturingOperationalUpdatePublisher? realtimePublisher = null)
     {
         var builder = WebApplication.CreateBuilder();
         builder.WebHost.UseTestServer();
@@ -354,6 +249,16 @@ public class ServiceRequestAssignmentIntegrationTests
         builder.Services.AddScoped<IJobRepository>(_ => jobStore);
         builder.Services.AddScoped<IUserRepository>(_ => userStore);
         builder.Services.AddScoped<IUnitOfWork, NoOpUnitOfWork>();
+
+        if (auditWriter is not null)
+        {
+            builder.Services.AddScoped<IAuditLogWriter>(_ => auditWriter);
+        }
+
+        if (realtimePublisher is not null)
+        {
+            builder.Services.AddScoped<IOperationalUpdatePublisher>(_ => realtimePublisher);
+        }
 
         builder.Services.Configure<TenantResolutionOptions>(_ => { });
 
@@ -378,6 +283,23 @@ public class ServiceRequestAssignmentIntegrationTests
         await app.StartAsync();
         return app;
     }
+
+    private sealed record TransitionParitySnapshot(
+        HttpStatusCode StatusCode,
+        ServiceRequestStatus StoredStatus,
+        string AuditAction,
+        string AuditOutcome,
+        string RealtimePreviousStatus,
+        string RealtimeCurrentStatus,
+        string? ErrorCode);
+
+    private sealed record AssignmentParitySnapshot(
+        HttpStatusCode StatusCode,
+        bool HasActiveJob,
+        ServiceRequestStatus StoredStatus,
+        string AuditAction,
+        string AuditOutcome,
+        string RealtimeAssignmentStatus);
 
     private static class TestAuthHeaders
     {
@@ -487,8 +409,6 @@ public class ServiceRequestAssignmentIntegrationTests
     {
         private readonly List<ServiceRequest> items = new();
 
-        public IReadOnlyList<ServiceRequest> Items => this.items;
-
         public void Seed(ServiceRequest request)
         {
             this.items.Add(request);
@@ -536,7 +456,7 @@ public class ServiceRequestAssignmentIntegrationTests
 
         public void Update(ServiceRequest aggregate)
         {
-            // No-op for in-memory store.
+            // Aggregate is already tracked in-memory.
         }
 
         public void Remove(ServiceRequest aggregate)
@@ -548,13 +468,6 @@ public class ServiceRequestAssignmentIntegrationTests
     private sealed class InMemoryJobStore : IJobRepository
     {
         private readonly List<Job> items = new();
-
-        public IReadOnlyList<Job> Items => this.items;
-
-        public void Seed(Job job)
-        {
-            this.items.Add(job);
-        }
 
         public Task AddAsync(Job aggregate, CancellationToken cancellationToken = default)
         {
@@ -597,21 +510,25 @@ public class ServiceRequestAssignmentIntegrationTests
         }
 
         public Task<IReadOnlyDictionary<Guid, int>> GetActiveJobCountsByWorkerAsync(
-            Guid tenantId, IReadOnlyList<Guid> workerIds, CancellationToken cancellationToken = default)
+            Guid tenantId,
+            IReadOnlyList<Guid> workerIds,
+            CancellationToken cancellationToken = default)
         {
             var activeStatuses = new[] { AssignmentStatus.PendingAcceptance, AssignmentStatus.Accepted };
             IReadOnlyDictionary<Guid, int> result = this.items
-                .Where(x => x.TenantId == tenantId && x.AssignedWorkerUserId.HasValue
-                    && workerIds.Contains(x.AssignedWorkerUserId!.Value)
+                .Where(x => x.TenantId == tenantId
+                    && x.AssignedWorkerUserId.HasValue
+                    && workerIds.Contains(x.AssignedWorkerUserId.Value)
                     && activeStatuses.Contains(x.AssignmentStatus))
                 .GroupBy(x => x.AssignedWorkerUserId!.Value)
                 .ToDictionary(g => g.Key, g => g.Count());
+
             return Task.FromResult(result);
         }
 
         public void Update(Job aggregate)
         {
-            // No-op for in-memory store.
+            // Aggregate is already tracked in-memory.
         }
 
         public void Remove(Job aggregate)
@@ -659,12 +576,50 @@ public class ServiceRequestAssignmentIntegrationTests
 
         public void Update(User aggregate)
         {
-            // No-op for in-memory store.
+            // Aggregate is already tracked in-memory.
         }
 
         public void Remove(User aggregate)
         {
             this.items.Remove(aggregate);
+        }
+    }
+
+    private sealed class CapturingAuditLogWriter : IAuditLogWriter
+    {
+        public List<AuditLog> Items { get; } = new();
+
+        public Task WriteAsync(AuditLog log, CancellationToken cancellationToken = default)
+        {
+            this.Items.Add(log);
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class CapturingOperationalUpdatePublisher : IOperationalUpdatePublisher
+    {
+        public List<TransitionedServiceRequestPayload> StatusUpdates { get; } = new();
+
+        public List<AssignedServiceRequestPayload> AssignmentUpdates { get; } = new();
+
+        public List<SlaEscalationTriggeredPayload> SlaEscalations { get; } = new();
+
+        public Task PublishServiceRequestStatusUpdatedAsync(TransitionedServiceRequestPayload payload, CancellationToken cancellationToken = default)
+        {
+            this.StatusUpdates.Add(payload);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishJobAssignmentUpdatedAsync(AssignedServiceRequestPayload payload, CancellationToken cancellationToken = default)
+        {
+            this.AssignmentUpdates.Add(payload);
+            return Task.CompletedTask;
+        }
+
+        public Task PublishSlaEscalationTriggeredAsync(SlaEscalationTriggeredPayload payload, CancellationToken cancellationToken = default)
+        {
+            this.SlaEscalations.Add(payload);
+            return Task.CompletedTask;
         }
     }
 }

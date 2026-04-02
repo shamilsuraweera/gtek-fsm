@@ -3,6 +3,7 @@ namespace GTEK.FSM.MobileApp.Workflows;
 using GTEK.FSM.MobileApp.Services.Realtime;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
+using GTEK.FSM.Shared.Contracts.Vocabulary;
 
 internal sealed record CustomerRequestSnapshot(
     string Id,
@@ -50,7 +51,7 @@ internal static class CustomerRequestJourney
 
     public static CustomerRequestSnapshot BuildFallbackCreatedRequest(CreateServiceRequestResponse createdRequest)
     {
-        var status = createdRequest.Status;
+        var status = RequestLifecycleTerminology.GetDisplayLabel(createdRequest.Status);
         return new CustomerRequestSnapshot(
             Id: createdRequest.RequestId,
             Title: createdRequest.Title,
@@ -74,7 +75,7 @@ internal static class CustomerRequestJourney
 
     public static CustomerRequestSnapshot SyncDetail(CustomerRequestSnapshot request, GetServiceRequestDetailResponse detail)
     {
-        var resolvedStatus = detail.Status ?? request.StatusLabel;
+        var resolvedStatus = RequestLifecycleTerminology.GetDisplayLabel(detail.Status ?? request.StatusLabel);
         return request with
         {
             StatusLabel = resolvedStatus,
@@ -106,8 +107,10 @@ internal static class CustomerRequestJourney
 
     public static CustomerRequestDetailPresentation BuildDetailPresentation(GetServiceRequestDetailResponse detail)
     {
+        var lifecycleStatus = RequestLifecycleTerminology.GetDisplayLabel(detail.Status);
+
         return new CustomerRequestDetailPresentation(
-            LifecycleText: $"Current lifecycle: {detail.Status}",
+            LifecycleText: $"Current lifecycle: {lifecycleStatus}",
             WorkerText: string.IsNullOrWhiteSpace(detail.AssignedWorkerUserId)
                 ? "Assigned worker: Not assigned yet"
                 : $"Assigned worker ID: {detail.AssignedWorkerUserId}",

@@ -1,5 +1,6 @@
 @namespace GTEK.FSM.WebPortal.Components
 
+@using GTEK.FSM.Shared.Contracts.Vocabulary
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services.Security
 
@@ -206,7 +207,11 @@
 
         if (!CanRunHeaderAction())
         {
-            securityFeedback = "Forbidden: your role or tenant scope cannot modify this request.";
+            securityFeedback = SecurityContext.GetForbiddenFeedback(
+                SelectedRequest.TenantId,
+                PortalRole.Support,
+                PortalRole.Manager,
+                PortalRole.Admin);
             return;
         }
 
@@ -229,7 +234,10 @@
 
         if (!CanApplyDecision(CurrentWorker, true))
         {
-            securityFeedback = "Forbidden: reassignment is blocked by role or tenant guardrails.";
+            securityFeedback = SecurityContext.GetForbiddenFeedback(
+                SelectedRequest.TenantId,
+                PortalRole.Manager,
+                PortalRole.Admin);
             return;
         }
 
@@ -246,7 +254,11 @@
         var selectedWorker = Workers.FirstOrDefault(x => string.Equals(x.Id, workerId, StringComparison.Ordinal));
         if ((selectedWorker is null) || !CanApplyDecision(selectedWorker, isReassignment))
         {
-            securityFeedback = "Forbidden: assignment action denied for the current context.";
+            securityFeedback = SecurityContext.GetForbiddenFeedback(
+                SelectedRequest.TenantId,
+                isReassignment
+                    ? new[] { PortalRole.Manager, PortalRole.Admin }
+                    : new[] { PortalRole.Support, PortalRole.Manager, PortalRole.Admin });
             return;
         }
 

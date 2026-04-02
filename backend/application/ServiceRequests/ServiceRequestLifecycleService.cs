@@ -1,10 +1,10 @@
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
-using GTEK.FSM.Backend.Application.Persistence.Transactions;
 using GTEK.FSM.Backend.Application.Audit;
+using GTEK.FSM.Backend.Application.Persistence.Transactions;
 using GTEK.FSM.Backend.Application.Realtime;
-using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Backend.Domain.Audit;
+using GTEK.FSM.Backend.Domain.Enums;
 using System.Text.Json;
 
 namespace GTEK.FSM.Backend.Application.ServiceRequests;
@@ -67,6 +67,20 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
                 message: validationMessage,
                 errorCode: validationErrorCode,
                 statusCode: 409);
+        }
+
+        // Treat duplicate writes to the current status as idempotent success.
+        if (request.Status == parsedNextStatus)
+        {
+            var duplicatePayload = new TransitionedServiceRequestPayload(
+                RequestId: request.Id,
+                TenantId: request.TenantId,
+                PreviousStatus: request.Status.ToString(),
+                CurrentStatus: request.Status.ToString(),
+                UpdatedAtUtc: request.UpdatedAtUtc,
+                RowVersion: Convert.ToBase64String(request.RowVersion));
+
+            return TransitionServiceRequestResult.Success(duplicatePayload);
         }
 
         var previousStatus = request.Status;

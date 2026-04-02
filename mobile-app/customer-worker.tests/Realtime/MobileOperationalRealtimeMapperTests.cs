@@ -9,7 +9,7 @@ public sealed class MobileOperationalRealtimeMapperTests
     [InlineData("on_route", "On Route")]
     [InlineData("accepted", "Accepted")]
     [InlineData("completed", "Completed")]
-    [InlineData("", "Available")]
+    [InlineData("", "New")]
     public void NormalizeStatus_MapsBackendPayloadValues(string rawStatus, string expected)
     {
         var normalized = MobileOperationalRealtimeMapper.NormalizeStatus(rawStatus);
@@ -22,6 +22,7 @@ public sealed class MobileOperationalRealtimeMapperTests
     [InlineData("scheduled", 1)]
     [InlineData("assigned", 1)]
     [InlineData("in_progress", 2)]
+    [InlineData("on_hold", 2)]
     [InlineData("completed", 3)]
     public void ResolveRequestStageIndex_MapsLifecycleToTimeline(string status, int expectedStageIndex)
     {
@@ -36,7 +37,7 @@ public sealed class MobileOperationalRealtimeMapperTests
     [InlineData("On Site", true)]
     [InlineData("In Progress", true)]
     [InlineData("Completed", true)]
-    [InlineData("Available", false)]
+    [InlineData("New", false)]
     public void IsAcceptedStatus_IdentifiesAcceptedJobStates(string status, bool expected)
     {
         var accepted = MobileOperationalRealtimeMapper.IsAcceptedStatus(status);
