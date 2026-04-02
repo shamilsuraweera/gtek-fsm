@@ -228,6 +228,97 @@ public class ServiceRequestAssignmentIntegrationTests
         Assert.Contains("CONCURRENCY_CONFLICT", body);
     }
 
+    [Fact]
+    public async Task AssignRequest_DuplicateWorkerAssignment_ReturnsIdempotentSuccess()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var workerId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        var seededRequest = new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Elevator alarm issue");
+        seededRequest.TransitionTo(ServiceRequestStatus.Assigned);
+        var seededJob = new Job(Guid.NewGuid(), tenantId, requestId);
+        seededJob.AssignWorker(workerId);
+        seededRequest.LinkJob(seededJob.Id);
+
+        requestStore.Seed(seededRequest);
+        jobStore.Seed(seededJob);
+        userStore.Seed(new User(workerId, tenantId, "wrk-01", "Worker One"));
+
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        using var client = app.GetTestClient();
+
+        using var request = CreateAuthenticatedRequest(
+            HttpMethod.Post,
+            $"/api/v1/requests/{requestId}/assign",
+            role: "Support",
+            tenantId: tenantId,
+            userId: Guid.NewGuid(),
+            body: new AssignServiceRequestRequest { WorkerUserId = workerId.ToString() });
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestAssignmentResponse>>();
+        Assert.NotNull(envelope);
+        Assert.True(envelope!.Success);
+        Assert.NotNull(envelope.Data);
+        Assert.Equal(workerId.ToString(), envelope.Data!.CurrentWorkerUserId);
+
+        Assert.Single(jobStore.Items);
+        Assert.Equal(workerId, jobStore.Items[0].AssignedWorkerUserId);
+    }
+
+    [Fact]
+    public async Task ReassignRequest_SameWorker_ReturnsIdempotentSuccess()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var workerId = Guid.NewGuid();
+
+        var requestStore = new InMemoryServiceRequestStore();
+        var jobStore = new InMemoryJobStore();
+        var userStore = new InMemoryUserStore();
+
+        var seededRequest = new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Server rack overheating");
+        seededRequest.TransitionTo(ServiceRequestStatus.Assigned);
+        var seededJob = new Job(Guid.NewGuid(), tenantId, requestId);
+        seededJob.AssignWorker(workerId);
+        seededRequest.LinkJob(seededJob.Id);
+
+        requestStore.Seed(seededRequest);
+        jobStore.Seed(seededJob);
+        userStore.Seed(new User(workerId, tenantId, "wrk-a", "Worker A"));
+
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, userStore);
+        using var client = app.GetTestClient();
+
+        using var request = CreateAuthenticatedRequest(
+            HttpMethod.Post,
+            $"/api/v1/requests/{requestId}/reassign",
+            role: "Manager",
+            tenantId: tenantId,
+            userId: Guid.NewGuid(),
+            body: new ReassignServiceRequestRequest { WorkerUserId = workerId.ToString() });
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<ServiceRequestAssignmentResponse>>();
+        Assert.NotNull(envelope);
+        Assert.True(envelope!.Success);
+        Assert.NotNull(envelope.Data);
+        Assert.Equal(workerId.ToString(), envelope.Data!.CurrentWorkerUserId);
+        Assert.Equal(workerId.ToString(), envelope.Data.PreviousWorkerUserId);
+
+        Assert.Single(jobStore.Items);
+        Assert.Equal(workerId, jobStore.Items[0].AssignedWorkerUserId);
+    }
+
     private static HttpRequestMessage CreateAuthenticatedRequest(
         HttpMethod method,
         string route,

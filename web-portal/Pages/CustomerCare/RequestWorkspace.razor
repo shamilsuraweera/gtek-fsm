@@ -325,7 +325,12 @@
         }
         catch (RequestWorkspaceConflictException ex)
         {
-            workspaceError = ex.Message;
+            if (workspaceSnapshot is not null && !string.IsNullOrWhiteSpace(ex.CurrentRowVersion))
+            {
+                workspaceSnapshot.RowVersion = ex.CurrentRowVersion;
+            }
+
+            workspaceError = $"{ex.Message} Refresh and retry.";
             AddClientTimelineEntry("Workspace refreshed after a concurrency conflict.");
             await ReloadWorkspaceAsync();
         }

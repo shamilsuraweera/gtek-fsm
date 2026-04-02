@@ -164,6 +164,43 @@ public class ServiceRequestLifecycleIntegrationTests
     }
 
     [Fact]
+    public async Task TransitionStatus_DuplicateTargetStatus_ReturnsIdempotentSuccess()
+    {
+        var tenantId = Guid.NewGuid();
+        var requestId = Guid.NewGuid();
+        var store = new InMemoryServiceRequestStore();
+
+        var seeded = new ServiceRequest(requestId, tenantId, Guid.NewGuid(), "Water leak in lobby");
+        seeded.TransitionTo(ServiceRequestStatus.Assigned);
+        store.Seed(seeded);
+
+        await using var app = await BuildTestApplicationAsync(store);
+        using var client = app.GetTestClient();
+
+        using var request = CreateAuthenticatedRequest(
+            method: HttpMethod.Patch,
+            route: $"/api/v1/requests/{requestId}/status",
+            role: "Customer",
+            tenantId: tenantId,
+            userId: Guid.NewGuid(),
+            body: new TransitionServiceRequestStatusRequest { NextStatus = "Assigned" });
+
+        var response = await client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<TransitionServiceRequestStatusResponse>>();
+        Assert.NotNull(envelope);
+        Assert.True(envelope!.Success);
+        Assert.NotNull(envelope.Data);
+        Assert.Equal("Assigned", envelope.Data!.PreviousStatus);
+        Assert.Equal("Assigned", envelope.Data.CurrentStatus);
+
+        var stored = await store.GetByIdAsync(tenantId, requestId);
+        Assert.NotNull(stored);
+        Assert.Equal(ServiceRequestStatus.Assigned, stored!.Status);
+    }
+
+    [Fact]
     public async Task TransitionStatus_SlaEscalation_WritesAuditAndPublishesRealtimeEvent()
     {
         var tenantId = Guid.NewGuid();
