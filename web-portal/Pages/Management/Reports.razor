@@ -3,10 +3,11 @@
 @using GTEK.FSM.WebPortal.Components
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
-@using GTEK.FSM.WebPortal.Services.Security
+@using GTEK.FSM.WebPortal.Services.Management
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Responses
 
 @inject ResilientDataFetcher Fetcher
-@inject UiSecurityContext SecurityContext
+@inject IManagementReportsApiClient ReportsApiClient
 
 <PageTitle>Management Reports</PageTitle>
 
@@ -15,109 +16,157 @@
 <ResilienceErrorBoundary @ref="errorBoundary">
 	<DataFetchStateDisplay
 		State="@fetchState.State"
-		LoadingMessage="Loading audit and oversight surfaces..."
+		LoadingMessage="Loading governance analytics..."
 		ErrorMessage="@fetchState.ErrorMessage"
-		StaleMessage="Audit data is cached; live oversight updates may lag."
-		PartialMessage="Audit surfaces loaded with partial context."
-		RetryingMessage="@($"Retrying audit surfaces... Attempt {fetchState.RetryAttempts}")"
+		StaleMessage="Analytics are cached; live governance insights may lag."
+		PartialMessage="Analytics loaded with partial context."
+		RetryingMessage="@($"Retrying analytics... Attempt {fetchState.RetryAttempts}")"
 		AllowStaleRender="true"
 		OnRetry="@HandleRetry"
 		OnDismiss="@HandleDismiss">
 
-		@if (ReportData is not null)
+		@if (Overview is not null)
 		{
-			<section class="audit-shell">
-				@if (!SecurityContext.HasSensitiveAccess())
-				{
-					<p class="security-forbidden-message">Forbidden: sensitive audit decisions require manager or admin role.</p>
-				}
-
-				@if (!string.IsNullOrWhiteSpace(securityFeedback))
-				{
-					<p class="security-forbidden-message">@securityFeedback</p>
-				}
+			<section class="analytics-shell">
+				<section class="analytics-controls">
+					<label>Window (days)</label>
+					<select @bind="WindowDays">
+						<option value="7">7</option>
+						<option value="14">14</option>
+						<option value="30">30</option>
+					</select>
+					<label>Trend Buckets</label>
+					<select @bind="TrendBuckets">
+						<option value="7">7</option>
+						<option value="10">10</option>
+						<option value="14">14</option>
+					</select>
+					<button @onclick="ReloadAsync">Refresh</button>
+				</section>
 
 				<section class="audit-summary-grid">
 					<article class="audit-summary-card">
+						<p class="audit-summary-label">Requests in Window</p>
+						<p class="audit-summary-value">@Overview.TotalRequestsInWindow</p>
+					</article>
+					<article class="audit-summary-card">
+						<p class="audit-summary-label">Completed in Window</p>
+						<p class="audit-summary-value">@Overview.CompletedRequestsInWindow</p>
+					</article>
+					<article class="audit-summary-card">
+						<p class="audit-summary-label">Active Jobs</p>
+						<p class="audit-summary-value">@Overview.ActiveJobs</p>
+					</article>
+					<article class="audit-summary-card">
 						<p class="audit-summary-label">Sensitive Actions (24h)</p>
-						<p class="audit-summary-value">@ReportData.SensitiveActions24h</p>
+						<p class="audit-summary-value">@Overview.SensitiveActions24h</p>
 					</article>
 					<article class="audit-summary-card">
-						<p class="audit-summary-label">Policy Violations (24h)</p>
-						<p class="audit-summary-value">@ReportData.PolicyViolations24h</p>
+						<p class="audit-summary-label">Denied Actions (24h)</p>
+						<p class="audit-summary-value">@Overview.DeniedActions24h</p>
 					</article>
-					<article class="audit-summary-card">
-						<p class="audit-summary-label">Escalated Reviews</p>
-						<p class="audit-summary-value">@ReportData.EscalatedReviews</p>
+				</section>
+
+				<section class="trend-grid">
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>Request Intake Trend</h2>
+						</header>
+						<div class="trend-bars">
+							@foreach (var point in Overview.IntakeTrend)
+							{
+								<div class="trend-bar-wrap" title="@point.DateUtc.ToString("yyyy-MM-dd")">
+									<span class="trend-bar" style="height:@NormalizeHeight(Overview.IntakeTrend, point)%"></span>
+									<span class="trend-label">@point.DateUtc.ToString("MM-dd")</span>
+								</div>
+							}
+						</div>
+					</article>
+
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>Completion Trend</h2>
+						</header>
+						<div class="trend-bars">
+							@foreach (var point in Overview.CompletionTrend)
+							{
+								<div class="trend-bar-wrap" title="@point.DateUtc.ToString("yyyy-MM-dd")">
+									<span class="trend-bar completion" style="height:@NormalizeHeight(Overview.CompletionTrend, point)%"></span>
+									<span class="trend-label">@point.DateUtc.ToString("MM-dd")</span>
+								</div>
+							}
+						</div>
 					</article>
 				</section>
 
 				<section class="audit-panel">
 					<header class="audit-panel-header">
-						<h2>Audit Event Stream</h2>
-						<span class="audit-muted">Latest sensitive operational actions and outcomes</span>
-					</header>
-					<div class="audit-table-wrap">
-						<table class="audit-table">
-							<thead>
-								<tr>
-									<th>Time</th>
-									<th>Actor</th>
-									<th>Action</th>
-									<th>Tenant</th>
-									<th>Outcome</th>
-									<th>Risk</th>
-								</tr>
-							</thead>
-							<tbody>
-								@foreach (var evt in ReportData.Events)
-								{
-									var canView = CanViewEvent(evt);
-
-									<tr>
-										<td class="mono">@evt.Timestamp.ToLocalTime().ToString("MM-dd HH:mm")</td>
-										<td>@(canView ? evt.Actor : "Restricted")</td>
-										<td>@(canView ? evt.Action : "Forbidden by tenant guard")</td>
-										<td>@evt.Tenant</td>
-										<td>
-											<span class="audit-pill @GetOutcomeClass(canView ? evt.Outcome : "Deny")">@(canView ? evt.Outcome : "Deny")</span>
-										</td>
-										<td>
-											<span class="audit-pill @GetRiskClass(evt.Risk)">@evt.Risk</span>
-										</td>
-									</tr>
-								}
-							</tbody>
-						</table>
-					</div>
-				</section>
-
-				<section class="audit-panel">
-					<header class="audit-panel-header">
-						<h2>Oversight Review Queue</h2>
-						<span class="audit-muted">Manual follow-up required for high-risk or denied actions</span>
+						<h2>Anomaly Indicators</h2>
 					</header>
 					<div class="oversight-list">
-						@foreach (var review in ReportData.Reviews)
+						@foreach (var anomaly in Overview.Anomalies)
 						{
-							var canAct = CanTakeReviewAction(review);
 							<article class="oversight-item">
 								<div>
-									<p class="oversight-title">@review.Title</p>
-									<p class="audit-muted">@review.Context (Tenant: @review.Tenant)</p>
+									<p class="oversight-title">@anomaly.Code</p>
+									<p class="audit-muted">@anomaly.Message</p>
 								</div>
-								<div class="oversight-actions">
-									<span class="audit-pill high">@review.Priority</span>
-									<button class="btn-quick-action" @onclick='@(() => ResolveReview(review.Id, "Acknowledge"))' disabled="@(!canAct)">Acknowledge</button>
-									<button class="btn-quick-action btn-warning" @onclick='@(() => ResolveReview(review.Id, "Escalate"))' disabled="@(!canAct)">Escalate</button>
-									@if (!canAct)
-									{
-										<span class="audit-muted">Forbidden in current tenant/role context.</span>
-									}
-								</div>
+								<span class="audit-pill @GetRiskClass(anomaly.Severity)">@anomaly.Severity</span>
 							</article>
 						}
 					</div>
+				</section>
+
+				<section class="trend-grid">
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>Action Drill-down</h2>
+						</header>
+						<div class="audit-table-wrap">
+							<table class="audit-table">
+								<thead>
+									<tr>
+										<th>Action</th>
+										<th>Count</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var item in Overview.ActionDrilldown)
+									{
+										<tr>
+											<td>@item.Key</td>
+											<td>@item.Count</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</article>
+
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>Outcome Drill-down</h2>
+						</header>
+						<div class="audit-table-wrap">
+							<table class="audit-table">
+								<thead>
+									<tr>
+										<th>Outcome</th>
+										<th>Count</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var item in Overview.OutcomeDrilldown)
+									{
+										<tr>
+											<td>@item.Key</td>
+											<td>@item.Count</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</article>
 				</section>
 			</section>
 		}
@@ -126,86 +175,52 @@
 
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
-	private FetchResult<AuditReportData> fetchState = new();
-	private string? securityFeedback;
-	private AuditReportData? ReportData => fetchState.Data;
+	private FetchResult<GetManagementAnalyticsOverviewResponse> fetchState = new();
+	private int WindowDays { get; set; } = 7;
+	private int TrendBuckets { get; set; } = 7;
+	private GetManagementAnalyticsOverviewResponse? Overview => fetchState.Data;
 
 	protected override async Task OnInitializedAsync()
 	{
-		await LoadReportData();
+		await this.LoadOverviewAsync();
 	}
 
-	private async Task LoadReportData()
+	private async Task ReloadAsync()
+	{
+		await this.LoadOverviewAsync();
+	}
+
+	private async Task LoadOverviewAsync()
 	{
 		try
 		{
 			fetchState = await Fetcher.FetchAsync(
 				async () =>
 				{
-					await Task.Delay(200);
-					return BuildSampleData();
+					return await ReportsApiClient.GetOverviewAsync(WindowDays, TrendBuckets);
 				},
 				fetchState,
 				maxRetries: 2,
 				staleThresholdSeconds: 90);
 		}
+		catch (ManagementReportsApiException ex)
+		{
+			errorBoundary?.HandleError(ex, ex.Message);
+		}
 		catch (Exception ex)
 		{
-			errorBoundary?.HandleError(ex, "Failed to load audit surfaces.");
+			errorBoundary?.HandleError(ex, "Failed to load governance analytics.");
 		}
 	}
 
 	private async Task HandleRetry()
 	{
-		await LoadReportData();
+		await this.LoadOverviewAsync();
 	}
 
 	private void HandleDismiss()
 	{
 		fetchState.State = FetchState.Idle;
-	}
-
-	private void ResolveReview(Guid reviewId, string decision)
-	{
-		if (ReportData is null)
-		{
-			return;
-		}
-
-		var review = ReportData.Reviews.FirstOrDefault(x => x.Id == reviewId);
-		if ((review is null) || !CanTakeReviewAction(review))
-		{
-			securityFeedback = "Forbidden: review action blocked by role or tenant guardrails.";
-			return;
-		}
-
-		securityFeedback = null;
-
-		ReportData.Reviews.RemoveAll(x => x.Id == reviewId);
-		ReportData.Events.Insert(
-			0,
-			new AuditEvent(
-				DateTime.UtcNow,
-				"Ops Manager",
-				$"Oversight review {decision}",
-				review.Tenant,
-				"Allow",
-				"Low"));
-	}
-
-	private bool CanViewEvent(AuditEvent evt)
-	{
-		return SecurityContext.HasSensitiveAccess() && SecurityContext.CanAccessTenant(evt.Tenant);
-	}
-
-	private bool CanTakeReviewAction(OversightReview review)
-	{
-		return SecurityContext.HasSensitiveAccess() && SecurityContext.CanAccessTenant(review.Tenant);
-	}
-
-	private static string GetOutcomeClass(string outcome)
-	{
-		return outcome.Equals("Allow", StringComparison.OrdinalIgnoreCase) ? "allow" : "deny";
 	}
 
 	private static string GetRiskClass(string risk)
@@ -223,54 +238,66 @@
 		return "low";
 	}
 
-	private static AuditReportData BuildSampleData()
+	private static decimal NormalizeHeight(IReadOnlyList<ManagementTrendPointResponse> points, ManagementTrendPointResponse current)
 	{
-		return new AuditReportData
+		if (points.Count == 0)
 		{
-			SensitiveActions24h = 42,
-			PolicyViolations24h = 7,
-			EscalatedReviews = 3,
-			Events =
-			[
-				new(DateTime.UtcNow.AddMinutes(-9), "Manager: Ava Lin", "Cross-tenant view request", "TENANT-03", "Deny", "High"),
-				new(DateTime.UtcNow.AddMinutes(-22), "Support: Noah Kim", "Permission override attempt", "TENANT-01", "Deny", "High"),
-				new(DateTime.UtcNow.AddMinutes(-37), "Admin: S. Hart", "Role assignment update", "TENANT-02", "Allow", "Medium"),
-				new(DateTime.UtcNow.AddMinutes(-54), "Manager: J. Iqbal", "Billing tier policy edit", "TENANT-01", "Allow", "Medium"),
-			],
-			Reviews =
-			[
-				new(Guid.NewGuid(), "Denied cross-tenant report export", "User requested data export spanning multiple tenants.", "P1", "TENANT-03"),
-				new(Guid.NewGuid(), "Repeated permission override failures", "Three denied override attempts in 15 minutes.", "P1", "TENANT-01"),
-				new(Guid.NewGuid(), "Unexpected role elevation path", "Temporary role assignment detected outside policy window.", "P2", "TENANT-02"),
-			],
-		};
-	}
+			return 15;
+		}
 
-	private sealed record AuditEvent(
-		DateTime Timestamp,
-		string Actor,
-		string Action,
-		string Tenant,
-		string Outcome,
-		string Risk);
-
-	private sealed record OversightReview(
-		Guid Id,
-		string Title,
-		string Context,
-		string Priority,
-		string Tenant);
-
-	private sealed class AuditReportData
-	{
-		public int SensitiveActions24h { get; set; }
-
-		public int PolicyViolations24h { get; set; }
-
-		public int EscalatedReviews { get; set; }
-
-		public List<AuditEvent> Events { get; set; } = [];
-
-		public List<OversightReview> Reviews { get; set; } = [];
+		var max = Math.Max(1, points.Max(x => x.Value));
+		var ratio = (decimal)current.Value / max;
+		return Math.Clamp(ratio * 100m, 15m, 100m);
 	}
 }
+
+<style>
+	.analytics-shell {
+		display: grid;
+		gap: 1rem;
+	}
+
+	.analytics-controls {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		flex-wrap: wrap;
+	}
+
+	.trend-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+		gap: 1rem;
+	}
+
+	.trend-bars {
+		display: flex;
+		align-items: end;
+		gap: 0.5rem;
+		min-height: 160px;
+	}
+
+	.trend-bar-wrap {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.25rem;
+		min-width: 36px;
+	}
+
+	.trend-bar {
+		display: inline-block;
+		width: 20px;
+		background: #2f6fdd;
+		border-radius: 4px 4px 0 0;
+	}
+
+	.trend-bar.completion {
+		background: #039855;
+	}
+
+	.trend-label {
+		font-size: 0.75rem;
+		color: #475467;
+	}
+</style>

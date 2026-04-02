@@ -2,6 +2,7 @@ using System.Text;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
+using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
 using GTEK.FSM.Backend.Application.Workers;
@@ -17,6 +18,8 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
@@ -1177,6 +1180,44 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
+        v1.MapGet("/management/reports/overview", async (
+            [AsParameters] GetManagementAnalyticsOverviewRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IManagementReportingQueryService reportingQueryService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var resolvedTenantId = tenantContextAccessor.GetCurrentTenantId();
+            if (!resolvedTenantId.HasValue || resolvedTenantId.Value != principal.TenantId)
+            {
+                return BuildFailure(context, StatusCodes.Status403Forbidden, "TENANT_OWNERSHIP_MISMATCH", "Tenant ownership validation failed.");
+            }
+
+            var query = await reportingQueryService.GetOverviewAsync(principal, request, cancellationToken);
+            if (!query.IsSuccess || query.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    query.StatusCode ?? StatusCodes.Status400BadRequest,
+                    query.ErrorCode ?? "REPORTING_QUERY_FAILED",
+                    query.Message);
+            }
+
+            var payload = MapManagementAnalyticsOverview(query.Payload);
+            return Results.Ok(ApiResponse<GetManagementAnalyticsOverviewResponse>.Ok(
+                data: payload,
+                message: query.Message,
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
         // Bootstrap probe endpoints for validating auth pipeline outcomes with standard envelopes.
         v1.MapGet("/auth/bootstrap/authenticated", (
             HttpContext context,
@@ -1365,6 +1406,54 @@ public static class V1RouteGroupExtensions
             Outcome = auditLog.Outcome,
             OccurredAtUtc = auditLog.OccurredAtUtc,
             Details = auditLog.Details,
+        };
+    }
+
+    private static GetManagementAnalyticsOverviewResponse MapManagementAnalyticsOverview(QueriedManagementAnalyticsOverview overview)
+    {
+        return new GetManagementAnalyticsOverviewResponse
+        {
+            TotalRequestsInWindow = overview.TotalRequestsInWindow,
+            CompletedRequestsInWindow = overview.CompletedRequestsInWindow,
+            ActiveJobs = overview.ActiveJobs,
+            SensitiveActions24h = overview.SensitiveActions24h,
+            DeniedActions24h = overview.DeniedActions24h,
+            IntakeTrend = overview.IntakeTrend
+                .Select(x => new ManagementTrendPointResponse
+                {
+                    DateUtc = x.DateUtc,
+                    Value = x.Value,
+                })
+                .ToArray(),
+            CompletionTrend = overview.CompletionTrend
+                .Select(x => new ManagementTrendPointResponse
+                {
+                    DateUtc = x.DateUtc,
+                    Value = x.Value,
+                })
+                .ToArray(),
+            Anomalies = overview.Anomalies
+                .Select(x => new ManagementAnomalyIndicatorResponse
+                {
+                    Code = x.Code,
+                    Severity = x.Severity,
+                    Message = x.Message,
+                })
+                .ToArray(),
+            ActionDrilldown = overview.ActionDrilldown
+                .Select(x => new ManagementDrilldownItemResponse
+                {
+                    Key = x.Key,
+                    Count = x.Count,
+                })
+                .ToArray(),
+            OutcomeDrilldown = overview.OutcomeDrilldown
+                .Select(x => new ManagementDrilldownItemResponse
+                {
+                    Key = x.Key,
+                    Count = x.Count,
+                })
+                .ToArray(),
         };
     }
 

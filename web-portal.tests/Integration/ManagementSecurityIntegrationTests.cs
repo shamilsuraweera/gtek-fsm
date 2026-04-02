@@ -9,6 +9,7 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Responses;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +21,7 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
         this.Services.AddScoped<UiSecurityContext>();
         this.Services.AddScoped<IManagementWorkersApiClient>(_ => new FakeManagementWorkersApiClient());
         this.Services.AddScoped<IManagementSubscriptionsApiClient>(_ => new FakeManagementSubscriptionsApiClient());
+        this.Services.AddScoped<IManagementReportsApiClient>(_ => new FakeManagementReportsApiClient());
     }
 
     [Fact]
@@ -31,8 +33,8 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
         // Assert
         cut.WaitForAssertion(() =>
         {
-            var restrictedHint = cut.Markup.Contains("Forbidden in current tenant/role context.", StringComparison.Ordinal);
-            Assert.True(restrictedHint);
+            Assert.Contains("Anomaly Indicators", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("DENIED_ACTION_SPIKE", cut.Markup, StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(3));
     }
 
@@ -176,6 +178,48 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
             {
                 Items = Array.Empty<GetSubscriptionUserResponse>(),
                 Pagination = new PaginationMetadata { Total = 0, Limit = pageSize, Offset = 0 },
+            });
+        }
+    }
+
+    private sealed class FakeManagementReportsApiClient : IManagementReportsApiClient
+    {
+        public Task<GetManagementAnalyticsOverviewResponse> GetOverviewAsync(int? windowDays = null, int? trendBuckets = null, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(new GetManagementAnalyticsOverviewResponse
+            {
+                TotalRequestsInWindow = 22,
+                CompletedRequestsInWindow = 11,
+                ActiveJobs = 5,
+                SensitiveActions24h = 9,
+                DeniedActions24h = 3,
+                IntakeTrend =
+                [
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow.Date.AddDays(-1), Value = 3 },
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow.Date, Value = 4 },
+                ],
+                CompletionTrend =
+                [
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow.Date.AddDays(-1), Value = 2 },
+                    new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow.Date, Value = 1 },
+                ],
+                Anomalies =
+                [
+                    new ManagementAnomalyIndicatorResponse
+                    {
+                        Code = "DENIED_ACTION_SPIKE",
+                        Severity = "High",
+                        Message = "Denied actions increased.",
+                    },
+                ],
+                ActionDrilldown =
+                [
+                    new ManagementDrilldownItemResponse { Key = "CATEGORY_UPDATED", Count = 6 },
+                ],
+                OutcomeDrilldown =
+                [
+                    new ManagementDrilldownItemResponse { Key = "Success", Count = 6 },
+                ],
             });
         }
     }
