@@ -15,4 +15,11 @@ public sealed record QueriedServiceRequestDetail(
     Guid? ActiveJobId,
     Guid? AssignedWorkerUserId,
     string? ActiveJobStatus,
+    DateTime? ResponseDueAtUtc,
+    DateTime? AssignmentDueAtUtc,
+    DateTime? CompletionDueAtUtc,
+    string ResponseSlaStatus,
+    string AssignmentSlaStatus,
+    string CompletionSlaStatus,
+    DateTime? NextSlaDeadlineAtUtc,
     IReadOnlyList<QueriedTimelineItem> Timeline);

@@ -17,6 +17,7 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
     private readonly IUnitOfWork unitOfWork;
     private readonly IAuditLogWriter auditLogWriter;
     private readonly IOperationalUpdatePublisher operationalUpdatePublisher;
+    private readonly ServiceRequestSlaOptions slaOptions = new();
 
     public ServiceRequestAssignmentService(
         IServiceRequestRepository serviceRequestRepository,
@@ -104,6 +105,21 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
             var job = new Job(Guid.NewGuid(), request.TenantId, request.Id);
             job.AssignWorker(parsedWorkerId);
             request.LinkJob(job.Id);
+
+            var snapshot = ServiceRequestSlaCalculator.Compute(
+                request,
+                assignmentStatus: job.AssignmentStatus,
+                nowUtc: DateTime.UtcNow,
+                options: this.slaOptions);
+
+            request.ApplySlaSnapshot(
+                snapshot.ResponseDueAtUtc,
+                snapshot.AssignmentDueAtUtc,
+                snapshot.CompletionDueAtUtc,
+                snapshot.ResponseSlaState,
+                snapshot.AssignmentSlaState,
+                snapshot.CompletionSlaState,
+                snapshot.NextSlaDeadlineAtUtc);
 
             await this.jobRepository.AddAsync(job, cancellationToken);
             this.serviceRequestRepository.Update(request);
@@ -247,6 +263,21 @@ internal sealed class ServiceRequestAssignmentService : IServiceRequestAssignmen
             job.MarkCancelled();
             job.UnassignWorker();
             job.AssignWorker(parsedWorkerId);
+
+            var snapshot = ServiceRequestSlaCalculator.Compute(
+                request,
+                assignmentStatus: job.AssignmentStatus,
+                nowUtc: DateTime.UtcNow,
+                options: this.slaOptions);
+
+            request.ApplySlaSnapshot(
+                snapshot.ResponseDueAtUtc,
+                snapshot.AssignmentDueAtUtc,
+                snapshot.CompletionDueAtUtc,
+                snapshot.ResponseSlaState,
+                snapshot.AssignmentSlaState,
+                snapshot.CompletionSlaState,
+                snapshot.NextSlaDeadlineAtUtc);
 
             this.jobRepository.Update(job);
             this.serviceRequestRepository.Update(request);

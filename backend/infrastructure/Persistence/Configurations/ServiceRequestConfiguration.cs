@@ -39,6 +39,40 @@ public sealed class ServiceRequestConfiguration : IEntityTypeConfiguration<Servi
         builder.Property(x => x.ActiveJobId)
             .IsRequired(false);
 
+        builder.Property(x => x.ResponseDueAtUtc)
+            .HasColumnType("datetime2(3)")
+            .IsRequired(false);
+
+        builder.Property(x => x.AssignmentDueAtUtc)
+            .HasColumnType("datetime2(3)")
+            .IsRequired(false);
+
+        builder.Property(x => x.CompletionDueAtUtc)
+            .HasColumnType("datetime2(3)")
+            .IsRequired(false);
+
+        builder.Property(x => x.NextSlaDeadlineAtUtc)
+            .HasColumnType("datetime2(3)")
+            .IsRequired(false);
+
+        builder.Property(x => x.ResponseSlaState)
+            .HasConversion<byte>()
+            .HasColumnType("tinyint")
+            .HasDefaultValue(SlaState.NotApplicable)
+            .IsRequired();
+
+        builder.Property(x => x.AssignmentSlaState)
+            .HasConversion<byte>()
+            .HasColumnType("tinyint")
+            .HasDefaultValue(SlaState.NotApplicable)
+            .IsRequired();
+
+        builder.Property(x => x.CompletionSlaState)
+            .HasConversion<byte>()
+            .HasColumnType("tinyint")
+            .HasDefaultValue(SlaState.NotApplicable)
+            .IsRequired();
+
         builder.Property(x => x.CreatedAtUtc)
             .HasColumnType("datetime2(3)")
             .HasDefaultValueSql("GETUTCDATE()")

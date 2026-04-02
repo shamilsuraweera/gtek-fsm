@@ -64,6 +64,9 @@ public class QueryEndpointsIntegrationTests
         Assert.NotNull(envelope.Data);
         Assert.Single(envelope.Data!.Items);
         Assert.Equal("Request-A", envelope.Data.Items[0].Summary);
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.Items[0].ResponseSlaStatus));
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.Items[0].AssignmentSlaStatus));
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.Items[0].CompletionSlaStatus));
         Assert.Equal(1, envelope.Data.Pagination.Total);
     }
 
@@ -159,6 +162,9 @@ public class QueryEndpointsIntegrationTests
         Assert.Equal(request.Id.ToString(), envelope.Data!.RequestId);
         Assert.False(string.IsNullOrWhiteSpace(envelope.Data.RowVersion));
         Assert.Equal(job.Id.ToString(), envelope.Data.ActiveJobId);
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.ResponseSlaStatus));
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.AssignmentSlaStatus));
+        Assert.False(string.IsNullOrWhiteSpace(envelope.Data.CompletionSlaStatus));
         Assert.NotEmpty(envelope.Data.Timeline);
         Assert.All(envelope.Data.Timeline, x => Assert.False(string.IsNullOrWhiteSpace(x.EventType)));
     }

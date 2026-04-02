@@ -34,6 +34,20 @@ public sealed class ServiceRequest
 
     public Guid? ActiveJobId { get; private set; }
 
+    public DateTime? ResponseDueAtUtc { get; private set; }
+
+    public DateTime? AssignmentDueAtUtc { get; private set; }
+
+    public DateTime? CompletionDueAtUtc { get; private set; }
+
+    public SlaState ResponseSlaState { get; private set; }
+
+    public SlaState AssignmentSlaState { get; private set; }
+
+    public SlaState CompletionSlaState { get; private set; }
+
+    public DateTime? NextSlaDeadlineAtUtc { get; private set; }
+
     public DateTime CreatedAtUtc { get; internal set; }
 
     public DateTime UpdatedAtUtc { get; internal set; }
@@ -104,6 +118,24 @@ public sealed class ServiceRequest
     public void ClearDomainEvents()
     {
         this.domainEvents.Clear();
+    }
+
+    public void ApplySlaSnapshot(
+        DateTime? responseDueAtUtc,
+        DateTime? assignmentDueAtUtc,
+        DateTime? completionDueAtUtc,
+        SlaState responseSlaState,
+        SlaState assignmentSlaState,
+        SlaState completionSlaState,
+        DateTime? nextSlaDeadlineAtUtc)
+    {
+        this.ResponseDueAtUtc = responseDueAtUtc;
+        this.AssignmentDueAtUtc = assignmentDueAtUtc;
+        this.CompletionDueAtUtc = completionDueAtUtc;
+        this.ResponseSlaState = responseSlaState;
+        this.AssignmentSlaState = assignmentSlaState;
+        this.CompletionSlaState = completionSlaState;
+        this.NextSlaDeadlineAtUtc = nextSlaDeadlineAtUtc;
     }
 
     private void AddDomainEvent(IDomainEvent domainEvent)

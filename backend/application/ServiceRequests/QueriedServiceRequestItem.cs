@@ -18,6 +18,10 @@ namespace GTEK.FSM.Backend.Application.ServiceRequests;
 /// <param name="UpdatedAtUtc">The most recent update timestamp in UTC.</param>
 /// <param name="ActiveJobId">The active linked job identifier, when present.</param>
 /// <param name="AssignedWorkerUserId">The currently assigned worker identifier, when present.</param>
+/// <param name="ResponseSlaStatus">Current SLA state for response.</param>
+/// <param name="AssignmentSlaStatus">Current SLA state for assignment.</param>
+/// <param name="CompletionSlaStatus">Current SLA state for completion.</param>
+/// <param name="NextSlaDeadlineAtUtc">Nearest upcoming SLA deadline.</param>
 public sealed record QueriedServiceRequestItem(
     Guid RequestId,
     string Status,
@@ -27,4 +31,8 @@ public sealed record QueriedServiceRequestItem(
     DateTime CreatedAtUtc,
     DateTime UpdatedAtUtc,
     Guid? ActiveJobId,
-    Guid? AssignedWorkerUserId);
+    Guid? AssignedWorkerUserId,
+    string ResponseSlaStatus,
+    string AssignmentSlaStatus,
+    string CompletionSlaStatus,
+    DateTime? NextSlaDeadlineAtUtc);

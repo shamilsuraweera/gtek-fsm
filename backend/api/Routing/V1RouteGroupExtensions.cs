@@ -350,6 +350,10 @@ public static class V1RouteGroupExtensions
                         CreatedByRole = "Customer",
                         CreatedUtc = x.CreatedAtUtc,
                         UpdatedUtc = x.UpdatedAtUtc,
+                        ResponseSlaStatus = x.ResponseSlaStatus,
+                        AssignmentSlaStatus = x.AssignmentSlaStatus,
+                        CompletionSlaStatus = x.CompletionSlaStatus,
+                        NextSlaDeadlineUtc = x.NextSlaDeadlineAtUtc,
                     })
                     .ToArray(),
                 Pagination = new GTEK.FSM.Shared.Contracts.Api.Responses.PaginationMetadata
@@ -412,6 +416,13 @@ public static class V1RouteGroupExtensions
                 ActiveJobId = query.Payload.ActiveJobId?.ToString(),
                 AssignedWorkerUserId = query.Payload.AssignedWorkerUserId?.ToString(),
                 ActiveJobStatus = query.Payload.ActiveJobStatus,
+                ResponseDueAtUtc = query.Payload.ResponseDueAtUtc,
+                AssignmentDueAtUtc = query.Payload.AssignmentDueAtUtc,
+                CompletionDueAtUtc = query.Payload.CompletionDueAtUtc,
+                ResponseSlaStatus = query.Payload.ResponseSlaStatus,
+                AssignmentSlaStatus = query.Payload.AssignmentSlaStatus,
+                CompletionSlaStatus = query.Payload.CompletionSlaStatus,
+                NextSlaDeadlineAtUtc = query.Payload.NextSlaDeadlineAtUtc,
                 Timeline = query.Payload.Timeline
                     .Select(x => new DetailTimelineItemResponse
                     {

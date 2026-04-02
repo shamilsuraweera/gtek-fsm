@@ -14,6 +14,7 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
     private readonly IUnitOfWork unitOfWork;
     private readonly IAuditLogWriter auditLogWriter;
     private readonly IOperationalUpdatePublisher operationalUpdatePublisher;
+    private readonly ServiceRequestSlaOptions slaOptions = new();
 
     public ServiceRequestLifecycleService(
         IServiceRequestRepository serviceRequestRepository,
@@ -80,6 +81,21 @@ internal sealed class ServiceRequestLifecycleService : IServiceRequestLifecycleS
                 errorCode: "REQUEST_TRANSITION_INVALID",
                 statusCode: 400);
         }
+
+        var snapshot = ServiceRequestSlaCalculator.Compute(
+            request,
+            assignmentStatus: null,
+            nowUtc: DateTime.UtcNow,
+            options: this.slaOptions);
+
+        request.ApplySlaSnapshot(
+            snapshot.ResponseDueAtUtc,
+            snapshot.AssignmentDueAtUtc,
+            snapshot.CompletionDueAtUtc,
+            snapshot.ResponseSlaState,
+            snapshot.AssignmentSlaState,
+            snapshot.CompletionSlaState,
+            snapshot.NextSlaDeadlineAtUtc);
 
         this.serviceRequestRepository.Update(request);
         try
