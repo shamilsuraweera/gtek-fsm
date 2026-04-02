@@ -4,6 +4,8 @@
 // </copyright>
 //-----------------------------------------------------------------------
 
+using GTEK.FSM.Shared.Contracts.Vocabulary;
+
 namespace GTEK.FSM.WebPortal.Services.Security;
 
 /// <summary>
@@ -45,6 +47,32 @@ public sealed class UiSecurityContext
     }
 
     /// <summary>
+    /// Evaluates channel-consistent action access by role and tenant scope.
+    /// </summary>
+    /// <param name="tenantId">The tenant context tied to the action.</param>
+    /// <param name="allowedRoles">Roles that can perform the action.</param>
+    /// <returns>The canonical UX access state.</returns>
+    public AuthorizationUxAccessState GetActionAccessState(string tenantId, params string[] allowedRoles)
+    {
+        var roleAllowed = this.HasAnyRole(allowedRoles);
+        var tenantAllowed = this.CanAccessTenant(tenantId);
+        return AuthorizationUxPolicy.EvaluateActionAccess(roleAllowed, tenantAllowed);
+    }
+
+    /// <summary>
+    /// Returns canonical forbidden feedback for denied access decisions.
+    /// </summary>
+    /// <param name="tenantId">The tenant context tied to the action.</param>
+    /// <param name="allowedRoles">Roles that can perform the action.</param>
+    /// <returns>Shared feedback copy when access is denied; otherwise empty string.</returns>
+    public string GetForbiddenFeedback(string tenantId, params string[] allowedRoles)
+    {
+        var tenantAllowed = this.CanAccessTenant(tenantId);
+        var accessState = this.GetActionAccessState(tenantId, allowedRoles);
+        return AuthorizationUxPolicy.BuildForbiddenFeedback(accessState, tenantAllowed);
+    }
+
+    /// <summary>
     /// Determines whether the current role matches any allowed role.
     /// </summary>
     /// <param name="allowedRoles">The permitted roles for an action.</param>
@@ -75,5 +103,6 @@ public sealed class UiSecurityContext
             || this.AccessibleTenants.Contains(tenantId);
     }
 }
+
 
 

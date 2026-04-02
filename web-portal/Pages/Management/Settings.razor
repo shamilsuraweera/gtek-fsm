@@ -4,6 +4,7 @@
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
 @using GTEK.FSM.WebPortal.Services.Security
+@using GTEK.FSM.Shared.Contracts.Vocabulary
 
 @inject ResilientDataFetcher Fetcher
 @inject UiSecurityContext SecurityContext
@@ -29,7 +30,7 @@
 			<section class="governance-shell">
 				@if (!CanModifyGuardrails())
 				{
-					<p class="security-forbidden-message">Forbidden: only admin scope in active tenant context can change governance guardrails.</p>
+					<p class="security-forbidden-message">@AuthorizationUxPolicy.GuardrailAdminTenantMessage</p>
 				}
 
 				@if (!string.IsNullOrWhiteSpace(securityFeedback))
@@ -167,7 +168,9 @@
 
 		if (!CanModifyGuardrails())
 		{
-			securityFeedback = "Forbidden: you do not have permission to mutate guardrails.";
+			securityFeedback = SecurityContext.GetForbiddenFeedback(
+				SecurityContext.CurrentTenantId,
+				PortalRole.Admin);
 			return;
 		}
 
@@ -182,7 +185,7 @@
 
 	private bool CanModifyGuardrails()
 	{
-		return SecurityContext.HasAnyRole(PortalRole.Admin) && SecurityContext.CanAccessTenant(SecurityContext.CurrentTenantId);
+		return SecurityContext.GetActionAccessState(SecurityContext.CurrentTenantId, PortalRole.Admin) == AuthorizationUxAccessState.Allowed;
 	}
 
 	private static GovernanceData BuildSampleData()

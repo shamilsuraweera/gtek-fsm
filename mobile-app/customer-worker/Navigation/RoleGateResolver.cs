@@ -1,5 +1,7 @@
 namespace GTEK.FSM.MobileApp.Navigation;
 
+using GTEK.FSM.Shared.Contracts.Vocabulary;
+
 public enum MobileSectionVisibility
 {
     Both,
@@ -39,5 +41,17 @@ public static class RoleGateResolver
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return tokens.Any(token => string.Equals(token, expectedRole, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static AuthorizationUxAccessState EvaluateActionAccess(string rawRole, bool tenantAllowed, params string[] requiredRoles)
+    {
+        var roleAllowed = requiredRoles.Any(requiredRole => ContainsRole(rawRole, requiredRole));
+        return AuthorizationUxPolicy.EvaluateActionAccess(roleAllowed, tenantAllowed);
+    }
+
+    public static string BuildForbiddenFeedback(string rawRole, bool tenantAllowed, params string[] requiredRoles)
+    {
+        var accessState = EvaluateActionAccess(rawRole, tenantAllowed, requiredRoles);
+        return AuthorizationUxPolicy.BuildForbiddenFeedback(accessState, tenantAllowed);
     }
 }
