@@ -133,6 +133,54 @@ public sealed class OperationalDataQueryServiceTests
         Assert.Equal("Assigned", result.Detail.RequestStatus);
     }
 
+        [Fact]
+        public async Task GetRequestDetailAsync_ReturnsTimelineAndWorkerContext_WhenEnvelopeContainsDetail()
+        {
+                var handler = new StubHttpMessageHandler(request =>
+                {
+                        Assert.Equal(HttpMethod.Get, request.Method);
+                        Assert.Contains("/api/v1/requests/22222222-2222-2222-2222-222222222222", request.RequestUri?.ToString());
+
+                        var responseJson = """
+                        {
+                            "success": true,
+                            "data": {
+                                "requestId": "22222222-2222-2222-2222-222222222222",
+                                "status": "Assigned",
+                                "updatedAtUtc": "2026-04-02T12:15:00Z",
+                                "activeJobId": "11111111-1111-1111-1111-111111111111",
+                                "assignedWorkerUserId": "worker-44",
+                                "activeJobStatus": "Accepted",
+                                "timeline": [
+                                    {
+                                        "eventType": "JOB_ASSIGNED",
+                                        "message": "Job assignment status: Accepted.",
+                                        "occurredAtUtc": "2026-04-02T12:00:00Z",
+                                        "actorUserId": "worker-44"
+                                    }
+                                ]
+                            }
+                        }
+                        """;
+
+                        return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                        {
+                                Content = new StringContent(responseJson, Encoding.UTF8, "application/json"),
+                        });
+                });
+
+                var service = BuildService(handler, token: "jwt-token");
+
+                var result = await service.GetRequestDetailAsync("22222222-2222-2222-2222-222222222222");
+
+                Assert.True(result.IsSuccess);
+                Assert.Equal("11111111-1111-1111-1111-111111111111", result.Detail.ActiveJobId);
+                Assert.Equal("worker-44", result.Detail.AssignedWorkerUserId);
+                Assert.Equal("Accepted", result.Detail.ActiveJobStatus);
+                Assert.Single(result.Detail.Timeline);
+                Assert.Equal("JOB_ASSIGNED", result.Detail.Timeline[0].EventType);
+        }
+
     [Fact]
     public async Task TransitionRequestStatusAsync_ReturnsConflict_WhenApiReturns409()
     {

@@ -70,6 +70,11 @@
                                           <Label x:Name="SelectedRequestDescriptionLabel"
                                                     TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
                                           <Label x:Name="SelectedRequestMetaLabel" FontSize="12" />
+                                          <Label x:Name="SelectedRequestLifecycleLabel" FontSize="12" FontAttributes="Bold" />
+                                          <Label x:Name="SelectedRequestWorkerLabel" FontSize="12" />
+                                          <Label x:Name="SelectedRequestJobLabel" FontSize="12" />
+                                          <Label x:Name="SelectedRequestUpdatedLabel" FontSize="12"
+                                                 TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
 
                                             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                                                   <Button Text="Escalate"
@@ -90,6 +95,9 @@
 
                                           <Label Text="Status Tracking" FontSize="15" FontAttributes="Bold" Margin="0,6,0,0" />
                                           <VerticalStackLayout x:Name="StatusTimelineLayout" Spacing="6" />
+
+                                          <Label Text="Activity Timeline" FontSize="15" FontAttributes="Bold" Margin="0,8,0,0" />
+                                          <VerticalStackLayout x:Name="RequestTimelineLayout" Spacing="6" />
                                    </VerticalStackLayout>
                             </Border>
                      </VerticalStackLayout>

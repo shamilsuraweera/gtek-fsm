@@ -56,7 +56,12 @@ public interface IWorkerExecutionService
         CancellationToken cancellationToken = default);
 }
 
-public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService, ICategoryQueryService, IServiceRequestCreationService, IWorkerExecutionService
+public interface IRequestDetailQueryService
+{
+    Task<RequestDetailQueryResult> GetRequestDetailAsync(string requestId, CancellationToken cancellationToken = default);
+}
+
+public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService, ICategoryQueryService, IServiceRequestCreationService, IWorkerExecutionService, IRequestDetailQueryService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {

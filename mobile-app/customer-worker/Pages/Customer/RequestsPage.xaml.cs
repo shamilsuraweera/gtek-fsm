@@ -12,6 +12,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
     private readonly ObservableCollection<CustomerRequestViewModel> _requests;
     private readonly ObservableCollection<RequestCategoryViewModel> _categories;
     private readonly IRequestQueryService _requestQueryService;
+    private readonly IRequestDetailQueryService _requestDetailQueryService;
     private readonly ICategoryQueryService _categoryQueryService;
     private readonly IServiceRequestCreationService _requestCreationService;
     private readonly IMobileOperationalRealtimeClient? _realtimeClient;
@@ -61,6 +62,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             CreateRequestFeedbackLabel.Text = string.Empty;
 
         _requestQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IRequestQueryService>();
+        _requestDetailQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IRequestDetailQueryService>();
             _categoryQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<ICategoryQueryService>();
             _requestCreationService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IServiceRequestCreationService>();
         _realtimeClient = Application.Current?.Handler?.MauiContext?.Services?.GetService<IMobileOperationalRealtimeClient>();
@@ -93,6 +95,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         if (e.CurrentSelection?.FirstOrDefault() is CustomerRequestViewModel request)
         {
             RenderRequestDetail(request);
+            _ = LoadSelectedRequestDetailAsync(request);
         }
     }
 
@@ -102,9 +105,14 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         SelectedRequestTitleLabel.Text = request.Title;
         SelectedRequestDescriptionLabel.Text = request.Summary;
         SelectedRequestMetaLabel.Text = $"{request.Id} • {request.EtaText}";
+        SelectedRequestLifecycleLabel.Text = $"Current lifecycle: {request.StatusLabel}";
+        SelectedRequestWorkerLabel.Text = "Assigned worker: checking detail...";
+        SelectedRequestJobLabel.Text = "Active job: checking detail...";
+        SelectedRequestUpdatedLabel.Text = string.Empty;
 
         var stageLabels = new[] { "Submitted", "Scheduled", "In Progress", "Completed" };
         StatusTimelineLayout.Children.Clear();
+        RequestTimelineLayout.Children.Clear();
 
         for (var index = 0; index < stageLabels.Length; index++)
         {
@@ -122,6 +130,13 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
                 FontSize = 14,
             });
         }
+
+        RequestTimelineLayout.Children.Add(new Label
+        {
+            Text = "Loading activity timeline...",
+            FontSize = 12,
+            TextColor = Color.FromArgb("#6B7280"),
+        });
     }
 
     private async void OnEscalateRequestClicked(object sender, EventArgs e)
@@ -189,6 +204,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         {
             RequestsCollectionView.SelectedItem = _requests[0];
             RenderRequestDetail(_requests[0]);
+            _ = LoadSelectedRequestDetailAsync(_requests[0]);
             TrySelectPendingRequest();
         }
     }
@@ -303,11 +319,13 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             _requests.Insert(0, fallback);
             RequestsCollectionView.SelectedItem = fallback;
             RenderRequestDetail(fallback);
+            _ = LoadSelectedRequestDetailAsync(fallback);
             return;
         }
 
         RequestsCollectionView.SelectedItem = existing;
         RenderRequestDetail(existing);
+        _ = LoadSelectedRequestDetailAsync(existing);
     }
 
     private static string BuildTitle(string summary, string requestId)
@@ -342,7 +360,80 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
 
         RequestsCollectionView.SelectedItem = target;
         RenderRequestDetail(target);
+        _ = LoadSelectedRequestDetailAsync(target);
         _pendingRequestId = string.Empty;
+    }
+
+    private async Task LoadSelectedRequestDetailAsync(CustomerRequestViewModel request)
+    {
+        if (_requestDetailQueryService is null || string.IsNullOrWhiteSpace(request.Id))
+        {
+            return;
+        }
+
+        var detail = await _requestDetailQueryService.GetRequestDetailAsync(request.Id);
+        if (!detail.IsSuccess)
+        {
+            SelectedRequestWorkerLabel.Text = $"Assigned worker: unavailable ({detail.Message})";
+            SelectedRequestJobLabel.Text = "Active job: unavailable";
+            SelectedRequestUpdatedLabel.Text = string.Empty;
+            RenderTimeline(Array.Empty<DetailTimelineItemResponse>());
+            return;
+        }
+
+        if (_selectedRequest is null || !string.Equals(_selectedRequest.Id, request.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var resolvedStatus = detail.Detail.Status ?? request.StatusLabel;
+        var syncedRequest = request with
+        {
+            StatusLabel = resolvedStatus,
+            StatusColor = ResolveStageColor(resolvedStatus),
+            CurrentStage = ResolveStageIndex(resolvedStatus),
+            EtaText = $"Updated {detail.Detail.UpdatedAtUtc:g}",
+        };
+
+        ReplaceRequest(request, syncedRequest);
+
+        SelectedRequestLifecycleLabel.Text = $"Current lifecycle: {resolvedStatus}";
+        SelectedRequestWorkerLabel.Text = string.IsNullOrWhiteSpace(detail.Detail.AssignedWorkerUserId)
+            ? "Assigned worker: Not assigned yet"
+            : $"Assigned worker ID: {detail.Detail.AssignedWorkerUserId}";
+        SelectedRequestJobLabel.Text = string.IsNullOrWhiteSpace(detail.Detail.ActiveJobId)
+            ? "Active job: No active job yet"
+            : $"Active job {detail.Detail.ActiveJobId} • Status: {detail.Detail.ActiveJobStatus ?? "Unknown"}";
+        SelectedRequestUpdatedLabel.Text = $"Last updated {detail.Detail.UpdatedAtUtc:g}";
+
+        RenderTimeline(detail.Detail.Timeline);
+    }
+
+    private void RenderTimeline(IReadOnlyList<DetailTimelineItemResponse> timeline)
+    {
+        RequestTimelineLayout.Children.Clear();
+
+        if (timeline.Count == 0)
+        {
+            RequestTimelineLayout.Children.Add(new Label
+            {
+                Text = "No additional activity yet.",
+                FontSize = 12,
+                TextColor = Color.FromArgb("#6B7280"),
+            });
+            return;
+        }
+
+        foreach (var item in timeline.OrderByDescending(entry => entry.OccurredAtUtc))
+        {
+            var actorText = string.IsNullOrWhiteSpace(item.ActorUserId) ? string.Empty : $" • Actor {item.ActorUserId}";
+            RequestTimelineLayout.Children.Add(new Label
+            {
+                Text = $"{item.OccurredAtUtc:g} • {item.EventType ?? "UPDATE"} • {item.Message ?? "Activity recorded"}{actorText}",
+                FontSize = 12,
+                LineBreakMode = LineBreakMode.WordWrap,
+            });
+        }
     }
 
     private static int ResolveStageIndex(string stage)
@@ -375,6 +466,11 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             };
 
             ReplaceRequest(target, updated);
+
+            if (_selectedRequest is not null && string.Equals(_selectedRequest.Id, updated.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                _ = LoadSelectedRequestDetailAsync(updated);
+            }
         });
 
         return Task.CompletedTask;

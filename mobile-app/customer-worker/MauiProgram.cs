@@ -79,6 +79,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<IJobQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
 		builder.Services.AddSingleton<ICategoryQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
 		builder.Services.AddSingleton<IServiceRequestCreationService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+		builder.Services.AddSingleton<IRequestDetailQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
 		builder.Services.AddSingleton<IWorkerExecutionService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
 		builder.Services.AddSingleton<IMobileOperationalRealtimeClient, SignalRMobileOperationalRealtimeClient>();
 		builder.Services.AddSingleton<ILocalNotificationPublisher, InAppLocalNotificationPublisher>();
