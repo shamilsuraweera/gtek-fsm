@@ -16,6 +16,7 @@ builder.Services.Configure<PortalRealtimeOptions>(builder.Configuration.GetSecti
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
 builder.Services.AddScoped<ThemeState>();
 builder.Services.AddScoped<ResilientDataFetcher>();
+builder.Services.AddScoped<IQueueSavedViewService, QueueSavedViewService>();
 builder.Services.AddScoped<UiSecurityContext>();
 builder.Services.AddScoped<IRequestWorkspaceApiClient, RequestWorkspaceApiClient>();
 builder.Services.AddScoped<IManagementWorkersApiClient, ManagementWorkersApiClient>();

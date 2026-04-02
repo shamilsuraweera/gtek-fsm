@@ -4,9 +4,12 @@
 @using GTEK.FSM.WebPortal.Components.Operations
 @using GTEK.FSM.WebPortal.Models
 @using GTEK.FSM.WebPortal.Services
+@using GTEK.FSM.WebPortal.Services.Security
 @inject NavigationManager Navigation
 
 @inject ResilientDataFetcher Fetcher
+@inject IQueueSavedViewService QueueSavedViewService
+@inject UiSecurityContext SecurityContext
 
 <PageTitle>Customer Care Requests</PageTitle>
 
@@ -23,10 +26,37 @@
 		AllowStaleRender="true"
 		OnRetry="@HandleRetry"
 		OnDismiss="@HandleDismiss">
+			<section class="saved-views-panel">
+				<h2>Saved Views</h2>
+				<div class="saved-views-create">
+					<input placeholder="View name" @bind="NewSavedViewName" />
+					<button @onclick="SaveCurrentView" disabled="@(string.IsNullOrWhiteSpace(NewSavedViewName) || ActiveFilter.IsDefault)">Save Current Filters</button>
+				</div>
+
+				@if (SavedViews.Count == 0)
+				{
+					<p>No saved views for this tenant and role.</p>
+				}
+				else
+				{
+					<div class="saved-views-list">
+						@foreach (var view in SavedViews)
+						{
+							<div class="saved-view-chip">
+								<button @onclick="() => ApplySavedView(view.Name)">@view.Name</button>
+								<button @onclick="() => DeleteSavedView(view.Name)" title="Delete view">x</button>
+							</div>
+						}
+					</div>
+				}
+			</section>
+
 		<OperationalQueueListWithControls
 			Title="Customer Care Request Queue"
 			StickyContext="Live queue with triage controls, status signals, and workload prioritization"
 			Items="@(fetchState.Data ?? [])"
+				AppliedView="@ActiveFilter"
+				OnFilterChanged="@HandleFilterChanged"
 			OnActionTriggered="@HandleTriageAction" />
 
 		<OperationsBoard
@@ -39,9 +69,13 @@
 @code {
 	private ResilienceErrorBoundary? errorBoundary;
 	private FetchResult<List<OperationalQueueItem>> fetchState = new();
+	private QueueFilterState ActiveFilter { get; set; } = new();
+	private List<QueueSavedView> SavedViews { get; set; } = [];
+	private string NewSavedViewName { get; set; } = string.Empty;
 
 	protected override async Task OnInitializedAsync()
 	{
+		LoadSavedViews();
 		await FetchQueueData();
 	}
 
@@ -74,6 +108,43 @@
 	private void HandleDismiss()
 	{
 		fetchState.State = FetchState.Idle;
+	}
+
+	private Task HandleFilterChanged(QueueFilterState state)
+	{
+		ActiveFilter = state.Clone();
+		return Task.CompletedTask;
+	}
+
+	private void SaveCurrentView()
+	{
+		QueueSavedViewService.SaveView(SecurityContext.CurrentTenantId, SecurityContext.CurrentRole, NewSavedViewName, ActiveFilter);
+		NewSavedViewName = string.Empty;
+		LoadSavedViews();
+	}
+
+	private void ApplySavedView(string name)
+	{
+		var match = SavedViews.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+		if (match is null)
+		{
+			return;
+		}
+
+		ActiveFilter = match.FilterState.Clone();
+	}
+
+	private void DeleteSavedView(string name)
+	{
+		QueueSavedViewService.DeleteView(SecurityContext.CurrentTenantId, SecurityContext.CurrentRole, name);
+		LoadSavedViews();
+	}
+
+	private void LoadSavedViews()
+	{
+		SavedViews = QueueSavedViewService
+			.GetViews(SecurityContext.CurrentTenantId, SecurityContext.CurrentRole)
+			.ToList();
 	}
 
 	private async Task HandleTriageAction((OperationalQueueItem item, TriageAction action) args)
@@ -205,3 +276,35 @@
 		};
 	}
 }
+
+<style>
+	.saved-views-panel {
+		border: 1px solid #d8dde6;
+		border-radius: 8px;
+		padding: 0.75rem;
+		margin-bottom: 1rem;
+		background: #ffffff;
+	}
+
+	.saved-views-create {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		margin-bottom: 0.5rem;
+	}
+
+	.saved-views-list {
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+	}
+
+	.saved-view-chip {
+		display: inline-flex;
+		gap: 0.25rem;
+		align-items: center;
+		padding: 0.2rem;
+		border: 1px solid #d0d5dd;
+		border-radius: 6px;
+	}
+</style>
