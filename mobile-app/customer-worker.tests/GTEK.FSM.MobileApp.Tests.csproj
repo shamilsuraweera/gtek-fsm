@@ -24,15 +24,22 @@
 
   <ItemGroup>
     <ProjectReference Include="../../shared/contracts/GTEK.FSM.Shared.Contracts.csproj" />
+    <Compile Include="../customer-worker/Services/Api/OperationalDataQueryService.cs" Link="Api/OperationalDataQueryService.cs" />
+    <Compile Include="../customer-worker/Services/Diagnostics/MobileDiagnosticsLogger.cs" Link="Diagnostics/MobileDiagnosticsLogger.cs" />
+    <Compile Include="../customer-worker/Services/Notifications/MobilePushNotificationService.cs" Link="Notifications/MobilePushNotificationService.cs" />
     <Compile Include="../customer-worker/Services/Realtime/IMobileOperationalRealtimeClient.cs" Link="Realtime/IMobileOperationalRealtimeClient.cs" />
     <Compile Include="../customer-worker/Services/Realtime/MobileOperationalRealtimeConnectionState.cs" Link="Realtime/MobileOperationalRealtimeConnectionState.cs" />
     <Compile Include="../customer-worker/Services/Realtime/MobileOperationalRealtimeMapper.cs" Link="Realtime/MobileOperationalRealtimeMapper.cs" />
     <Compile Include="../customer-worker/Services/Identity/IIdentityTokenProvider.cs" Link="Identity/IIdentityTokenProvider.cs" />
     <Compile Include="../customer-worker/Services/Identity/JwtTenantContextInitializer.cs" Link="Identity/JwtTenantContextInitializer.cs" />
+    <Compile Include="../customer-worker/State/MobileDiagnosticsState.cs" Link="State/MobileDiagnosticsState.cs" />
+    <Compile Include="../customer-worker/State/MobileNotificationInboxState.cs" Link="State/MobileNotificationInboxState.cs" />
     <Compile Include="../customer-worker/State/SessionContextState.cs" Link="State/SessionContextState.cs" />
     <Compile Include="../customer-worker/State/TenantContextState.cs" Link="State/TenantContextState.cs" />
     <Compile Include="../customer-worker/Navigation/RoleGateResolver.cs" Link="Navigation/RoleGateResolver.cs" />
     <Compile Include="../customer-worker/Services/Security/JwtTokenInspector.cs" Link="Security/JwtTokenInspector.cs" />
+    <Compile Include="../customer-worker/Workflows/CustomerRequestJourney.cs" Link="Workflows/CustomerRequestJourney.cs" />
+    <Compile Include="../customer-worker/Workflows/WorkerJobJourney.cs" Link="Workflows/WorkerJobJourney.cs" />
   </ItemGroup>
 
 </Project>

@@ -44,29 +44,31 @@
 
                                           <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                                                  <Button x:Name="AcceptAssignmentButton" Text="Accept Assignment" Clicked="OnAcceptAssignmentClicked" />
-                                                 <Button Grid.Column="1" Text="Open Map" Clicked="OnOpenMapClicked" />
+                                                 <Button Grid.Column="1" Text="Refresh Detail" Clicked="OnRefreshDetailClicked" />
                                           </Grid>
 
                                             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                                                  <Button Text="Start Travel"
+                                                  <Button Text="Start Work"
                                                          FontSize="12"
                                                          Padding="8,6"
-                                                         Clicked="OnStartTravelClicked" />
+                                                         Clicked="OnStartWorkClicked" />
                                                   <Button Grid.Column="1"
-                                                         Text="Mark On-Site"
+                                                         Text="Place On Hold"
                                                          FontSize="12"
                                                          Padding="8,6"
-                                                         Clicked="OnMarkOnSiteClicked" />
+                                                         Clicked="OnPlaceOnHoldClicked" />
                                                   <Button Grid.Column="2"
                                                          Text="Complete"
                                                          FontSize="12"
                                                          Padding="8,6"
-                                                         Clicked="OnCompleteJobClicked" />
+                                                         Clicked="OnCompleteRequestClicked" />
                                             </Grid>
 
+                                          <Button Text="Resume Work" FontSize="12" Padding="8,6" Clicked="OnResumeWorkClicked" />
+
                                           <Label Text="Status Update" FontSize="15" FontAttributes="Bold" Margin="0,4,0,0" />
-                                          <Picker x:Name="StatusPicker" Title="Select new status" />
-                                          <Button Text="Publish Status" Clicked="OnPublishStatusClicked" />
+                                          <Picker x:Name="StatusPicker" Title="Select request status" />
+                                          <Button Text="Publish Request Status" Clicked="OnPublishStatusClicked" />
                                           <Label x:Name="StatusResultLabel" FontSize="12" TextColor="{AppThemeBinding Light=#166534, Dark=#86EFAC}" />
                                    </VerticalStackLayout>
                             </Border>

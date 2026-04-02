@@ -4,6 +4,7 @@ using GTEK.FSM.MobileApp.Configuration;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
+using GTEK.FSM.MobileApp.Services.Notifications;
 using GTEK.FSM.MobileApp.Services.Realtime;
 using GTEK.FSM.MobileApp.Services.Security;
 using GTEK.FSM.MobileApp.State;
@@ -27,6 +28,7 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ThemePreferenceState>();
 		builder.Services.AddSingleton<ConnectivityRecoveryState>();
 		builder.Services.AddSingleton<MobileDiagnosticsState>();
+		builder.Services.AddSingleton<MobileNotificationInboxState>();
 
 		// Environment-aware API configuration
 		builder.Services.AddSingleton<ApiEndpointConfiguration>();
@@ -75,7 +77,14 @@ public static class MauiProgram
 		});
 		builder.Services.AddSingleton<IRequestQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
 		builder.Services.AddSingleton<IJobQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+		builder.Services.AddSingleton<ICategoryQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+		builder.Services.AddSingleton<IServiceRequestCreationService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+		builder.Services.AddSingleton<IRequestDetailQueryService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
+		builder.Services.AddSingleton<IWorkerExecutionService>(serviceProvider => serviceProvider.GetRequiredService<OperationalDataQueryService>());
 		builder.Services.AddSingleton<IMobileOperationalRealtimeClient, SignalRMobileOperationalRealtimeClient>();
+		builder.Services.AddSingleton<ILocalNotificationPublisher, InAppLocalNotificationPublisher>();
+		builder.Services.AddSingleton<IMobileNotificationDeepLinkNavigator, ShellNotificationDeepLinkNavigator>();
+		builder.Services.AddSingleton<IMobilePushNotificationOrchestrator, MobilePushNotificationOrchestrator>();
 
 		builder.Services.AddSingleton<IConnectivityRecoveryService, ConnectivityRecoveryService>();
 

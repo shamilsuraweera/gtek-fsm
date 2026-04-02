@@ -11,6 +11,34 @@
 
               <ScrollView Grid.Row="2">
                      <VerticalStackLayout Spacing="12">
+                            <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                                   <VerticalStackLayout Spacing="8">
+                                          <Label Text="Create New Request" FontSize="18" FontAttributes="Bold" />
+                                          <Label Text="Choose a category and describe the issue so dispatch can route it quickly."
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
+
+                                          <Label Text="Category" FontAttributes="Bold" FontSize="13" />
+                                          <Picker x:Name="CategoryPicker"
+                                                  Title="Select category"
+                                                  ItemDisplayBinding="{Binding Name}" />
+
+                                          <Label Text="Details" FontAttributes="Bold" FontSize="13" />
+                                          <Editor x:Name="RequestDetailsEditor"
+                                                  Placeholder="Describe the issue in at least 10 characters"
+                                                  AutoSize="TextChanges"
+                                                  MaxLength="150"
+                                                  HeightRequest="100" />
+
+                                          <Label x:Name="CreateRequestFeedbackLabel"
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light=#B42318, Dark=#FCA5A5}" />
+
+                                          <Button Text="Submit Request"
+                                                  Clicked="OnSubmitRequestClicked" />
+                                   </VerticalStackLayout>
+                            </Border>
+
                             <Border StrokeShape="RoundRectangle 12" Padding="10" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
                                    <CollectionView x:Name="RequestsCollectionView"
                                                                SelectionMode="Single"
@@ -42,6 +70,11 @@
                                           <Label x:Name="SelectedRequestDescriptionLabel"
                                                     TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
                                           <Label x:Name="SelectedRequestMetaLabel" FontSize="12" />
+                                          <Label x:Name="SelectedRequestLifecycleLabel" FontSize="12" FontAttributes="Bold" />
+                                          <Label x:Name="SelectedRequestWorkerLabel" FontSize="12" />
+                                          <Label x:Name="SelectedRequestJobLabel" FontSize="12" />
+                                          <Label x:Name="SelectedRequestUpdatedLabel" FontSize="12"
+                                                 TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
 
                                             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                                                   <Button Text="Escalate"
@@ -62,6 +95,9 @@
 
                                           <Label Text="Status Tracking" FontSize="15" FontAttributes="Bold" Margin="0,6,0,0" />
                                           <VerticalStackLayout x:Name="StatusTimelineLayout" Spacing="6" />
+
+                                          <Label Text="Activity Timeline" FontSize="15" FontAttributes="Bold" Margin="0,8,0,0" />
+                                          <VerticalStackLayout x:Name="RequestTimelineLayout" Spacing="6" />
                                    </VerticalStackLayout>
                             </Border>
                      </VerticalStackLayout>
