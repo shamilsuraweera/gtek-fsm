@@ -359,6 +359,15 @@ MAUI run command not found (`dotnet-maui does not exist`):
 dotnet build -t:Run -f net10.0-android -c Debug mobile-app/customer-worker/GTEK.FSM.MobileApp.csproj
 ```
 
+Android install blocked (`INSTALL_FAILED_USER_RESTRICTED`):
+
+```bash
+adb uninstall com.companyname.gtek.fsm.mobileapp
+./deploy/scripts/run-mobile-app.sh --run
+```
+
+Also ensure the device/emulator is unlocked, confirm any on-device install prompt, and enable USB debugging/install-via-USB in Developer Options.
+
 ## Additional Guides
 
 - `LOCAL_SETUP_GUIDE.md`

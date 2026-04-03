@@ -11,6 +11,14 @@ public sealed class WorkerProfile
     private const int MaxSkillCount = 20;
     private const int MaxSkillLength = 40;
 
+    // Required by EF Core for materialization — do not use in application code.
+    private WorkerProfile()
+    {
+        this.WorkerCode = string.Empty;
+        this.DisplayName = string.Empty;
+        this.SkillTagsSerialized = string.Empty;
+    }
+
     public WorkerProfile(
         Guid id,
         Guid tenantId,
@@ -36,9 +44,9 @@ public sealed class WorkerProfile
         this.SetBaseLocation(baseLatitude, baseLongitude);
     }
 
-    public Guid Id { get; }
+    public Guid Id { get; private set; }
 
-    public Guid TenantId { get; }
+    public Guid TenantId { get; private set; }
 
     public string WorkerCode { get; private set; }
 

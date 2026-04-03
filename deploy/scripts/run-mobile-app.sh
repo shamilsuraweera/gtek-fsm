@@ -257,23 +257,61 @@ start_backend_if_requested() {
 run_maui_target() {
     local target_framework="$1"
     local target_device="${2:-}"
+    local run_log=""
+
+    run_log="$(mktemp -t gtek-mobile-run.XXXXXX.log)"
 
     if dotnet maui --help >/dev/null 2>&1; then
         if [[ -n "$target_device" ]]; then
-            dotnet maui run -f "$target_framework" -c Debug --device "$target_device"
+            if dotnet maui run -f "$target_framework" -c Debug --device "$target_device" -p:EmbedAssembliesIntoApk=true 2>&1 | tee "$run_log"; then
+                rm -f "$run_log"
+                return 0
+            fi
         else
-            dotnet maui run -f "$target_framework" -c Debug
+            if dotnet maui run -f "$target_framework" -c Debug -p:EmbedAssembliesIntoApk=true 2>&1 | tee "$run_log"; then
+                rm -f "$run_log"
+                return 0
+            fi
         fi
-        return 0
+    else
+        # Newer SDK installations may not expose the `dotnet maui` verb.
+        # `dotnet build -t:Run` is the compatible CLI fallback.
+        if [[ -n "$target_device" ]]; then
+            export ANDROID_SERIAL="$target_device"
+        fi
+
+        if dotnet build -t:Run -f "$target_framework" -c Debug -p:EmbedAssembliesIntoApk=true 2>&1 | tee "$run_log"; then
+            rm -f "$run_log"
+            return 0
+        fi
     fi
 
-    # Newer SDK installations may not expose the `dotnet maui` verb.
-    # `dotnet build -t:Run` is the compatible CLI fallback.
-    if [[ -n "$target_device" ]]; then
-        export ANDROID_SERIAL="$target_device"
+    if grep -q "INSTALL_FAILED_USER_RESTRICTED" "$run_log"; then
+        echo ""
+        echo "❌ Android installation was blocked by device policy/user confirmation (INSTALL_FAILED_USER_RESTRICTED)."
+        echo "   Checklist:"
+        echo "   1) Keep device unlocked and screen on during install."
+        echo "   2) Accept any on-device install/security confirmation prompts."
+        echo "   3) In Developer Options, enable USB debugging and install-via-USB (if available)."
+        echo "   4) If policy prompts persist, uninstall existing app then retry:"
+        echo "      adb uninstall com.companyname.gtek.fsm.mobileapp"
+        echo ""
     fi
 
-    dotnet build -t:Run -f "$target_framework" -c Debug
+    rm -f "$run_log"
+    return 1
+}
+
+recover_stale_device_install() {
+    local target_device="$1"
+
+    if [[ -z "$target_device" ]]; then
+        return 1
+    fi
+
+    echo "🛠️  Recovery: removing stale app install from '$target_device'..."
+    adb -s "$target_device" uninstall com.companyname.gtek.fsm.mobileapp >/dev/null 2>&1 || true
+    return 0
 }
 
 echo "=========================================="
@@ -324,7 +362,15 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
 
         if [[ -n "$TARGET_DEVICE" ]]; then
             echo "🚀 Running app on device/emulator '$TARGET_DEVICE'..."
-            run_maui_target net10.0-android "$TARGET_DEVICE"
+            if ! run_maui_target net10.0-android "$TARGET_DEVICE"; then
+                if [[ "$RECOVER_ON_FAILURE" == "1" ]]; then
+                    recover_stale_device_install "$TARGET_DEVICE"
+                    echo "🔁 Retrying deployment after recovery..."
+                    run_maui_target net10.0-android "$TARGET_DEVICE"
+                else
+                    exit 1
+                fi
+            fi
         else
             echo "🚀 Running app on default Android target..."
             run_maui_target net10.0-android
