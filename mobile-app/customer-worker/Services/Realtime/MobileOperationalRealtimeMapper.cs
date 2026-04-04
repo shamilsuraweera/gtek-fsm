@@ -34,11 +34,11 @@ public static class MobileOperationalRealtimeMapper
         return normalized switch
         {
             nameof(RequestStage.Completed) => Color.FromArgb("#166534"),
-            nameof(RequestStage.Cancelled) => Color.FromArgb("#6B7280"),
-            nameof(RequestStage.Assigned) => Color.FromArgb("#0F6ABD"),
-            nameof(RequestStage.InProgress) => Color.FromArgb("#0F6ABD"),
-            nameof(RequestStage.OnHold) => Color.FromArgb("#B45309"),
-            _ => Color.FromArgb("#6B7280"),
+            nameof(RequestStage.Cancelled) => Color.FromArgb("#6F7E8D"),
+            nameof(RequestStage.Assigned) => Color.FromArgb("#F38808"),
+            nameof(RequestStage.InProgress) => Color.FromArgb("#F38808"),
+            nameof(RequestStage.OnHold) => Color.FromArgb("#D97306"),
+            _ => Color.FromArgb("#6F7E8D"),
         };
     }
 
@@ -48,11 +48,11 @@ public static class MobileOperationalRealtimeMapper
         return normalized switch
         {
             "Completed" => Color.FromArgb("#166534"),
-            "In Progress" => Color.FromArgb("#0F6ABD"),
-            "On Site" => Color.FromArgb("#0F6ABD"),
-            "On Route" => Color.FromArgb("#B45309"),
+            "In Progress" => Color.FromArgb("#F38808"),
+            "On Site" => Color.FromArgb("#F38808"),
+            "On Route" => Color.FromArgb("#D97306"),
             "Accepted" => Color.FromArgb("#166534"),
-            _ => Color.FromArgb("#6B7280"),
+            _ => Color.FromArgb("#6F7E8D"),
         };
     }
 

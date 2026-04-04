@@ -4,12 +4,12 @@
              x:Class="GTEK.FSM.MobileApp.Pages.Customer.ProfilePage"
              Title="Profile">
        <ScrollView>
-              <VerticalStackLayout Padding="16" Spacing="12">
-                     <Label Text="Profile" FontSize="24" FontAttributes="Bold" />
+              <VerticalStackLayout Padding="20,18,20,24" Spacing="12">
+                     <Label Text="Profile" FontSize="28" FontAttributes="Bold" />
                      <Label Text="Keep your contact details updated for dispatch and support communication."
-                               TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
+                               TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
 
-                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                     <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                             <VerticalStackLayout Spacing="10">
                                    <Label Text="Full Name" FontAttributes="Bold" FontSize="12" />
                                    <Entry x:Name="FullNameEntry" Placeholder="Enter full name" />

@@ -3,22 +3,22 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="GTEK.FSM.MobileApp.Pages.Worker.JobsPage"
              Title="Jobs">
-       <Grid Padding="16" RowDefinitions="Auto,Auto,*" RowSpacing="12">
-              <Label Text="Jobs Workspace" FontSize="24" FontAttributes="Bold" />
+       <Grid Padding="20,18,20,24" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+              <Label Text="Jobs Workspace" FontSize="28" FontAttributes="Bold" />
               <Label Grid.Row="1"
                         Text="Accept assignments, inspect job details, and publish field status updates."
-                        TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
+                        TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
 
               <ScrollView Grid.Row="2">
                      <VerticalStackLayout Spacing="12">
-                            <Border StrokeShape="RoundRectangle 12" Padding="10" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <Border StrokeShape="RoundRectangle 18" Padding="12" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                                    <CollectionView x:Name="JobsCollectionView"
                                                                SelectionMode="Single"
                                                                SelectionChanged="OnJobSelectionChanged"
                                                                HeightRequest="240">
                                           <CollectionView.ItemTemplate>
                                                  <DataTemplate>
-                                                        <Border StrokeShape="RoundRectangle 10" Padding="10" Margin="0,0,0,8" BackgroundColor="{AppThemeBinding Light=#F8FAFC, Dark=#111827}">
+                                                        <Border StrokeShape="RoundRectangle 14" Padding="12" Margin="0,0,0,8" BackgroundColor="{AppThemeBinding Light=#FFF9F2, Dark=#2F4A67}">
                                                                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
                                                                       <Label Text="{Binding Title}" FontAttributes="Bold" />
                                                                       <Label Grid.Column="1"
@@ -35,11 +35,11 @@
                                    </CollectionView>
                             </Border>
 
-                            <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                                    <VerticalStackLayout Spacing="8">
                                           <Label Text="Job Detail" FontSize="18" FontAttributes="Bold" />
                                           <Label x:Name="SelectedJobTitleLabel" FontSize="16" FontAttributes="Bold" />
-                                          <Label x:Name="SelectedJobDescriptionLabel" TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
+                                          <Label x:Name="SelectedJobDescriptionLabel" TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
                                           <Label x:Name="SelectedJobMetaLabel" FontSize="12" />
 
                                           <Grid ColumnDefinitions="*,*" ColumnSpacing="10">

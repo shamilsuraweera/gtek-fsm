@@ -3,11 +3,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="GTEK.FSM.MobileApp.Pages.Worker.ProfilePage"
              Title="Profile">
-    <VerticalStackLayout Padding="16">
-        <Label Text="Profile"
-               FontSize="24"
-               HorizontalOptions="Center" />
-        <Label Text="Placeholder — content will be added in Phase 6."
-               HorizontalOptions="Center" />
-    </VerticalStackLayout>
+       <ScrollView>
+              <VerticalStackLayout Padding="20,18,20,24" Spacing="12">
+                     <Label Text="Profile" FontSize="28" FontAttributes="Bold" />
+                     <Label Text="Worker profile screens will stay sparse and readable, matching the simplified theme." 
+                               TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+
+                     <Border Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
+                            <VerticalStackLayout Spacing="10">
+                                   <Label Text="Coming Soon" FontSize="18" FontAttributes="Bold" />
+                                   <Label Text="This placeholder now reflects the same calmer surface treatment used throughout the app."
+                                             TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                            </VerticalStackLayout>
+                     </Border>
+              </VerticalStackLayout>
+       </ScrollView>
 </ContentPage>

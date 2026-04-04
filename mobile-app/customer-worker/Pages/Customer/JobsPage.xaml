@@ -3,11 +3,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="GTEK.FSM.MobileApp.Pages.Customer.JobsPage"
              Title="Jobs">
-    <VerticalStackLayout Padding="16">
-        <Label Text="Jobs"
-               FontSize="24"
-               HorizontalOptions="Center" />
-        <Label Text="Placeholder — content will be added in Phase 6."
-               HorizontalOptions="Center" />
-    </VerticalStackLayout>
+       <ScrollView>
+              <VerticalStackLayout Padding="20,18,20,24" Spacing="12">
+                     <Label Text="Jobs" FontSize="28" FontAttributes="Bold" />
+                     <Label Text="Your active service work remains easy to scan with the simplified layout direction."
+                               TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+
+                     <Border Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
+                            <VerticalStackLayout Spacing="10">
+                                   <Label Text="Coming Soon" FontSize="18" FontAttributes="Bold" />
+                                   <Label Text="Customer-facing job detail screens will reuse these same card and spacing rules when Phase 6 content lands."
+                                             TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                            </VerticalStackLayout>
+                     </Border>
+              </VerticalStackLayout>
+       </ScrollView>
 </ContentPage>

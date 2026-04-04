@@ -5,7 +5,13 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:customer="clr-namespace:GTEK.FSM.MobileApp.Pages.Customer"
     xmlns:worker="clr-namespace:GTEK.FSM.MobileApp.Pages.Worker"
-    Shell.FlyoutBehavior="Disabled">
+    Shell.FlyoutBehavior="Disabled"
+    BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgPageDark}}"
+    Shell.NavBarHasShadow="False"
+    Shell.TabBarBackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgPageDark}}"
+    Shell.TabBarForegroundColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}"
+    Shell.TabBarTitleColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}"
+    Shell.TabBarUnselectedColor="{AppThemeBinding Light={StaticResource MidGray}, Dark={StaticResource ColorTextMutedDark}}">
 
     <TabBar Route="RootTabs">
         <!-- Customer section -->

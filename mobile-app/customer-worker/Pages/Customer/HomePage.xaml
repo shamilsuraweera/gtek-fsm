@@ -4,49 +4,62 @@
              x:Class="GTEK.FSM.MobileApp.Pages.Customer.HomePage"
              Title="Home">
        <ScrollView>
-              <VerticalStackLayout Padding="16" Spacing="16">
-                     <Border StrokeShape="RoundRectangle 14" Padding="14" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+              <VerticalStackLayout Padding="20,18,20,28" Spacing="16">
+                     <VerticalStackLayout Spacing="4">
+                            <Label Text="Customer Dashboard" FontSize="28" FontAttributes="Bold" />
+                            <Label Text="Track requests, active jobs, and account updates from one place."
+                                   TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                     </VerticalStackLayout>
+
+                     <Border StrokeShape="RoundRectangle 20" Padding="18" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="4">
-                                   <Label Text="Customer Dashboard" FontSize="22" FontAttributes="Bold" />
-                                   <Label Grid.Row="1" Text="Track requests, active jobs, and account updates from one place."
-                                             TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
-                                   <Label Grid.Column="1" Text="LIVE"
-                                             FontSize="12"
-                                             TextColor="{AppThemeBinding Light=#0F6ABD, Dark=#71B0FF}"
-                                             VerticalOptions="Start" />
+                                   <Label Text="Today at a glance" FontSize="20" FontAttributes="Bold" />
+                                   <Border Grid.Column="1"
+                                           StrokeThickness="0"
+                                           BackgroundColor="{AppThemeBinding Light=#FFF3E3, Dark=#5C4A34}"
+                                           Padding="10,4"
+                                           VerticalOptions="Start">
+                                          <Label Text="LIVE"
+                                                 FontSize="11"
+                                                 FontAttributes="Bold"
+                                                 TextColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}" />
+                                   </Border>
+                                   <Label Grid.Row="1"
+                                          Text="Everything important is surfaced here without leaving the home screen."
+                                          TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
                             </Grid>
                      </Border>
 
                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                            <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                                    <VerticalStackLayout Spacing="4">
-                                          <Label Text="Open Requests" FontSize="12" TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
-                                          <Label Text="3" FontSize="26" FontAttributes="Bold" />
-                                          <Label Text="1 delayed" FontSize="12" TextColor="{AppThemeBinding Light=#B45309, Dark=#FBBF24}" />
+                                          <Label Text="Open Requests" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                                          <Label Text="3" FontSize="30" FontAttributes="Bold" />
+                                          <Label Text="1 delayed" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}" />
                                    </VerticalStackLayout>
                             </Border>
 
-                            <Border Grid.Column="1" StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <Border Grid.Column="1" StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                                    <VerticalStackLayout Spacing="4">
-                                          <Label Text="Active Jobs" FontSize="12" TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
-                                          <Label Text="2" FontSize="26" FontAttributes="Bold" />
+                                          <Label Text="Active Jobs" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                                          <Label Text="2" FontSize="30" FontAttributes="Bold" />
                                           <Label Text="Next ETA 2:30 PM" FontSize="12" TextColor="{AppThemeBinding Light=#166534, Dark=#86EFAC}" />
                                    </VerticalStackLayout>
                             </Border>
                      </Grid>
 
-                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                     <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                             <VerticalStackLayout Spacing="8">
-                                   <Label Text="Today" FontSize="16" FontAttributes="Bold" />
-                                   <Label Text="• Technician check-in window: 2:00 PM - 4:00 PM" />
-                                   <Label Text="• Pending approval: Quote for rooftop unit service" />
-                                   <Label Text="• Profile reminder: verify emergency contact" />
+                                   <Label Text="Today" FontSize="18" FontAttributes="Bold" />
+                                   <Label Text="Technician check-in window: 2:00 PM - 4:00 PM" />
+                                   <Label Text="Pending approval: Quote for rooftop unit service" />
+                                   <Label Text="Profile reminder: verify emergency contact" />
                             </VerticalStackLayout>
                      </Border>
 
-                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                     <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                             <VerticalStackLayout Spacing="8">
-                                   <Label Text="Quick Actions" FontSize="16" FontAttributes="Bold" />
+                                   <Label Text="Quick Actions" FontSize="18" FontAttributes="Bold" />
                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                                           <Button Text="Track Job"
                                                   FontSize="12"
@@ -66,7 +79,7 @@
                             </VerticalStackLayout>
                      </Border>
 
-                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,4,0,0">
                             <Button Text="View Requests" Clicked="OnViewRequestsClicked" />
                             <Button Grid.Column="1" Text="Edit Profile" Clicked="OnEditProfileClicked" />
                      </Grid>

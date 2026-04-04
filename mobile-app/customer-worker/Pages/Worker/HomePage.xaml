@@ -4,46 +4,58 @@
              x:Class="GTEK.FSM.MobileApp.Pages.Worker.HomePage"
              Title="Home">
        <ScrollView>
-              <VerticalStackLayout Padding="16" Spacing="14">
-                     <Border StrokeShape="RoundRectangle 14" Padding="14" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+              <VerticalStackLayout Padding="20,18,20,28" Spacing="16">
+                     <VerticalStackLayout Spacing="4">
+                            <Label Text="Worker Dispatch" FontSize="28" FontAttributes="Bold" />
+                            <Label Text="Review available jobs, accept assignments, and update field status fast."
+                                   TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                     </VerticalStackLayout>
+
+                     <Border StrokeShape="RoundRectangle 20" Padding="18" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                             <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
-                                   <Label Text="Worker Dispatch" FontSize="22" FontAttributes="Bold" />
+                                   <Label Text="Field overview" FontSize="20" FontAttributes="Bold" />
+                                   <Border Grid.Column="1"
+                                           StrokeThickness="0"
+                                           BackgroundColor="{AppThemeBinding Light=#EFFAF4, Dark=#365F4A}"
+                                           Padding="10,4"
+                                           VerticalOptions="Start">
+                                          <Label Text="ONLINE" FontSize="11" FontAttributes="Bold" TextColor="{AppThemeBinding Light=#166534, Dark=#86EFAC}" />
+                                   </Border>
                                    <Label Grid.Row="1"
-                                             Text="Review available jobs, accept assignments, and update field status fast."
-                                             TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
-                                   <Label Grid.Column="1" Text="ONLINE" FontSize="12" TextColor="{AppThemeBinding Light=#166534, Dark=#86EFAC}" />
+                                          Text="The clean layout keeps route and execution decisions visible at a glance."
+                                          TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
                             </Grid>
                      </Border>
 
                      <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                            <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                                    <VerticalStackLayout Spacing="4">
-                                          <Label Text="Available" FontSize="12" TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
-                                          <Label Text="5" FontSize="26" FontAttributes="Bold" />
-                                          <Label Text="2 high priority" FontSize="12" TextColor="{AppThemeBinding Light=#B45309, Dark=#FBBF24}" />
+                                          <Label Text="Available" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                                          <Label Text="5" FontSize="30" FontAttributes="Bold" />
+                                          <Label Text="2 high priority" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}" />
                                    </VerticalStackLayout>
                             </Border>
-                            <Border Grid.Column="1" StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                            <Border Grid.Column="1" StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                                    <VerticalStackLayout Spacing="4">
-                                          <Label Text="Assigned" FontSize="12" TextColor="{AppThemeBinding Light=#5F6B79, Dark=#A3B0C0}" />
-                                          <Label Text="3" FontSize="26" FontAttributes="Bold" />
-                                          <Label Text="1 in progress" FontSize="12" TextColor="{AppThemeBinding Light=#0F6ABD, Dark=#71B0FF}" />
+                                          <Label Text="Assigned" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                                          <Label Text="3" FontSize="30" FontAttributes="Bold" />
+                                          <Label Text="1 in progress" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}" />
                                    </VerticalStackLayout>
                             </Border>
                      </Grid>
 
-                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                     <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                             <VerticalStackLayout Spacing="8">
-                                   <Label Text="Shift Notes" FontSize="16" FontAttributes="Bold" />
-                                   <Label Text="• Job #JOB-884 requires access card at reception." />
-                                   <Label Text="• Downtown route has heavy traffic after 3 PM." />
-                                   <Label Text="• Safety check required before generator startup tasks." />
+                                   <Label Text="Shift Notes" FontSize="18" FontAttributes="Bold" />
+                                   <Label Text="Job #JOB-884 requires access card at reception." />
+                                   <Label Text="Downtown route has heavy traffic after 3 PM." />
+                                   <Label Text="Safety check required before generator startup tasks." />
                             </VerticalStackLayout>
                      </Border>
 
-                     <Border StrokeShape="RoundRectangle 12" Padding="12" BackgroundColor="{AppThemeBinding Light=#FFFFFF, Dark=#18202C}">
+                     <Border StrokeShape="RoundRectangle 18" Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                             <VerticalStackLayout Spacing="8">
-                                   <Label Text="Quick Actions" FontSize="16" FontAttributes="Bold" />
+                                   <Label Text="Quick Actions" FontSize="18" FontAttributes="Bold" />
                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                                           <Button Text="Accept Top"
                                                   FontSize="12"
@@ -63,7 +75,7 @@
                             </VerticalStackLayout>
                      </Border>
 
-                     <Button Text="Open Jobs Workspace" Clicked="OnOpenJobsWorkspaceClicked" />
+                     <Button Text="Open Jobs Workspace" Margin="0,4,0,0" Clicked="OnOpenJobsWorkspaceClicked" />
               </VerticalStackLayout>
        </ScrollView>
 </ContentPage>
