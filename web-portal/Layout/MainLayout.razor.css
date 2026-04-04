@@ -1,7 +1,7 @@
 .page {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 240px minmax(0, 1fr);
     grid-template-rows: 3.5rem 1fr;
     grid-template-areas:
         "top-bar top-bar"
@@ -26,27 +26,9 @@
 
 .content-area {
     grid-area: content;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    display: block;
     background-color: var(--color-bg-page);
-}
-
-.right-drawer {
-    border-left: 1px solid var(--color-border-default);
-    background-color: var(--color-bg-surface-alt);
-    padding-top: var(--space-4);
-    box-shadow: var(--elevation-1);
-}
-
-.right-drawer h2 {
-    font-size: var(--font-size-md);
-    margin-bottom: var(--space-2);
-    font-weight: var(--font-weight-semibold);
-}
-
-.right-drawer p {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+    min-width: 0;
 }
 
 .portal-header {
@@ -74,21 +56,11 @@
 @media (max-width: 640.98px) {
     .page {
         grid-template-columns: 1fr;
-        grid-template-rows: 3.5rem auto auto auto;
+        grid-template-rows: 3.5rem auto auto;
         grid-template-areas:
             "top-bar"
             "side-nav"
-            "content"
             "content";
-    }
-
-    .content-area {
-        grid-template-columns: 1fr;
-    }
-
-    .right-drawer {
-        border-left: none;
-        border-top: 1px solid var(--color-border-default);
     }
 }
 
@@ -106,5 +78,7 @@
 
     .content {
         padding-top: 1.1rem;
+        width: 100%;
+        max-width: none;
     }
 }
