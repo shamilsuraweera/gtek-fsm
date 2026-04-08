@@ -17,6 +17,7 @@ set +a
 
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
 export Database__ConnectionString="Server=${SQL_SERVER_HOST:-localhost},${SQL_SERVER_PORT:-1433};Database=${SQL_DATABASE:-GTEK_FSM_Local};User Id=sa;Password=${SA_PASSWORD};Encrypt=true;TrustServerCertificate=true;"
+export ASPNETCORE_URLS="http://+:${API_PORT:-5000}"
 
 echo "=========================================="
 echo "Starting API (Local)"
@@ -32,9 +33,11 @@ echo "📦 Applying pending migrations..."
 echo ""
 echo "🚀 Starting API server..."
 echo "   API:    http://localhost:${API_PORT:-5000}"
+echo "   API:    http://192.168.8.197:${API_PORT:-5000}"
 echo "   Health: http://localhost:${API_PORT:-5000}/health"
+echo "   Health: http://192.168.8.197:${API_PORT:-5000}/health"
 echo ""
 
 cd backend/api
-dotnet run --configuration Debug
+dotnet run --configuration Debug --no-launch-profile
 

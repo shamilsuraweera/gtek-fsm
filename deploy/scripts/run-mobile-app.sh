@@ -116,6 +116,66 @@ active_android_devices() {
     adb devices 2>/dev/null | awk 'NR>1 && $2 == "device" {print $1}'
 }
 
+is_device_online() {
+    local device="$1"
+    if [[ -z "$device" ]]; then
+        return 1
+    fi
+
+    [[ "$(adb -s "$device" get-state 2>/dev/null || true)" == "device" ]]
+}
+
+recover_adb_connectivity() {
+    echo "🩺 Checking ADB connectivity..." >&2
+    adb start-server >/dev/null 2>&1 || true
+    adb reconnect offline >/dev/null 2>&1 || true
+    adb reconnect >/dev/null 2>&1 || true
+}
+
+resolve_online_target_device() {
+    local requested_device="$1"
+
+    # Fast path: device is already online — no recovery needed
+    if is_device_online "$requested_device"; then
+        echo "$requested_device"
+        return 0
+    fi
+
+    # Fast path: any device is already online — no recovery needed
+    local fallback_device
+    fallback_device="$(active_android_devices | head -n 1)"
+    if [[ -n "$fallback_device" ]]; then
+        if [[ -n "$requested_device" && "$requested_device" != "$fallback_device" ]]; then
+            echo "⚠️  Requested device '$requested_device' is not online. Switching to '$fallback_device'." >&2
+        fi
+        echo "$fallback_device"
+        return 0
+    fi
+
+    # Nothing online — attempt recovery then poll
+    recover_adb_connectivity
+
+    local i=0
+    while (( i < 5 )); do
+        sleep 2
+        if is_device_online "$requested_device"; then
+            echo "$requested_device"
+            return 0
+        fi
+        fallback_device="$(active_android_devices | head -n 1)"
+        if [[ -n "$fallback_device" ]]; then
+            if [[ -n "$requested_device" && "$requested_device" != "$fallback_device" ]]; then
+                echo "⚠️  Requested device '$requested_device' is not online. Switching to '$fallback_device'." >&2
+            fi
+            echo "$fallback_device"
+            return 0
+        fi
+        (( i++ ))
+    done
+
+    return 1
+}
+
 wait_for_emulator_boot() {
     local timeout_seconds=120
     local started_at
@@ -358,18 +418,34 @@ if [[ "$OSTYPE" == "linux-gnu"* ]]; then
             TARGET_DEVICE="$(active_android_devices | head -n 1)"
         fi
 
+        TARGET_DEVICE="$(resolve_online_target_device "$TARGET_DEVICE" || true)"
+        if [[ -z "$TARGET_DEVICE" ]]; then
+            echo "❌ No online Android device available after ADB recovery."
+            echo "   Run 'adb devices -l' and ensure at least one device is in 'device' state (not offline/unauthorized)."
+            exit 1
+        fi
+
         configure_adb_reverse "$TARGET_DEVICE" "$API_PORT"
 
         if [[ -n "$TARGET_DEVICE" ]]; then
             echo "🚀 Running app on device/emulator '$TARGET_DEVICE'..."
             if ! run_maui_target net10.0-android "$TARGET_DEVICE"; then
                 if [[ "$RECOVER_ON_FAILURE" == "1" ]]; then
+                    TARGET_DEVICE="$(resolve_online_target_device "$TARGET_DEVICE" || true)"
+                    if [[ -z "$TARGET_DEVICE" ]]; then
+                        echo "❌ Deployment failed and no online Android device is available for retry."
+                        exit 1
+                    fi
+
                     recover_stale_device_install "$TARGET_DEVICE"
+                    configure_adb_reverse "$TARGET_DEVICE" "$API_PORT"
                     echo "🔁 Retrying deployment after recovery..."
                     run_maui_target net10.0-android "$TARGET_DEVICE"
                 else
                     exit 1
                 fi
+            else
+                configure_adb_reverse "$TARGET_DEVICE" "$API_PORT"
             fi
         else
             echo "🚀 Running app on default Android target..."

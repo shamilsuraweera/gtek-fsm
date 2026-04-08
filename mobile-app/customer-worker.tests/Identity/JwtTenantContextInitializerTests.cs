@@ -105,5 +105,9 @@ public sealed class JwtTenantContextInitializerTests
         {
             return _token;
         }
+
+        public void SetAccessToken(string accessToken) { }
+
+        public void ClearAccessToken() { }
     }
 }

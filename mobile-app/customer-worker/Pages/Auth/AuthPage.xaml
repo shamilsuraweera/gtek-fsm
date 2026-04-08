@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="GTEK.FSM.MobileApp.Pages.Auth.AuthPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="Sign In"
+    BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgPageLight}, Dark={StaticResource ColorBgPageDark}}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24,40" Spacing="18">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="GTEK FSM"
+                       FontSize="14"
+                       TextColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}" />
+                <Label Text="Local access"
+                       FontSize="30"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource ColorTextPrimaryLight}, Dark={StaticResource ColorTextPrimaryDark}}" />
+                <Label Text="Sign in with a demo account or register a customer account in the baseline tenant."
+                       FontSize="14"
+                      TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                  <Label x:Name="ApiTargetLabel"
+                      FontSize="12"
+                      TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+            </VerticalStackLayout>
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Button x:Name="LoginModeButton"
+                        Text="Login"
+                        Clicked="OnLoginModeClicked" />
+                <Button x:Name="RegisterModeButton"
+                        Grid.Column="1"
+                        Text="Register"
+                        Clicked="OnRegisterModeClicked" />
+            </Grid>
+
+            <Label x:Name="ErrorLabel"
+                   IsVisible="False"
+                   FontSize="13"
+                     TextColor="{AppThemeBinding Light={StaticResource ColorAccentLight}, Dark={StaticResource ColorAccentDark}}" />
+
+            <VerticalStackLayout x:Name="RegisterFieldsLayout" IsVisible="False" Spacing="12">
+                <Label Text="Display Name" />
+                <Entry x:Name="DisplayNameEntry" Placeholder="Customer Name" />
+
+                <Label Text="Tenant Code" />
+                <Entry x:Name="TenantCodeEntry" Placeholder="REF-BASELINE" Text="REF-BASELINE" />
+            </VerticalStackLayout>
+
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Email" />
+                <Entry x:Name="EmailEntry" Keyboard="Email" Placeholder="name@example.com" />
+
+                <Label Text="Password" />
+                <Entry x:Name="PasswordEntry" IsPassword="True" Placeholder="Password" />
+            </VerticalStackLayout>
+
+            <Button x:Name="SubmitButton"
+                    Text="Sign In"
+                    Clicked="OnSubmitClicked" />
+
+            <Frame Padding="18" CornerRadius="18" BorderColor="Transparent" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="Demo accounts" FontAttributes="Bold" />
+                    <Label Text="customer@gtek.local / Customer@123" FontSize="13" />
+                    <Label Text="worker@gtek.local / Worker@123" FontSize="13" />
+                    <Label Text="support@gtek.local / Support@123" FontSize="13" />
+                    <Label Text="shamilsuraweera@gmail.com / Admin@123" FontSize="13" />
+                </VerticalStackLayout>
+            </Frame>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

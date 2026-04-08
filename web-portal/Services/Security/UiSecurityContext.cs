@@ -19,23 +19,32 @@ public sealed class UiSecurityContext
         PortalRole.Admin,
     };
 
+    private readonly PortalAuthState authState;
+
+    public UiSecurityContext(PortalAuthState authState)
+    {
+        this.authState = authState;
+    }
+
     /// <summary>
     /// Gets the current role for this UI context.
     /// </summary>
-    public string CurrentRole { get; } = PortalRole.Manager;
+    public string CurrentRole => this.authState.CurrentRole;
 
     /// <summary>
     /// Gets the active tenant context for this operator session.
     /// </summary>
-    public string CurrentTenantId { get; } = "TENANT-01";
+    public string CurrentTenantId => this.authState.CurrentTenantId;
 
     /// <summary>
     /// Gets the tenant IDs this operator can access.
     /// </summary>
-    public IReadOnlySet<string> AccessibleTenants { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-    {
-        "TENANT-01",
-    };
+    public IReadOnlySet<string> AccessibleTenants => string.IsNullOrWhiteSpace(this.CurrentTenantId)
+        ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        : new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            this.CurrentTenantId,
+        };
 
     /// <summary>
     /// Determines whether the active role has elevated access for sensitive operations.
@@ -103,6 +112,4 @@ public sealed class UiSecurityContext
             || this.AccessibleTenants.Contains(tenantId);
     }
 }
-
-
 

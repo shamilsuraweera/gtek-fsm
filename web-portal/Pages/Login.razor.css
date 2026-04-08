@@ -1,0 +1,104 @@
+.portal-auth-page {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 2rem;
+    background:
+        radial-gradient(circle at top left, rgba(243, 136, 8, 0.2), transparent 35%),
+        linear-gradient(135deg, rgba(43, 67, 95, 0.08), rgba(255, 244, 230, 0.9));
+}
+
+.portal-auth-card {
+    width: min(100%, 32rem);
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(43, 67, 95, 0.12);
+    border-radius: 1.5rem;
+    padding: 2rem;
+    box-shadow: 0 24px 60px rgba(43, 67, 95, 0.12);
+}
+
+.portal-auth-header h1 {
+    margin-bottom: 0.5rem;
+}
+
+.portal-auth-kicker {
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 0.75rem;
+    color: var(--color-link-default, #f38808);
+}
+
+.portal-auth-copy {
+    color: var(--color-text-muted);
+}
+
+.portal-auth-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+}
+
+.portal-auth-mode-button,
+.portal-auth-submit {
+    border: 0;
+    border-radius: 999px;
+    padding: 0.85rem 1rem;
+    font-weight: 600;
+}
+
+.portal-auth-mode-button-active,
+.portal-auth-submit {
+    background: var(--color-link-default, #f38808);
+    color: white;
+}
+
+.portal-auth-mode-button-inactive {
+    background: rgba(43, 67, 95, 0.08);
+    color: var(--color-text-primary, #2b435f);
+    border: 1px solid rgba(43, 67, 95, 0.16);
+}
+
+.portal-auth-form-grid {
+    display: grid;
+    gap: 1rem;
+}
+
+.portal-auth-form-grid label {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.portal-auth-form-grid input {
+    width: 100%;
+    border: 1px solid rgba(43, 67, 95, 0.18);
+    border-radius: 0.9rem;
+    padding: 0.85rem 1rem;
+}
+
+.portal-auth-submit {
+    width: 100%;
+    margin-top: 1.25rem;
+}
+
+.portal-auth-hint {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(43, 67, 95, 0.1);
+    color: var(--color-text-muted);
+}
+
+.portal-auth-hint p {
+    margin: 0.35rem 0;
+}
+
+@media (max-width: 640px) {
+    .portal-auth-page {
+        padding: 1rem;
+    }
+
+    .portal-auth-card {
+        padding: 1.5rem;
+    }
+}

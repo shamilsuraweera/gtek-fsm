@@ -7,4 +7,14 @@ public sealed class EnvironmentIdentityTokenProvider : IIdentityTokenProvider
         var token = Environment.GetEnvironmentVariable("GTEK_FSM_IDENTITY_TOKEN");
         return string.IsNullOrWhiteSpace(token) ? string.Empty : token.Trim();
     }
+
+    public void SetAccessToken(string token)
+    {
+        Environment.SetEnvironmentVariable("GTEK_FSM_IDENTITY_TOKEN", string.IsNullOrWhiteSpace(token) ? string.Empty : token.Trim());
+    }
+
+    public void ClearAccessToken()
+    {
+        Environment.SetEnvironmentVariable("GTEK_FSM_IDENTITY_TOKEN", string.Empty);
+    }
 }

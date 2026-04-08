@@ -276,6 +276,10 @@ public sealed class OperationalDataQueryServiceTests
         {
             return _token;
         }
+
+        public void SetAccessToken(string accessToken) { }
+
+        public void ClearAccessToken() { }
     }
 
     private sealed class NoOpDiagnosticsLogger : IMobileDiagnosticsLogger

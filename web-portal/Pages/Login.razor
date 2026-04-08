@@ -1,0 +1,152 @@
+@page "/login"
+@layout AuthLayout
+
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Requests
+@using GTEK.FSM.WebPortal.Services.Security
+@inject PortalAuthState AuthState
+@inject NavigationManager Navigation
+
+<PageTitle>Portal Sign In</PageTitle>
+
+<section class="portal-auth-page">
+    <div class="portal-auth-card">
+        <div class="portal-auth-header">
+            <p class="portal-auth-kicker">GTEK FSM</p>
+            <h1>Portal access</h1>
+            <p class="portal-auth-copy">Use a local demo account for customer care or management, or create a customer account in the baseline tenant.</p>
+        </div>
+
+        <div class="portal-auth-switcher">
+            <button
+                type="button"
+                class="portal-auth-mode-button @(isRegisterMode ? "portal-auth-mode-button-inactive" : "portal-auth-mode-button-active")"
+                @onclick="() => SetMode(false)">Login</button>
+            <button
+                type="button"
+                class="portal-auth-mode-button @(isRegisterMode ? "portal-auth-mode-button-active" : "portal-auth-mode-button-inactive")"
+                @onclick="() => SetMode(true)">Register</button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <p class="security-forbidden-message">@errorMessage</p>
+        }
+
+        <EditForm Model="formModel" OnValidSubmit="HandleSubmitAsync">
+            <DataAnnotationsValidator />
+            <div class="portal-auth-form-grid">
+                @if (isRegisterMode)
+                {
+                    <label>
+                        <span>Display Name</span>
+                        <InputText @bind-Value="formModel.DisplayName" />
+                    </label>
+                }
+
+                <label>
+                    <span>Email</span>
+                    <InputText @bind-Value="formModel.Email" />
+                </label>
+
+                <label>
+                    <span>Password</span>
+                    <InputText type="password" @bind-Value="formModel.Password" />
+                </label>
+
+                @if (isRegisterMode)
+                {
+                    <label>
+                        <span>Tenant Code</span>
+                        <InputText @bind-Value="formModel.TenantCode" placeholder="REF-BASELINE" />
+                    </label>
+                }
+            </div>
+
+            <button class="portal-auth-submit" type="submit" disabled="@isSubmitting">
+                @(isSubmitting ? "Working..." : isRegisterMode ? "Create Customer Account" : "Sign In")
+            </button>
+        </EditForm>
+
+        <div class="portal-auth-hint">
+            <strong>Demo accounts</strong>
+            <p>`support@gtek.local` / `Support@123`</p>
+            <p>`manager@gtek.local` / `Manager@123`</p>
+            <p>`shamilsuraweera@gmail.com` / `Admin@123`</p>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly AuthFormModel formModel = new();
+    private bool isRegisterMode;
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthState.InitializeAsync();
+        if (AuthState.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/", replace: true);
+        }
+    }
+
+    private void SetMode(bool registerMode)
+    {
+        isRegisterMode = registerMode;
+        errorMessage = null;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            if (isRegisterMode)
+            {
+                await AuthState.RegisterAsync(new RegisterLocalUserRequest
+                {
+                    DisplayName = formModel.DisplayName,
+                    Email = formModel.Email,
+                    Password = formModel.Password,
+                    TenantCode = string.IsNullOrWhiteSpace(formModel.TenantCode) ? null : formModel.TenantCode,
+                });
+            }
+            else
+            {
+                await AuthState.LoginAsync(new LoginRequest
+                {
+                    Email = formModel.Email,
+                    Password = formModel.Password,
+                });
+            }
+
+            Navigation.NavigateTo("/", replace: true);
+        }
+        catch (PortalAuthApiException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Unable to reach the API. Confirm the backend is running on the configured Api:BaseUrl.";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private sealed class AuthFormModel
+    {
+        public string? DisplayName { get; set; }
+
+        public string? Email { get; set; }
+
+        public string? Password { get; set; }
+
+        public string? TenantCode { get; set; }
+    }
+}

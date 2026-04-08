@@ -119,9 +119,13 @@ public sealed class MobileSecurityLifecycleService : IMobileSecurityLifecycleSer
         _tenantContextState.Clear();
         _connectivityRecoveryState.Clear();
         _mobileDiagnosticsState.Clear();
-        Environment.SetEnvironmentVariable("GTEK_FSM_IDENTITY_TOKEN", string.Empty);
+        _tokenProvider.ClearAccessToken();
 
         _diagnostics.Warn("security.logout", $"Session cleared: {reason}");
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            (Application.Current as App)?.ShowAuthenticationPage();
+        });
     }
 
     private static Page TryGetWindowPage()

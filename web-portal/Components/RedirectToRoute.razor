@@ -1,0 +1,14 @@
+@inject NavigationManager Navigation
+
+@code {
+    [Parameter, EditorRequired]
+    public string Href { get; set; } = string.Empty;
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Navigation.NavigateTo(Href, replace: true);
+        }
+    }
+}

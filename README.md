@@ -95,54 +95,89 @@ dotnet restore GTEK.FSM.slnx
 
 ## Run The System
 
-### Option A: Full Stack Helper
+Choose one runtime profile below based on whether you want Docker or local processes, and whether DB is local or external.
 
-Starts SQL Server + API in Docker and prints the next commands for portal/mobile.
+### Profile 1: Full Local Development (No Docker API)
+
+Use this when you want to run API as a local .NET process and use a local/host SQL Server.
+
+- API: Local process
+- Database: Local SQL Server (or SQL container exposed on host port)
+- Best for: debugging API code directly with local breakpoints
+
+Start with setup helper:
 
 ```bash
 ./deploy/scripts/start-all.sh
 ```
 
-Then in separate terminals:
-
-```bash
-./deploy/scripts/run-web-portal.sh
-./deploy/scripts/run-mobile-app.sh
-./deploy/scripts/dev-logs.sh
-```
-
-### Option B: API + SQL Only
-
-Starts SQL container (if needed), applies migrations, then runs API locally.
+Then run each service in a separate terminal:
 
 ```bash
 ./deploy/scripts/run-api-standalone.sh
+./deploy/scripts/run-web-portal.sh
+./deploy/scripts/run-mobile-app.sh --run
 ```
 
-### Option C: Docker Compose Infrastructure
+### Profile 2: Docker API + Docker Database
 
-Start API + SQL in detached mode:
+Use this when you want backend infrastructure fully containerized.
+
+- API: Docker Compose
+- Database: Docker Compose
+- Best for: environment parity and quick reset of backend infrastructure
+
+Start API + SQL:
 
 ```bash
 ./deploy/scripts/dev-up.sh
 ```
 
-Stop containers:
+Then run clients from host:
+
+```bash
+./deploy/scripts/run-web-portal.sh
+./deploy/scripts/run-mobile-app.sh --run
+```
+
+### Profile 3: API Only Local + Local/Host Database
+
+Use this when web/mobile may be optional and you only need backend running locally.
+
+- API: Local process
+- Database: Local SQL Server (or SQL container on host port)
+
+```bash
+./deploy/scripts/run-api-standalone.sh
+```
+
+### Profile 4: Web and Mobile Only (No Local API/DB)
+
+Use this when backend/database are already hosted elsewhere and reachable.
+
+- API: External endpoint
+- Database: Managed behind external API
+
+Configure clients first:
+
+- Web portal: set `Api:BaseUrl` in `web-portal/wwwroot/appsettings.json`
+- Mobile app: set `GTEK_FSM_API_BASE_URL`
+
+Then start clients:
+
+```bash
+./deploy/scripts/run-web-portal.sh
+./deploy/scripts/run-mobile-app.sh --run
+```
+
+### Important: avoid API mode conflict
+
+Do not run Docker API (`./deploy/scripts/dev-up.sh`) and local API (`./deploy/scripts/run-api-standalone.sh`) at the same time on the same port.
+
+If you see `address already in use` for `:5000`, stop Docker API first:
 
 ```bash
 ./deploy/scripts/dev-down.sh
-```
-
-Reset containers and volumes:
-
-```bash
-./deploy/scripts/dev-reset.sh
-```
-
-Follow logs:
-
-```bash
-./deploy/scripts/dev-logs.sh
 ```
 
 ## Database Workflow
@@ -209,6 +244,17 @@ Preflight only:
 Build and run (Android):
 
 ```bash
+./deploy/scripts/run-mobile-app.sh --run
+```
+
+Connect mobile app to API running on your local PC:
+
+- Physical Android device over USB/Wi-Fi debug (recommended): use `--run` so the script configures `adb reverse` and app uses `http://localhost:5000`.
+- Android emulator: app uses `http://10.0.2.2:5000` in Debug.
+- Manual LAN override (physical device without adb reverse):
+
+```bash
+export GTEK_FSM_API_BASE_URL=http://<your-pc-lan-ip>:5000
 ./deploy/scripts/run-mobile-app.sh --run
 ```
 

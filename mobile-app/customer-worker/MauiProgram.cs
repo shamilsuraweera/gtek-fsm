@@ -1,6 +1,7 @@
 ﻿namespace GTEK.FSM.MobileApp;
 
 using GTEK.FSM.MobileApp.Configuration;
+using GTEK.FSM.MobileApp.Pages.Auth;
 using GTEK.FSM.MobileApp.Services.Api;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
@@ -34,8 +35,19 @@ public static class MauiProgram
 		builder.Services.AddSingleton<ApiEndpointConfiguration>();
 		builder.Services.AddSingleton<IMobileDiagnosticsLogger, MobileDiagnosticsLogger>();
 		builder.Services.AddSingleton<IMobileSecurityLifecycleService, MobileSecurityLifecycleService>();
-		builder.Services.AddSingleton<IIdentityTokenProvider, EnvironmentIdentityTokenProvider>();
+		builder.Services.AddSingleton<IIdentityTokenProvider, StoredIdentityTokenProvider>();
 		builder.Services.AddSingleton<ITenantContextInitializer, JwtTenantContextInitializer>();
+		builder.Services.AddTransient<AuthPage>();
+		builder.Services.AddSingleton<AuthApiClient>(serviceProvider =>
+		{
+			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
+			var httpClient = new HttpClient
+			{
+				BaseAddress = new Uri(config.ApiBaseUrl),
+			};
+
+			return new AuthApiClient(httpClient);
+		});
 		builder.Services.AddSingleton<IAuthenticatedApiProbeService>(serviceProvider =>
 		{
 			var config = serviceProvider.GetRequiredService<ApiEndpointConfiguration>();
