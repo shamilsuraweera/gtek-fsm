@@ -1,9 +1,3 @@
-//-----------------------------------------------------------------------
-// <copyright file="OperationalQueueItem.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
-//-----------------------------------------------------------------------
-
 using GTEK.FSM.Shared.Contracts.Vocabulary;
 
 namespace GTEK.FSM.WebPortal.Models;

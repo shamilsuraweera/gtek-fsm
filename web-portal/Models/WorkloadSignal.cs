@@ -1,7 +1,3 @@
-// <copyright file="WorkloadSignal.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
-
 namespace GTEK.FSM.WebPortal.Models;
 
 /// <summary>
