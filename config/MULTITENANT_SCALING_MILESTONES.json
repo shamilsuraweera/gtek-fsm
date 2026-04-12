@@ -1,0 +1,553 @@
+{
+  "roadmap_version": "1.0",
+  "roadmap_name": "GTEK FSM Multi-Tenant Scaling Roadmap",
+  "created": "2026-04-13",
+  "owner": "Platform Architecture",
+  "phases": [
+    {
+      "phase_id": 12,
+      "phase_name": "Foundation & Early Automation",
+      "status": "current",
+      "milestones": [
+        {
+          "id": "12.5.1",
+          "title": "Self-Service Tenant Onboarding API",
+          "dimension": "tenant_onboarding",
+          "description": "Enable software to request tenant provisioning without manual intervention",
+          "objectives": [
+            "REST API endpoint accepts tenant registration request",
+            "Tenant record created; database provisioned with initial schema",
+            "JWT credentials issued and sent to admin email",
+            "Audit log captures onboarding event",
+            "End-to-end integration tests validate registration flow"
+          ],
+          "prerequisites": [
+            "Phases 0–11 complete"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "Phase 11 complete",
+              "Tenant isolation audit passed",
+              "Security review approved"
+            ],
+            "exit": [
+              "Onboarding API tested end-to-end",
+              "Audit logging covers all tenant CRUD",
+              "Compliance impact doc updated"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 4,
+          "scope": ["Backend API", "Integration Tests", "Documentation"],
+          "success_metrics": {
+            "onboarding_time": "<15 minutes from API call to provisioned",
+            "self_service_adoption": ">80% within 6 months",
+            "audit_coverage": "100% of tenant CRUD events logged"
+          }
+        },
+        {
+          "id": "12.6",
+          "title": "Multi-Factor Authentication & Tenant-Specific SSO",
+          "dimension": "isolation_security",
+          "description": "Enable tenant-specific identity providers; strengthen authentication posture",
+          "objectives": [
+            "MFA setup UI in management portal",
+            "SSO configuration API (OAuth2/OIDC endpoints configurable per-tenant)",
+            "Token refresh logic maintains tenant context through OAuth flow",
+            "Integration tests validate MFA & SSO flows"
+          ],
+          "prerequisites": [
+            "12.5.1 (self-service onboarding available)",
+            "Phase 11 audit baseline"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "Security architecture review approved",
+              "MFA library selection finalized"
+            ],
+            "exit": [
+              "SSO integration tested with mock IdP",
+              "MFA enrollment/recovery tested",
+              "Security audit passed"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 5,
+          "scope": ["Backend Identity Service", "Portal MFA/SSO Settings", "Integration & E2E Tests"]
+        },
+        {
+          "id": "12.7",
+          "title": "Tenant-Specific Administrative Roles",
+          "dimension": "control_plane",
+          "description": "Enable tenants to define and enforce role-based access control within their account",
+          "objectives": [
+            "Tenant admin can define custom roles and assign permissions to users",
+            "Authorization checks at API boundary enforce tenant-specific roles",
+            "Audit log records role changes and permission decisions",
+            "Portal UI allows role and permission management"
+          ],
+          "prerequisites": [
+            "12.5.1 (onboarding foundation)",
+            "Phase 11 authorization decision audit"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "Authorization architecture review"
+            ],
+            "exit": [
+              "Custom roles created and enforced",
+              "Audit events confirmed",
+              "Security test suite passes"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 4,
+          "scope": ["Backend Authorization Service", "Role/Permission Schema", "Portal Admin Interface", "Compliance Tests"]
+        }
+      ]
+    },
+    {
+      "phase_id": 13,
+      "phase_name": "Mid-Term Scaling & Enterprise Hardening",
+      "status": "planned",
+      "milestones": [
+        {
+          "id": "13.1",
+          "title": "Database-Per-Tenant Isolation Option",
+          "dimension": "isolation_security",
+          "description": "Support database-per-tenant deployment model for compliance-sensitive workloads",
+          "objectives": [
+            "Onboarding API accepts isolation strategy selector (shared vs. dedicated)",
+            "Provisioning logic detects strategy and creates tenant database accordingly",
+            "Multi-database connection pool strategy implemented and tested",
+            "Query service abstracts underlying database selection",
+            "Schema migration tooling validates consistency across both models"
+          ],
+          "prerequisites": [
+            "12.5.1 onboarding API",
+            "Phase 10 schema migration framework",
+            "Production database strategy finalized"
+          ],
+          "dependencies": [
+            "Requires security & compliance team review and approval"
+          ],
+          "readiness_gates": {
+            "entry": [
+              "Security architecture review for per-tenant DB",
+              "Capacity & cost modeling approved"
+            ],
+            "exit": [
+              "Both shared & dedicated isolation options successfully deployed to staging",
+              "Schema consistency verified",
+              "Production runbook documented"
+            ]
+          },
+          "estimated_effort": "L",
+          "estimated_timeline_weeks": 8,
+          "scope": ["Provisioning Service", "Connection Pool Strategy", "Schema Consistency Validator", "E2E Tests"]
+        },
+        {
+          "id": "13.2",
+          "title": "Row-Level Security (RLS) Policies",
+          "dimension": "isolation_security",
+          "description": "Introduce SQL Server RLS as an additional isolation enforcement layer",
+          "objectives": [
+            "RLS policies created for all tables filtering by TenantId",
+            "SQL Server predicate logic enforced alongside application-layer filtering",
+            "Performance impact assessed and optimized",
+            "Integration tests validate RLS blocks cross-tenant queries"
+          ],
+          "prerequisites": [
+            "Database-per-tenant option available (Phase 13.1)",
+            "RLS pilot complete"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "RLS performance baseline established",
+              "DBA review approved"
+            ],
+            "exit": [
+              "RLS policies in place",
+              "Query performance validated",
+              "Production deploy guide documented"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 5,
+          "scope": ["Schema Updates", "RLS Policy Deployment", "Performance Tests", "Operational Documentation"]
+        },
+        {
+          "id": "13.3",
+          "title": "Tenant-Specific Observability Dashboards",
+          "dimension": "observability",
+          "description": "Provide each tenant with visibility into their own operational metrics",
+          "objectives": [
+            "Metrics aggregated and filtered by TenantId",
+            "Portal dashboard component renders tenant-scoped metrics",
+            "Metrics export API available (CSV/JSON)",
+            "Metric storage strategy supports multi-year retention per tenant"
+          ],
+          "prerequisites": [
+            "Phase 11.6 observability baseline",
+            "12.5.1 onboarding"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "Metrics retention & cost model approved",
+              "Dashboard design wireframes validated"
+            ],
+            "exit": [
+              "Metrics dashboard rendered correctly per-tenant",
+              "Export validated",
+              "Performance benchmarked"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 5,
+          "scope": ["Portal Dashboard Component", "Metrics Query Service", "Export API", "Tests"]
+        },
+        {
+          "id": "13.4",
+          "title": "Quota Monitoring & Enforcement",
+          "dimension": "control_plane",
+          "description": "Enforce tenant-specific limits on active jobs, concurrent workers, API requests",
+          "objectives": [
+            "Tenant quota configuration stored and enforced",
+            "API request rate limiter blocks requests beyond quota",
+            "Active job counter prevents exceeding job limit",
+            "Portal quota usage widget shows consumption vs. limit",
+            "Quota threshold alerts notify tenant admin"
+          ],
+          "prerequisites": [
+            "12.5.1 onboarding (plan tiers defined)",
+            "Phase 11.6 observability baseline"
+          ],
+          "dependencies": [
+            "Alert/notification service (Phase 11+ assumption)"
+          ],
+          "readiness_gates": {
+            "entry": [
+              "Quota model designed",
+              "Tier definitions approved"
+            ],
+            "exit": [
+              "Quotas enforced in staging",
+              "Alerts triggered correctly",
+              "SLA guarantees documented"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 4,
+          "scope": ["Quota Service", "Rate Limiter Middleware", "Portal Quota Widget", "Integration Tests"]
+        }
+      ]
+    },
+    {
+      "phase_id": 14,
+      "phase_name": "Enterprise & Scaling Maturity",
+      "status": "planned",
+      "milestones": [
+        {
+          "id": "14.1",
+          "title": "Billing & Usage Metering",
+          "dimension": "control_plane",
+          "description": "Enable consumption-based billing; meter usage per tenant",
+          "objectives": [
+            "Meter records created for all billable events",
+            "Metrics aggregated to billing dimension",
+            "Billing reports generated and exportable",
+            "Integration with payment gateway (Stripe/PayPal)"
+          ],
+          "prerequisites": [
+            "12.5.1 onboarding",
+            "13.4 quota monitoring"
+          ],
+          "dependencies": [
+            "Billing backend service",
+            "Payment gateway accounts"
+          ],
+          "readiness_gates": {
+            "entry": [
+              "Billing model defined",
+              "Pricing tiers approved",
+              "Payment vendor selected"
+            ],
+            "exit": [
+              "Metering tested end-to-end",
+              "Billing reports accurate",
+              "Payment flow tested with sandbox"
+            ]
+          },
+          "estimated_effort": "L",
+          "estimated_timeline_weeks": 8,
+          "scope": ["Metering Service", "Billing Aggregation", "Payment Integration", "Portal Billing UI"]
+        },
+        {
+          "id": "14.2",
+          "title": "Compliance Report Generation",
+          "dimension": "observability",
+          "description": "Enable automated compliance attestation (SOC 2, HIPAA, GDPR)",
+          "objectives": [
+            "Report templates for common compliance frameworks",
+            "Audit log queries generate compliance evidence",
+            "Reports exportable as PDF/JSON",
+            "Report schedule configurability"
+          ],
+          "prerequisites": [
+            "Phase 11.5 audit compliance baseline",
+            "12.5.1 onboarding",
+            "Tenant-specific audit policies (future)"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "Compliance framework reviewed",
+              "Report template validation by legal/compliance"
+            ],
+            "exit": [
+              "Sample compliance report generated",
+              "Audit data completeness verified",
+              "Template accuracy validated"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 6,
+          "scope": ["Report Generator Service", "Template Library", "Portal Report UI", "Tests"]
+        },
+        {
+          "id": "14.3",
+          "title": "Distributed Job Processing",
+          "dimension": "platform_scaling",
+          "description": "Scale job execution beyond single-node limits; enable job federation",
+          "objectives": [
+            "Job queue distributes to multiple worker processes/nodes",
+            "Job state machine tracks job lifecycle across distributed nodes",
+            "Failure recovery and retry logic implemented",
+            "Portal job monitor shows real-time distributed job status"
+          ],
+          "prerequisites": [
+            "Phase 7 job execution baseline",
+            "13.4 quota monitoring"
+          ],
+          "dependencies": [
+            "Message queue (RabbitMQ/Azure Service Bus)",
+            "Job state persistence"
+          ],
+          "readiness_gates": {
+            "entry": [
+              "Message queue architecture approved",
+              "Job failure scenarios mapped"
+            ],
+            "exit": [
+              "Distributed job execution tested under load",
+              "Failover scenarios validated",
+              "Operations runbook documented"
+            ]
+          },
+          "estimated_effort": "L",
+          "estimated_timeline_weeks": 7,
+          "scope": ["Job Distribution Service", "Queue Consumer", "State Machine Updates", "Monitoring", "Tests"]
+        },
+        {
+          "id": "14.4",
+          "title": "Database Sharding Strategy",
+          "dimension": "platform_scaling",
+          "description": "Prepare for storage and query performance scaling beyond single-instance limits",
+          "objectives": [
+            "Sharding strategy documented (tenant ID hash, geographic, time-based)",
+            "Shard key propagation through service layer",
+            "Shard selection logic implemented and tested",
+            "Query federation for cross-shard aggregations",
+            "Schema migration tooling supports sharded environments"
+          ],
+          "prerequisites": [
+            "13.1 database-per-tenant option",
+            "Phase 0 SQL strategy",
+            "Performance baseline established"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "Capacity model predicting shard necessity",
+              "Data distribution analysis complete"
+            ],
+            "exit": [
+              "Sharding architecture approved",
+              "Prototype tested",
+              "Operational handoff guide documented"
+            ]
+          },
+          "estimated_effort": "L",
+          "estimated_timeline_weeks": 8,
+          "scope": ["Architecture Document", "Shard Key Design", "Prototype Implementation", "Tests"]
+        }
+      ]
+    },
+    {
+      "phase_id": 15,
+      "phase_name": "Platform Federation & Advanced Operations",
+      "status": "planned",
+      "milestones": [
+        {
+          "id": "15.1",
+          "title": "Cross-Tenant Federation & Platform Analytics",
+          "dimension": "platform_scaling",
+          "description": "Enable platform-wide insights without violating tenant isolation",
+          "objectives": [
+            "Aggregation queries compute platform-wide metrics without accessing individual tenant data",
+            "Anonymous dashboards show industry benchmarks and trend analysis",
+            "Tenant consent model controls contribution to aggregate metrics",
+            "Federation queries tested for security (no data leakage)"
+          ],
+          "prerequisites": [
+            "14.1 billing/metering",
+            "14.4 sharding strategy",
+            "Phase 14+ isolation maturity"
+          ],
+          "dependencies": [],
+          "readiness_gates": {
+            "entry": [
+              "Privacy policy updated to cover federation",
+              "Data sharing consent model designed"
+            ],
+            "exit": [
+              "Federation queries return correct aggregates",
+              "Privacy audit passed",
+              "Tenant consent recorded"
+            ]
+          },
+          "estimated_effort": "M",
+          "estimated_timeline_weeks": 5,
+          "scope": ["Federation Query Service", "Consent Model", "Anonymous Metric Aggregation", "Tests"]
+        },
+        {
+          "id": "15.2",
+          "title": "Advanced Threat Detection",
+          "dimension": "isolation_security",
+          "description": "Detect security anomalies within tenant behavior; early incident warning",
+          "objectives": [
+            "Machine learning model trained on tenant behavior baseline",
+            "Real-time anomaly detector flags unusual patterns",
+            "Alert routing to tenant security contact",
+            "Portal incident history records anomalies and resolutions"
+          ],
+          "prerequisites": [
+            "13.3 observability dashboards",
+            "Phase 11 audit compliance baseline",
+            "14.2 compliance reports"
+          ],
+          "dependencies": [
+            "ML platform/libraries",
+            "Alerting service"
+          ],
+          "readiness_gates": {
+            "entry": [
+              "Threat model defined",
+              "ML model validation against known threats"
+            ],
+            "exit": [
+              "Anomaly detector tested with synthetic attack patterns",
+              "False positive rate acceptable",
+              "response playbook documented"
+            ]
+          },
+          "estimated_effort": "L",
+          "estimated_timeline_weeks": 8,
+          "scope": ["ML Model Training Pipeline", "Anomaly Detector Service", "Alert Routing", "Portal Incident UI"]
+        },
+        {
+          "id": "15.3",
+          "title": "On-Premises & Hybrid Cloud Deployment",
+          "dimension": "platform_scaling",
+          "description": "Support regulated customers requiring on-premises deployment or hybrid cloud setup",
+          "objectives": [
+            "Deployment model selector (Cloud SaaS vs. On-Premises vs. Hybrid)",
+            "Network isolation & firewall rules documented for on-premises",
+            "License key system controls feature access per deployment model",
+            "Upgraded schema migration tooling validates consistency across deployments"
+          ],
+          "prerequisites": [
+            "13.1 database-per-tenant",
+            "13.2 RLS policies",
+            "Phase 0 deployment strategy"
+          ],
+          "dependencies": [
+            "Licensing backend service",
+            "Network architecture review"
+          ],
+          "readiness_gates": {
+            "entry": [
+              "On-premises security requirements gathered",
+              "Network architecture approved",
+              "Licensing model finalized"
+            ],
+            "exit": [
+              "On-premises deployment piloted with trusted customer",
+              "Network isolation verified",
+              "Operational runbook completed"
+            ]
+          },
+          "estimated_effort": "L",
+          "estimated_timeline_weeks": 10,
+          "scope": ["Deployment Configuration Service", "License Key Validation", "Network Deployment Guide", "Architecture Diagram"]
+        }
+      ]
+    }
+  ],
+  "phase_dependencies": {
+    "12": {
+      "blocking": [],
+      "blocked_by": [11]
+    },
+    "13": {
+      "blocking": [14],
+      "blocked_by": [12]
+    },
+    "14": {
+      "blocking": [15],
+      "blocked_by": [13]
+    },
+    "15": {
+      "blocking": [],
+      "blocked_by": [14]
+    }
+  },
+  "critical_path_milestones": [
+    "12.5.1",
+    "13.1",
+    "13.4",
+    "14.1",
+    "14.4",
+    "15.3"
+  ],
+  "phase_level_kpis": {
+    "12": {
+      "tenant_onboarding_time": "<15 minutes",
+      "self_service_adoption": ">80% within 6 months",
+      "mfa_deployment": "100% of new tenants",
+      "custom_role_adoption": ">50% of enterprise tenants"
+    },
+    "13": {
+      "database_isolation_option_adoption": ">20% of new tenants",
+      "rls_policy_enforcement": "100% of tenant queries",
+      "observability_export_usage": ">40% of tenants",
+      "quota_violation_rate": "<5% per week"
+    },
+    "14": {
+      "billing_accuracy": ">99% match vs. manual audit",
+      "compliance_report_generation": ">90% automated",
+      "distributed_job_throughput": ">10x single-node capacity",
+      "sharding_readiness": "Architecture approved"
+    },
+    "15": {
+      "federation_accuracy": ">99%",
+      "anomaly_false_positive_rate": "<5% per week",
+      "on_premises_deployment": ">1 live customer"
+    }
+  }
+}
