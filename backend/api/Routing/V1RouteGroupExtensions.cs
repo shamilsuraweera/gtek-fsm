@@ -1519,12 +1519,13 @@ public static class V1RouteGroupExtensions
                 return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
             }
 
-            var tenantId = tenantContextAccessor.GetCurrentTenantId();
-            var userId = principal.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
-            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userIdGuid))
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
             {
-                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_SUBJECT", "User ID is missing or invalid.");
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing or invalid.");
             }
+
+            var userIdGuid = principal.UserId;
             
             if (request.JobId == Guid.Empty || request.ServiceRequestId == Guid.Empty)
             {
@@ -1556,7 +1557,7 @@ public static class V1RouteGroupExtensions
             try
             {
                 var feedbackId = await feedbackService.SubmitFeedbackAsync(
-                    tenantId,
+                    tenantIdValue,
                     request.JobId,
                     request.ServiceRequestId,
                     userIdGuid,
@@ -1603,9 +1604,13 @@ public static class V1RouteGroupExtensions
             IFeedbackService feedbackService,
             CancellationToken cancellationToken) =>
         {
-            var tenantId = tenantContextAccessor.GetCurrentTenantId();
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing.");
+            }
 
-            var feedbacks = await feedbackService.GetFeedbackForServiceRequestAsync(tenantId, requestId, cancellationToken);
+            var feedbacks = await feedbackService.GetFeedbackForServiceRequestAsync(tenantIdValue, requestId, cancellationToken);
             var responses = feedbacks
                 .Select(f => new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
                 {
@@ -1637,9 +1642,15 @@ public static class V1RouteGroupExtensions
             int take = 50,
             CancellationToken cancellationToken = default) =>
         {
-            var tenantId = tenantContextAccessor.GetCurrentTenantId();
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing.");
+            }
 
-            var (feedbacks, totalCount) = await feedbackService.QueryFeedbackAsync(tenantId, skip, take, cancellationToken);
+            var queryResult = await feedbackService.QueryFeedbackAsync(tenantIdValue, skip, take, cancellationToken);
+            var feedbacks = queryResult.Items;
+            var totalCount = queryResult.TotalCount;
             var responses = feedbacks
                 .Select(f => new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
                 {
@@ -1673,9 +1684,13 @@ public static class V1RouteGroupExtensions
             IFeedbackService feedbackService,
             CancellationToken cancellationToken) =>
         {
-            var tenantId = tenantContextAccessor.GetCurrentTenantId();
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing.");
+            }
 
-            var stats = await feedbackService.GetFeedbackStatisticsAsync(tenantId, cancellationToken);
+            var stats = await feedbackService.GetFeedbackStatisticsAsync(tenantIdValue, cancellationToken);
 
             return Results.Ok(ApiResponse<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackStatisticsResponse>.Ok(
                 data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackStatisticsResponse
@@ -1687,7 +1702,7 @@ public static class V1RouteGroupExtensions
                     AverageCustomerRating = stats.AverageCustomerRating,
                     AverageWorkerRating = stats.AverageWorkerRating,
                     ActionableFeedbackCount = stats.ActionableFeedbackCount,
-                    FeedbackCountByType = stats.FeedbackCountByType
+                    FeedbackCountByType = stats.FeedbackCountByType.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value)
                 },
                 message: "Feedback statistics retrieved successfully.",
                 traceId: context.TraceIdentifier));
