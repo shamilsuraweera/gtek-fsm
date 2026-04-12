@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using GTEK.FSM.Backend.Api.Authentication;
 using GTEK.FSM.Backend.Api.Authorization;
 using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
@@ -12,6 +13,7 @@ using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
 using GTEK.FSM.Backend.Infrastructure.Identity;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Audit.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
 using Microsoft.AspNetCore.Authentication;
@@ -187,6 +189,100 @@ public class AuditLogQueryIntegrationTests
         Assert.DoesNotContain("Other tenant row", csv);
     }
 
+    [Fact]
+    public async Task GetAuditLogs_ManagerScope_SupportsComplianceEvidenceFiltersByTenantUserActionAndTime()
+    {
+        var tenantId = Guid.NewGuid();
+        var otherTenantId = Guid.NewGuid();
+        var actorUserId = Guid.NewGuid();
+        var alternateUserId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var fromUtc = now.AddHours(-1);
+        var toUtc = now.AddHours(1);
+
+        var auditStore = new InMemoryAuditLogStore();
+        auditStore.Seed(new Domain.Audit.AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+            Action = "STATUS_TRANSITION",
+            Outcome = "Success",
+            OccurredAtUtc = now,
+            Details = "Target row",
+        });
+        auditStore.Seed(new Domain.Audit.AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+            Action = "STATUS_TRANSITION",
+            Outcome = "Success",
+            OccurredAtUtc = fromUtc.AddMinutes(-1),
+            Details = "Outside time window",
+        });
+        auditStore.Seed(new Domain.Audit.AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ActorUserId = alternateUserId,
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+            Action = "STATUS_TRANSITION",
+            Outcome = "Success",
+            OccurredAtUtc = now,
+            Details = "Wrong user",
+        });
+        auditStore.Seed(new Domain.Audit.AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = otherTenantId,
+            ActorUserId = actorUserId,
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+            Action = "STATUS_TRANSITION",
+            Outcome = "Success",
+            OccurredAtUtc = now,
+            Details = "Other tenant",
+        });
+        auditStore.Seed(new Domain.Audit.AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            ActorUserId = actorUserId,
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+            Action = "ASSIGNMENT_UPDATED",
+            Outcome = "Success",
+            OccurredAtUtc = now,
+            Details = "Wrong action",
+        });
+
+        await using var app = await BuildTestApplicationAsync(auditStore);
+        using var client = app.GetTestClient();
+
+        var route = $"/api/v1/management/audit-logs?actorUserId={actorUserId}&action=STATUS_TRANSITION&fromUtc={Uri.EscapeDataString(fromUtc.ToString("O"))}&toUtc={Uri.EscapeDataString(toUtc.ToString("O"))}&page=1&pageSize=10";
+        using var request = CreateAuthenticatedRequest(HttpMethod.Get, route, "Manager", tenantId, Guid.NewGuid());
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var envelope = await response.Content.ReadFromJsonAsync<ApiResponse<GetAuditLogsListResponse>>();
+        Assert.NotNull(envelope);
+        Assert.True(envelope!.Success);
+        Assert.NotNull(envelope.Data);
+        Assert.Single(envelope.Data!.Items);
+        Assert.Equal("STATUS_TRANSITION", envelope.Data.Items[0].Action);
+        Assert.Equal(actorUserId.ToString(), envelope.Data.Items[0].ActorUserId);
+        Assert.Equal(tenantId.ToString(), envelope.Data.Items[0].TenantId);
+        Assert.Equal(1, envelope.Data.Pagination.Total);
+    }
+
     private static HttpRequestMessage CreateAuthenticatedRequest(HttpMethod method, string route, string role, Guid tenantId, Guid userId)
     {
         var request = new HttpRequestMessage(method, route);
@@ -208,6 +304,7 @@ public class AuditLogQueryIntegrationTests
         builder.Services.AddScoped<IAuthenticatedPrincipalAccessor, HttpContextAuthenticatedPrincipalAccessor>();
         builder.Services.AddScoped<ITenantContextAccessor, HttpContextTenantContextAccessor>();
         builder.Services.AddScoped<IAuditLogRepository>(_ => auditStore);
+        builder.Services.AddSingleton<ILocalAuthService, StubLocalAuthService>();
         builder.Services.Configure<TenantResolutionOptions>(_ => { });
 
         builder.Services.AddAuthentication(options =>
@@ -299,6 +396,15 @@ public class AuditLogQueryIntegrationTests
             value = values[0] ?? string.Empty;
             return !string.IsNullOrWhiteSpace(value);
         }
+    }
+
+    private sealed class StubLocalAuthService : ILocalAuthService
+    {
+        public Task<LocalAuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(LocalAuthResult.Fail(401, "STUB", "stub"));
+
+        public Task<LocalAuthResult> RegisterAsync(RegisterLocalUserRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(LocalAuthResult.Fail(401, "STUB", "stub"));
     }
 
     private sealed class InMemoryAuditLogStore : IAuditLogRepository
