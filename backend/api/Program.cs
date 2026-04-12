@@ -74,6 +74,7 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local"))
 }
 
 app.UseGlobalExceptionHandling();
+app.UseRequestObservability();
 app.UseHttpsRedirection();
 app.UseCors("PortalLocal");
 app.UseAuthentication();

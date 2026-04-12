@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading.Channels;
 
+using GTEK.FSM.Backend.Api.Authentication;
 using GTEK.FSM.Backend.Api.Authorization;
 using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Realtime;
@@ -19,6 +20,7 @@ using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Domain.Aggregates;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Backend.Infrastructure.Identity;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
@@ -493,6 +495,7 @@ public class OperationalRealtimePublishingIntegrationTests
         builder.Services.AddScoped<IUserRepository>(_ => userStore);
         builder.Services.AddScoped<IUnitOfWork, NoOpUnitOfWork>();
         builder.Services.AddScoped<IOperationalUpdatePublisher, SignalROperationalUpdatePublisher>();
+        builder.Services.AddSingleton<ILocalAuthService, StubLocalAuthService>();
         builder.Services.Configure<TenantResolutionOptions>(_ => { });
         builder.Services.AddSignalR();
 
@@ -559,6 +562,15 @@ public class OperationalRealtimePublishingIntegrationTests
         public const string TenantId = "X-Test-Tenant-Id";
         public const string Role = "X-Test-Role";
         public const string TokenVersion = "X-Test-Ver";
+    }
+
+    private sealed class StubLocalAuthService : ILocalAuthService
+    {
+        public Task<LocalAuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(LocalAuthResult.Fail(401, "STUB", "stub"));
+
+        public Task<LocalAuthResult> RegisterAsync(RegisterLocalUserRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(LocalAuthResult.Fail(401, "STUB", "stub"));
     }
 
     private sealed class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>
