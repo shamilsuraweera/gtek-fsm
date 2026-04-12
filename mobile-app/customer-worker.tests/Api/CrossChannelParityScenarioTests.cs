@@ -109,10 +109,7 @@ public sealed class CrossChannelParityScenarioTests
             return token;
         }
 
-        public bool SetAccessToken(string accessToken)
-        {
-            return true;
-        }
+        public void SetAccessToken(string accessToken) { }
 
         public void ClearAccessToken()
         {

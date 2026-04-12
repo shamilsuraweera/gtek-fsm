@@ -1,7 +1,7 @@
 .page {
     min-height: 100vh;
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 240px minmax(0, 1fr);
     grid-template-rows: 3.5rem 1fr;
     grid-template-areas:
         "top-bar top-bar"
@@ -12,6 +12,7 @@
     grid-area: top-bar;
     background-color: var(--color-bg-surface-alt);
     border-bottom: 1px solid var(--color-border-default);
+    box-shadow: 0 8px 20px rgba(12, 28, 50, 0.08);
     height: 3.5rem;
     display: flex;
     align-items: center;
@@ -26,27 +27,13 @@
 
 .content-area {
     grid-area: content;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
+    display: block;
     background-color: var(--color-bg-page);
+    min-width: 0;
 }
 
-.right-drawer {
-    border-left: 1px solid var(--color-border-default);
-    background-color: var(--color-bg-surface-alt);
-    padding-top: var(--space-4);
-    box-shadow: var(--elevation-1);
-}
-
-.right-drawer h2 {
-    font-size: var(--font-size-md);
-    margin-bottom: var(--space-2);
-    font-weight: var(--font-weight-semibold);
-}
-
-.right-drawer p {
-    color: var(--color-text-muted);
-    font-size: var(--font-size-sm);
+.content {
+    padding-bottom: var(--space-5);
 }
 
 .portal-header {
@@ -63,7 +50,7 @@
 .theme-toggle {
     margin-left: auto;
     border: 1px solid var(--color-border-default);
-    background-color: var(--color-bg-surface);
+    background-color: color-mix(in srgb, var(--color-bg-surface) 92%, var(--color-bg-surface-alt));
     color: var(--color-text-primary);
     border-radius: var(--radius-md);
     padding: var(--space-2) var(--space-3);
@@ -71,24 +58,18 @@
     box-shadow: var(--elevation-1);
 }
 
+.theme-toggle:hover {
+    border-color: var(--color-accent);
+}
+
 @media (max-width: 640.98px) {
     .page {
         grid-template-columns: 1fr;
-        grid-template-rows: 3.5rem auto auto auto;
+        grid-template-rows: 3.5rem auto auto;
         grid-template-areas:
             "top-bar"
             "side-nav"
-            "content"
             "content";
-    }
-
-    .content-area {
-        grid-template-columns: 1fr;
-    }
-
-    .right-drawer {
-        border-left: none;
-        border-top: 1px solid var(--color-border-default);
     }
 }
 
@@ -106,5 +87,7 @@
 
     .content {
         padding-top: 1.1rem;
+        width: 100%;
+        max-width: none;
     }
 }

@@ -1,4 +1,5 @@
 using System.Text;
+using GTEK.FSM.Backend.Api.Authentication;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
@@ -10,6 +11,8 @@ using GTEK.FSM.Backend.Application.Workers;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Http;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Requests;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Audit.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Audit.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Requests;
@@ -45,6 +48,66 @@ public static class V1RouteGroupExtensions
         v1.MapGet("/error-test", () =>
         {
             throw new InvalidOperationException("Error test endpoint triggered.");
+        });
+
+        v1.MapPost("/auth/login", async (
+            LoginRequest request,
+            HttpContext context,
+            IValidator<LoginRequest> validator,
+            ILocalAuthService localAuthService,
+            CancellationToken cancellationToken) =>
+        {
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var login = await localAuthService.LoginAsync(request, cancellationToken);
+            if (!login.IsSuccess || login.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    login.StatusCode,
+                    login.ErrorCode ?? "AUTH_LOGIN_FAILED",
+                    login.Message);
+            }
+
+            return Results.Ok(ApiResponse<AuthSessionResponse>.Ok(
+                data: login.Payload,
+                message: "Login successful.",
+                traceId: context.TraceIdentifier));
+        });
+
+        v1.MapPost("/auth/register", async (
+            RegisterLocalUserRequest request,
+            HttpContext context,
+            IValidator<RegisterLocalUserRequest> validator,
+            ILocalAuthService localAuthService,
+            CancellationToken cancellationToken) =>
+        {
+            var validationFailure = await BuildValidationFailureAsync(request, validator, context, cancellationToken);
+            if (validationFailure is not null)
+            {
+                return validationFailure;
+            }
+
+            var registration = await localAuthService.RegisterAsync(request, cancellationToken);
+            if (!registration.IsSuccess || registration.Payload is null)
+            {
+                return BuildFailure(
+                    context,
+                    registration.StatusCode,
+                    registration.ErrorCode ?? "AUTH_REGISTER_FAILED",
+                    registration.Message);
+            }
+
+            return Results.Json(
+                ApiResponse<AuthSessionResponse>.Ok(
+                    data: registration.Payload,
+                    message: "Registration successful.",
+                    traceId: context.TraceIdentifier),
+                statusCode: StatusCodes.Status201Created);
         });
 
         v1.MapPost("/requests", async (

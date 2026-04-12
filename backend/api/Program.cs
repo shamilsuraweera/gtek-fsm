@@ -28,11 +28,27 @@ builder.Configuration
 	.AddEnvironmentVariables();
 
 var signalROptions = builder.Configuration.GetSection("SignalR").Get<SignalROptions>() ?? new SignalROptions();
+var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+	?? new[] { "http://localhost:5001" };
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddApiAuthorizationPolicies();
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("PortalLocal", policy =>
+	{
+		policy.WithOrigins(allowedCorsOrigins)
+			.AllowAnyHeader()
+			.AllowAnyMethod()
+			.AllowCredentials();
+	});
+});
+builder.Services.AddScoped<ILocalPasswordHasher, Pbkdf2LocalPasswordHasher>();
+builder.Services.AddScoped<IJwtTokenIssuer, JwtTokenIssuer>();
+builder.Services.AddScoped<ILocalAuthService, LocalAuthService>();
+builder.Services.AddScoped<ILocalAuthBootstrapService, LocalAuthBootstrapService>();
 builder.Services.AddScoped<IOperationalUpdatePublisher, SignalROperationalUpdatePublisher>();
 builder.Services.AddSignalR(options =>
 {
@@ -48,8 +64,16 @@ builder.Services
 var app = builder.Build();
 var resolvedSignalROptions = app.Services.GetRequiredService<IOptions<SignalROptions>>().Value;
 
+if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local"))
+{
+    using var scope = app.Services.CreateScope();
+    var bootstrapService = scope.ServiceProvider.GetRequiredService<ILocalAuthBootstrapService>();
+    await bootstrapService.EnsureBootstrappedAsync();
+}
+
 app.UseGlobalExceptionHandling();
 app.UseHttpsRedirection();
+app.UseCors("PortalLocal");
 app.UseAuthentication();
 app.UseTenantResolution();
 app.UseAuthorization();

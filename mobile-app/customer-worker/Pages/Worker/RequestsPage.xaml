@@ -3,11 +3,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="GTEK.FSM.MobileApp.Pages.Worker.RequestsPage"
              Title="Requests">
-    <VerticalStackLayout Padding="16">
-        <Label Text="Requests"
-               FontSize="24"
-               HorizontalOptions="Center" />
-        <Label Text="Placeholder — content will be added in Phase 6."
-               HorizontalOptions="Center" />
-    </VerticalStackLayout>
+       <ScrollView>
+              <VerticalStackLayout Padding="20,18,20,24" Spacing="12">
+                     <Label Text="Requests" FontSize="28" FontAttributes="Bold" />
+                     <Label Text="Worker request lists will use the same simplified cards and muted surfaces as the rest of the app."
+                               TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+
+                     <Border Padding="16" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
+                            <VerticalStackLayout Spacing="10">
+                                   <Label Text="Coming Soon" FontSize="18" FontAttributes="Bold" />
+                                   <Label Text="No extra features are introduced here; this only establishes the simplified visual structure for future content."
+                                             TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                            </VerticalStackLayout>
+                     </Border>
+              </VerticalStackLayout>
+       </ScrollView>
 </ContentPage>

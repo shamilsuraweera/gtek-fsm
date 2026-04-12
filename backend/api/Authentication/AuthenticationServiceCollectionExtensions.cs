@@ -11,6 +11,8 @@ public static class AuthenticationServiceCollectionExtensions
 {
     public static IServiceCollection AddApiAuthentication(this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
+        services.Configure<JwtAuthenticationOptions>(configuration.GetSection(JwtAuthenticationOptions.SectionName));
+
         var jwtOptions = new JwtAuthenticationOptions();
         configuration.GetSection(JwtAuthenticationOptions.SectionName).Bind(jwtOptions);
         jwtOptions.Validate();

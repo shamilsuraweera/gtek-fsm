@@ -1,6 +1,36 @@
-﻿<Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
-    <Found Context="routeData">
-        <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)"/>
-        <FocusOnNavigate RouteData="@routeData" Selector="h1" />
-    </Found>
-</Router>
+﻿@using GTEK.FSM.WebPortal.Components
+@using GTEK.FSM.WebPortal.Pages
+@using GTEK.FSM.WebPortal.Services.Security
+@inject PortalAuthState AuthState
+
+@if (!AuthState.IsInitialized)
+{
+    <div class="loading-progress-text">Preparing portal...</div>
+}
+else
+{
+    <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            @if (!AuthState.IsAuthenticated && routeData.PageType != typeof(Login))
+            {
+                <RedirectToRoute Href="/login" />
+            }
+            else if (AuthState.IsAuthenticated && routeData.PageType == typeof(Login))
+            {
+                <RedirectToRoute Href="/" />
+            }
+            else
+            {
+                <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
+                <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+            }
+        </Found>
+    </Router>
+}
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await AuthState.InitializeAsync();
+    }
+}

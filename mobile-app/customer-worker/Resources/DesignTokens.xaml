@@ -21,36 +21,36 @@
     <Color x:Key="ColorGray950">#0A0A0A</Color>
 
     <!-- Semantic Colors - Light Variants -->
-    <Color x:Key="ColorBgPageLight">#FFFFFF</Color>
-    <Color x:Key="ColorBgSurfaceLight">#F5F5F5</Color>
+    <Color x:Key="ColorBgPageLight">#FBFBFC</Color>
+    <Color x:Key="ColorBgSurfaceLight">#F5F7F9</Color>
     <Color x:Key="ColorBgSurfaceElevatedLight">#FFFFFF</Color>
-    <Color x:Key="ColorTextPrimaryLight">#000000</Color>
-    <Color x:Key="ColorTextSecondaryLight">#404040</Color>
-    <Color x:Key="ColorTextMutedLight">#737373</Color>
+    <Color x:Key="ColorTextPrimaryLight">#2B435F</Color>
+    <Color x:Key="ColorTextSecondaryLight">#43596F</Color>
+    <Color x:Key="ColorTextMutedLight">#6F7E8D</Color>
     <Color x:Key="ColorTextDisabledLight">#A3A3A3</Color>
-    <Color x:Key="ColorBorderDefaultLight">#E8E8E8</Color>
-    <Color x:Key="ColorBorderSubtleLight">#F5F5F5</Color>
-    <Color x:Key="ColorBorderStrongLight">#D4D4D4</Color>
-    <Color x:Key="ColorAccentLight">#0F6ABD</Color>
-    <Color x:Key="ColorAccentHoverLight">#0B4A85</Color>
-    <Color x:Key="ColorAccentActiveLight">#073157</Color>
-    <Color x:Key="ColorAccentBgLight">#E0F2FE</Color>
+    <Color x:Key="ColorBorderDefaultLight">#E4E9EF</Color>
+    <Color x:Key="ColorBorderSubtleLight">#F5F7F9</Color>
+    <Color x:Key="ColorBorderStrongLight">#D2DBE4</Color>
+    <Color x:Key="ColorAccentLight">#F38808</Color>
+    <Color x:Key="ColorAccentHoverLight">#D97306</Color>
+    <Color x:Key="ColorAccentActiveLight">#B85F03</Color>
+    <Color x:Key="ColorAccentBgLight">#FFF3E3</Color>
 
     <!-- Semantic Colors - Dark Variants -->
-    <Color x:Key="ColorBgPageDark">#0A0A0A</Color>
-    <Color x:Key="ColorBgSurfaceDark">#171717</Color>
-    <Color x:Key="ColorBgSurfaceElevatedDark">#262626</Color>
+    <Color x:Key="ColorBgPageDark">#2B435F</Color>
+    <Color x:Key="ColorBgSurfaceDark">#35506C</Color>
+    <Color x:Key="ColorBgSurfaceElevatedDark">#40607F</Color>
     <Color x:Key="ColorTextPrimaryDark">#FFFFFF</Color>
-    <Color x:Key="ColorTextSecondaryDark">#E5E7EB</Color>
-    <Color x:Key="ColorTextMutedDark">#9CA3AF</Color>
+    <Color x:Key="ColorTextSecondaryDark">#EAF0F6</Color>
+    <Color x:Key="ColorTextMutedDark">#D3DCE5</Color>
     <Color x:Key="ColorTextDisabledDark">#6B7280</Color>
-    <Color x:Key="ColorBorderDefaultDark">#404040</Color>
-    <Color x:Key="ColorBorderSubtleDark">#262626</Color>
-    <Color x:Key="ColorBorderStrongDark">#525252</Color>
-    <Color x:Key="ColorAccentDark">#2563EB</Color>
-    <Color x:Key="ColorAccentHoverDark">#1D4ED8</Color>
-    <Color x:Key="ColorAccentActiveDark">#1E40AF</Color>
-    <Color x:Key="ColorAccentBgDark">#1E3A8A</Color>
+    <Color x:Key="ColorBorderDefaultDark">#4A6077</Color>
+    <Color x:Key="ColorBorderSubtleDark">#35506C</Color>
+    <Color x:Key="ColorBorderStrongDark">#5D7590</Color>
+    <Color x:Key="ColorAccentDark">#F6A74A</Color>
+    <Color x:Key="ColorAccentHoverDark">#F8B862</Color>
+    <Color x:Key="ColorAccentActiveDark">#D98A2B</Color>
+    <Color x:Key="ColorAccentBgDark">#5C4A34</Color>
 
     <!-- Status Colors - Light Variants -->
     <Color x:Key="ColorStatusSuccessLight">#10B981</Color>

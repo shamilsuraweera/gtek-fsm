@@ -80,6 +80,55 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("Jobs", (string)null);
                 });
 
+            modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.LocalCredential", b =>
+                {
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2(3)")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2(3)")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.HasKey("UserId")
+                        .HasName("PK_LocalCredentials");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_LocalCredentials_Email");
+
+                    b.HasIndex("TenantId", "Role")
+                        .HasDatabaseName("IX_LocalCredentials_TenantId_Role");
+
+                    b.HasIndex("TenantId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("LocalCredentials", (string)null);
+                });
+
             modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.ServiceCategory", b =>
                 {
                     b.Property<Guid>("Id")
@@ -147,6 +196,22 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("ActiveJobId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime?>("AssignmentDueAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<byte>("AssignmentSlaState")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)0);
+
+                    b.Property<DateTime?>("CompletionDueAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<byte>("CompletionSlaState")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)0);
+
                     b.Property<DateTime>("CreatedAtUtc")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2(3)")
@@ -159,6 +224,17 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("NextSlaDeadlineAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime?>("ResponseDueAtUtc")
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<byte>("ResponseSlaState")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("tinyint")
+                        .HasDefaultValue((byte)0);
 
                     b.Property<byte[]>("RowVersion")
                         .IsConcurrencyToken()
@@ -372,6 +448,81 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.WorkerProfile", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AvailabilityStatus")
+                        .HasColumnType("int");
+
+                    b.Property<decimal?>("BaseLatitude")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<decimal?>("BaseLongitude")
+                        .HasColumnType("decimal(9,6)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2(3)")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("DisplayName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<decimal>("InternalRating")
+                        .HasColumnType("decimal(3,1)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsDeleted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("SkillTagsSerialized")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)")
+                        .HasColumnName("SkillTags");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("datetime2(3)")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("WorkerCode")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("Id")
+                        .HasName("PK_WorkerProfiles");
+
+                    b.HasAlternateKey("TenantId", "Id")
+                        .HasName("AK_WorkerProfiles_TenantId_Id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("IX_WorkerProfiles_TenantId");
+
+                    b.HasIndex("TenantId", "DisplayName")
+                        .HasDatabaseName("IX_WorkerProfiles_TenantId_DisplayName");
+
+                    b.HasIndex("TenantId", "WorkerCode")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_WorkerProfiles_TenantId_WorkerCode");
+
+                    b.ToTable("WorkerProfiles", (string)null);
+                });
+
             modelBuilder.Entity("GTEK.FSM.Backend.Domain.Audit.AuditLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -433,6 +584,17 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_Jobs_ServiceRequests_TenantId_ServiceRequestId");
+                });
+
+            modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.LocalCredential", b =>
+                {
+                    b.HasOne("GTEK.FSM.Backend.Domain.Aggregates.User", null)
+                        .WithOne()
+                        .HasForeignKey("GTEK.FSM.Backend.Domain.Aggregates.LocalCredential", "TenantId", "UserId")
+                        .HasPrincipalKey("GTEK.FSM.Backend.Domain.Aggregates.User", "TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_LocalCredentials_Users_TenantId_UserId");
                 });
 
             modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.ServiceCategory", b =>
@@ -498,6 +660,16 @@ namespace GTEK.FSM.Backend.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("FK_Users_Tenants_TenantId");
+                });
+
+            modelBuilder.Entity("GTEK.FSM.Backend.Domain.Aggregates.WorkerProfile", b =>
+                {
+                    b.HasOne("GTEK.FSM.Backend.Domain.Aggregates.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("FK_WorkerProfiles_Tenants_TenantId");
                 });
 #pragma warning restore 612, 618
         }

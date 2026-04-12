@@ -1,16 +1,24 @@
 ﻿@inherits LayoutComponentBase
 @implements IDisposable
 @inject GTEK.FSM.WebPortal.Services.Theme.ThemeState ThemeState
+@inject GTEK.FSM.WebPortal.Services.Security.PortalAuthState AuthState
+@inject NavigationManager Navigation
 
 <div class="page">
     <header class="top-bar px-4">
         <div class="portal-header">
             <strong>GTEK FSM Portal</strong>
-            <span class="portal-subtitle">Customer Care and Management shell</span>
+            <span class="portal-subtitle">@HeaderSubtitle</span>
         </div>
-        <button class="theme-toggle" @onclick="ToggleThemeAsync">
-            Theme: @CurrentThemeLabel
-        </button>
+        <div class="d-flex align-items-center gap-2">
+            <span class="portal-subtitle">@AuthState.Session?.DisplayName (@AuthState.CurrentRole)</span>
+            <button class="theme-toggle" @onclick="ToggleThemeAsync">
+                Theme: @CurrentThemeLabel
+            </button>
+            <button class="theme-toggle" @onclick="LogoutAsync">
+                Logout
+            </button>
+        </div>
     </header>
 
     <aside class="side-nav">
@@ -22,11 +30,6 @@
             @Body
         </article>
     </main>
-
-    <aside class="right-drawer px-3">
-        <h2>Right Drawer</h2>
-        <p>Placeholder container for contextual tools and details.</p>
-    </aside>
 </div>
 
 @code {
@@ -35,6 +38,10 @@
     private string CurrentThemeLabel => ThemeState.CurrentMode == GTEK.FSM.WebPortal.Services.Theme.ThemeMode.Dark
         ? "Dark"
         : "Light";
+
+    private string HeaderSubtitle => string.IsNullOrWhiteSpace(AuthState.CurrentTenantId)
+        ? "Customer Care and Management shell"
+        : $"Tenant {AuthState.CurrentTenantId}";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -49,6 +56,12 @@
     private async Task ToggleThemeAsync()
     {
         await ThemeState.ToggleAsync();
+    }
+
+    private async Task LogoutAsync()
+    {
+        await AuthState.LogoutAsync();
+        Navigation.NavigateTo("/login", replace: true);
     }
 
     public void Dispose()

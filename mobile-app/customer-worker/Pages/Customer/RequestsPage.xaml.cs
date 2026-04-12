@@ -34,7 +34,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
                 summary: "Unit is not cooling the second floor.",
                 etaText: "Technician ETA: Today 2:30 PM",
                 statusLabel: "In Progress",
-                statusColor: Color.FromArgb("#0F6ABD"),
+                statusColor: Color.FromArgb("#F38808"),
                 currentStage: 2),
             new CustomerRequestViewModel(
                 id: "REQ-2301",
@@ -120,8 +120,8 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             var isComplete = index <= request.CurrentStage;
             var marker = isComplete ? "●" : "○";
             var color = isComplete
-                ? Color.FromArgb("#0F6ABD")
-                : Color.FromArgb("#6B7280");
+                ? Color.FromArgb("#F38808")
+                : Color.FromArgb("#6F7E8D");
 
             StatusTimelineLayout.Children.Add(new Label
             {
@@ -136,7 +136,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         {
             Text = "Loading activity timeline...",
             FontSize = 12,
-            TextColor = Color.FromArgb("#6B7280"),
+            TextColor = Color.FromArgb("#6F7E8D"),
         });
     }
 
@@ -388,7 +388,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
             {
                 Text = "No additional activity yet.",
                 FontSize = 12,
-                TextColor = Color.FromArgb("#6B7280"),
+                TextColor = Color.FromArgb("#6F7E8D"),
             });
             return;
         }

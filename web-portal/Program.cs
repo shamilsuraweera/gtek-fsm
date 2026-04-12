@@ -13,17 +13,29 @@ builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
 builder.Services.Configure<PortalRealtimeOptions>(builder.Configuration.GetSection(PortalRealtimeOptions.SectionName));
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"];
+if (string.IsNullOrWhiteSpace(apiBaseUrl))
+{
+	apiBaseUrl = builder.HostEnvironment.BaseAddress;
+}
+
+if (!apiBaseUrl.EndsWith('/'))
+{
+	apiBaseUrl += "/";
+}
+
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(apiBaseUrl, UriKind.Absolute) });
 builder.Services.AddScoped<ThemeState>();
 builder.Services.AddScoped<ResilientDataFetcher>();
 builder.Services.AddScoped<IQueueSavedViewService, QueueSavedViewService>();
+builder.Services.AddScoped<PortalAuthState>();
 builder.Services.AddScoped<UiSecurityContext>();
 builder.Services.AddScoped<IRequestWorkspaceApiClient, RequestWorkspaceApiClient>();
 builder.Services.AddScoped<IManagementWorkersApiClient, ManagementWorkersApiClient>();
 builder.Services.AddScoped<IManagementSubscriptionsApiClient, ManagementSubscriptionsApiClient>();
 builder.Services.AddScoped<IManagementCategoriesApiClient, ManagementCategoriesApiClient>();
 builder.Services.AddScoped<IManagementReportsApiClient, ManagementReportsApiClient>();
-builder.Services.AddScoped<IPortalAccessTokenProvider, NullPortalAccessTokenProvider>();
+builder.Services.AddScoped<IPortalAccessTokenProvider, PortalAuthStateAccessTokenProvider>();
 builder.Services.AddScoped<IOperationalRealtimeClient, SignalROperationalRealtimeClient>();
 
 await builder.Build().RunAsync();

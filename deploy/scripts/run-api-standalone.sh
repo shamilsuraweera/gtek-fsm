@@ -1,53 +1,43 @@
 #!/bin/bash
-# Run the API server with SQL Server in Docker
-# Ensures database is initialized before starting API
-# Prerequisites: Docker must be running, SQL Server image available
+# Run the API server locally. SQL Server must already be running on this machine.
 
-set -e
+set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$PROJECT_ROOT"
 
+if [[ ! -f ".env" ]]; then
+    echo "❌ .env file not found."
+    exit 1
+fi
+
+set -a
+source .env
+set +a
+
+export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
+export Database__ConnectionString="Server=${SQL_SERVER_HOST:-localhost},${SQL_SERVER_PORT:-1433};Database=${SQL_DATABASE:-GTEK_FSM_Local};User Id=sa;Password=${SA_PASSWORD};Encrypt=true;TrustServerCertificate=true;"
+export ASPNETCORE_URLS="http://+:${API_PORT:-5000}"
+
 echo "=========================================="
-echo "Starting API (Standalone - Docker SQL)"
+echo "Starting API (Local)"
 echo "=========================================="
 echo ""
+echo "   Environment: $ASPNETCORE_ENVIRONMENT"
+echo "   Database:    ${SQL_DATABASE:-GTEK_FSM_Local} on ${SQL_SERVER_HOST:-localhost}:${SQL_SERVER_PORT:-1433}"
+echo ""
 
-# Check if Docker is running
-if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker is not running. Please start Docker and try again."
-    exit 1
-fi
+echo "📦 Applying pending migrations..."
+./database/scripts/dev-db-init.sh
 
-# Resolve Docker Compose command for broad compatibility.
-if docker compose version > /dev/null 2>&1; then
-    COMPOSE_CMD="docker compose"
-elif command -v docker-compose > /dev/null 2>&1; then
-    COMPOSE_CMD="docker-compose"
-else
-    echo "❌ Docker Compose is not available. Install Docker Compose v2 or docker-compose."
-    exit 1
-fi
-
-# Ensure SQL Server container is running
-if ! docker ps --filter "name=sqlserver" --quiet | grep -q .; then
-    echo "🐳 Starting SQL Server container..."
-    $COMPOSE_CMD up -d sqlserver
-    echo "⏳ Waiting for SQL Server to be healthy..."
-    sleep 15
-fi
-
-# Apply any pending migrations
-echo "📦 Applying database migrations..."
-./database/scripts/dev-db-init.sh || true
-
-# Start the API server
 echo ""
 echo "🚀 Starting API server..."
-echo "   API will be available at: http://localhost:5000"
-echo "   Health check: http://localhost:5000/health"
+echo "   API:    http://localhost:${API_PORT:-5000}"
+echo "   API:    http://192.168.8.197:${API_PORT:-5000}"
+echo "   Health: http://localhost:${API_PORT:-5000}/health"
+echo "   Health: http://192.168.8.197:${API_PORT:-5000}/health"
 echo ""
 
 cd backend/api
-dotnet run --configuration Debug
+dotnet run --configuration Debug --no-launch-profile
 

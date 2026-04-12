@@ -17,6 +17,8 @@ public class GtekFsmDbContext : DbContext
 
     public DbSet<User> Users => this.Set<User>();
 
+    public DbSet<LocalCredential> LocalCredentials => this.Set<LocalCredential>();
+
     public DbSet<ServiceRequest> ServiceRequests => this.Set<ServiceRequest>();
 
     public DbSet<Job> Jobs => this.Set<Job>();
@@ -42,6 +44,8 @@ public class GtekFsmDbContext : DbContext
 
         modelBuilder.Entity<User>()
             .HasQueryFilter(x => !x.IsDeleted);
+
+        modelBuilder.Entity<LocalCredential>();
 
         modelBuilder.Entity<ServiceRequest>()
             .HasQueryFilter(x => !x.IsDeleted);
