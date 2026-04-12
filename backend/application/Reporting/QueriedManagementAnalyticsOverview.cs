@@ -7,17 +7,36 @@ public sealed record QueriedManagementAnalyticsOverview(
     int SensitiveActions24h,
     int DeniedActions24h,
     QueriedDecisioningMetricsOverview DecisioningMetrics,
+    QueriedAssignmentQualitySummary AssignmentQuality,
+    QueriedWorkforceUtilizationSummary WorkforceUtilization,
     IReadOnlyList<QueriedManagementTrendPoint> IntakeTrend,
     IReadOnlyList<QueriedManagementTrendPoint> CompletionTrend,
     IReadOnlyList<QueriedManagementAnomalyIndicator> Anomalies,
     IReadOnlyList<QueriedManagementDrilldownItem> ActionDrilldown,
-    IReadOnlyList<QueriedManagementDrilldownItem> OutcomeDrilldown);
+    IReadOnlyList<QueriedManagementDrilldownItem> OutcomeDrilldown,
+    QueriedContinuousImprovementOverview ContinuousImprovement);
 
 public sealed record QueriedManagementTrendPoint(DateTime DateUtc, int Value);
 
 public sealed record QueriedManagementAnomalyIndicator(string Code, string Severity, string Message);
 
 public sealed record QueriedManagementDrilldownItem(string Key, int Count);
+
+public sealed record QueriedContinuousImprovementOverview(
+    string CadenceName,
+    int ReviewWindowDays,
+    DateTime NextReviewOnUtc,
+    string PrioritizationRule,
+    IReadOnlyList<QueriedContinuousImprovementItem> ImprovementItems);
+
+public sealed record QueriedContinuousImprovementItem(
+    string Code,
+    string Priority,
+    string Metric,
+    string CurrentState,
+    string TargetState,
+    string RecommendedAction,
+    string ReviewOwner);
 
 public sealed record QueriedDecisioningMetricsOverview(
     int MatchEvaluationCount,
@@ -40,3 +59,26 @@ public sealed record QueriedSlaOutcomeSummary(
     int CompletionBreached,
     int EscalationsAtRiskInWindow,
     int EscalationsBreachedInWindow);
+
+public sealed record QueriedAssignmentQualitySummary(
+    int AssignmentEventsInWindow,
+    int AcceptedJobs,
+    int PendingAcceptanceJobs,
+    int RejectedJobs,
+    int CancelledJobs,
+    int CompletedJobs,
+    decimal AcceptanceRatePercent,
+    decimal CompletionRatePercent,
+    IReadOnlyList<QueriedManagementDrilldownItem> StatusDrilldown);
+
+public sealed record QueriedWorkforceUtilizationSummary(
+    int ActiveWorkers,
+    int AvailableWorkers,
+    int BusyWorkers,
+    int UtilizedWorkers,
+    int OverloadedWorkers,
+    decimal UtilizationRatePercent,
+    decimal AverageActiveJobsPerUtilizedWorker,
+    decimal AverageInternalRating,
+    IReadOnlyList<QueriedManagementDrilldownItem> AvailabilityDrilldown,
+    IReadOnlyList<QueriedManagementDrilldownItem> WorkerLoadDrilldown);

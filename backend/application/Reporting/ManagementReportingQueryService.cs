@@ -2,6 +2,7 @@ using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Decisioning;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
+using GTEK.FSM.Backend.Domain.Aggregates;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Requests;
 
@@ -13,17 +14,20 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
 
     private readonly IServiceRequestRepository serviceRequestRepository;
     private readonly IJobRepository jobRepository;
+    private readonly IWorkerProfileRepository workerProfileRepository;
     private readonly IAuditLogRepository auditLogRepository;
     private readonly IDecisioningMetricsCollector decisioningMetricsCollector;
 
     public ManagementReportingQueryService(
         IServiceRequestRepository serviceRequestRepository,
         IJobRepository jobRepository,
+        IWorkerProfileRepository workerProfileRepository,
         IAuditLogRepository auditLogRepository,
         IDecisioningMetricsCollector decisioningMetricsCollector)
     {
         this.serviceRequestRepository = serviceRequestRepository;
         this.jobRepository = jobRepository;
+        this.workerProfileRepository = workerProfileRepository;
         this.auditLogRepository = auditLogRepository;
         this.decisioningMetricsCollector = decisioningMetricsCollector;
     }
@@ -134,6 +138,24 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
             windowFromUtc,
             trendBuckets,
             cancellationToken);
+        var assignmentQuality = await BuildAssignmentQualitySummaryAsync(
+            principal.TenantId,
+            windowFromUtc,
+            nowUtc,
+            cancellationToken);
+        var workforceUtilization = await BuildWorkforceUtilizationSummaryAsync(
+            principal.TenantId,
+            cancellationToken);
+        var continuousImprovement = BuildContinuousImprovementOverview(
+            windowDays,
+            nowUtc,
+            totalRequests,
+            completedRequests,
+            deniedActions24h,
+            decisioningMetrics,
+            assignmentQuality,
+            workforceUtilization,
+            anomalies);
 
         var payload = new QueriedManagementAnalyticsOverview(
             TotalRequestsInWindow: totalRequests,
@@ -142,13 +164,142 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
             SensitiveActions24h: sensitiveActions24h,
             DeniedActions24h: deniedActions24h,
             DecisioningMetrics: decisioningMetrics,
+            AssignmentQuality: assignmentQuality,
+            WorkforceUtilization: workforceUtilization,
             IntakeTrend: intakeTrend,
             CompletionTrend: completionTrend,
             Anomalies: anomalies,
             ActionDrilldown: actionDrilldown,
-            OutcomeDrilldown: outcomeDrilldown);
+            OutcomeDrilldown: outcomeDrilldown,
+            ContinuousImprovement: continuousImprovement);
 
         return ManagementReportingOverviewQueryResult.Success(payload);
+    }
+
+    private static QueriedContinuousImprovementOverview BuildContinuousImprovementOverview(
+        int windowDays,
+        DateTime nowUtc,
+        int totalRequests,
+        int completedRequests,
+        int deniedActions24h,
+        QueriedDecisioningMetricsOverview decisioningMetrics,
+        QueriedAssignmentQualitySummary assignmentQuality,
+        QueriedWorkforceUtilizationSummary workforceUtilization,
+        IReadOnlyList<QueriedManagementAnomalyIndicator> anomalies)
+    {
+        var items = new List<QueriedContinuousImprovementItem>();
+        var completionRatePercent = totalRequests == 0
+            ? 100m
+            : decimal.Round(completedRequests * 100m / totalRequests, 2, MidpointRounding.AwayFromZero);
+
+        if (completionRatePercent < 70m)
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "COMPLETION_RECOVERY",
+                Priority: "High",
+                Metric: "Completion rate",
+                CurrentState: $"{completionRatePercent:0.##}% completed in the active review window.",
+                TargetState: "Maintain at least 70% completion throughput in-window.",
+                RecommendedAction: "Review incomplete-request backlog, triage the oldest blocked work, and add one recovery item to the next operations backlog.",
+                ReviewOwner: "Operations Manager"));
+        }
+
+        if (assignmentQuality.AssignmentEventsInWindow > 0 && assignmentQuality.AcceptanceRatePercent < 80m)
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "ASSIGNMENT_ACCEPTANCE_TUNING",
+                Priority: "High",
+                Metric: "Assignment acceptance rate",
+                CurrentState: $"{assignmentQuality.AcceptanceRatePercent:0.##}% across {assignmentQuality.AssignmentEventsInWindow} assignment events.",
+                TargetState: "Maintain at least 80% assignment acceptance.",
+                RecommendedAction: "Inspect rejected and pending assignment bands, then refine dispatch rules or worker availability coverage before the next review.",
+                ReviewOwner: "Dispatch Lead"));
+        }
+
+        if (assignmentQuality.AssignmentEventsInWindow > 0 && assignmentQuality.CompletionRatePercent < 65m)
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "JOB_COMPLETION_FOLLOW_THROUGH",
+                Priority: "High",
+                Metric: "Job completion rate",
+                CurrentState: $"{assignmentQuality.CompletionRatePercent:0.##}% completed from {assignmentQuality.AssignmentEventsInWindow} assignment events.",
+                TargetState: "Maintain at least 65% completion conversion from assignments.",
+                RecommendedAction: "Review completion blockers, rework overdue handoffs, and schedule a targeted follow-up on the failing workflow segment.",
+                ReviewOwner: "Field Operations Lead"));
+        }
+
+        if (decisioningMetrics.SlaOutcomes.CompletionBreached > 0 || decisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow > 0)
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "SLA_BREACH_RECOVERY",
+                Priority: "High",
+                Metric: "Completion SLA health",
+                CurrentState: $"{decisioningMetrics.SlaOutcomes.CompletionBreached} completion breaches and {decisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow} breached escalations in window.",
+                TargetState: "Zero breached completion SLAs in the active review cycle.",
+                RecommendedAction: "Open a recovery action for the breached workflow path and verify escalation triggers, staffing coverage, and handoff latency.",
+                ReviewOwner: "Service Delivery Manager"));
+        }
+
+        if (workforceUtilization.OverloadedWorkers > 0 || workforceUtilization.UtilizationRatePercent > 85m)
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "CAPACITY_REBALANCE",
+                Priority: "Medium",
+                Metric: "Workforce utilization",
+                CurrentState: $"{workforceUtilization.UtilizationRatePercent:0.##}% utilized with {workforceUtilization.OverloadedWorkers} overloaded workers.",
+                TargetState: "Keep utilization below 85% and eliminate overloaded worker pockets.",
+                RecommendedAction: "Rebalance active workload, review worker availability drift, and prepare a staffing or routing adjustment for the next cycle.",
+                ReviewOwner: "Workforce Manager"));
+        }
+
+        if (decisioningMetrics.MatchEvaluationCount > 0 && (decisioningMetrics.HighConfidenceMatchRatePercent < 75m || decisioningMetrics.P95MatchLatencyMs > 250m))
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "DECISIONING_SIGNAL_TUNING",
+                Priority: "Medium",
+                Metric: "Decisioning quality",
+                CurrentState: $"{decisioningMetrics.HighConfidenceMatchRatePercent:0.##}% high-confidence matches, p95 latency {decisioningMetrics.P95MatchLatencyMs:0.##} ms.",
+                TargetState: "Maintain at least 75% high-confidence matches and keep p95 latency at or below 250 ms.",
+                RecommendedAction: "Review scoring inputs, low-confidence match cases, and latency spikes before adjusting matching weights or cache strategy.",
+                ReviewOwner: "Platform Optimization Lead"));
+        }
+
+        if (deniedActions24h >= 3)
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "GOVERNANCE_ACCESS_REVIEW",
+                Priority: "Medium",
+                Metric: "Denied sensitive actions",
+                CurrentState: $"{deniedActions24h} denied or failed sensitive actions recorded in the last 24 hours.",
+                TargetState: "Keep denied sensitive actions below 3 per 24-hour review window.",
+                RecommendedAction: "Review role misuse, permission drift, and operator guidance gaps, then create one governance corrective action if the pattern persists.",
+                ReviewOwner: "Security and Governance Lead"));
+        }
+
+        if (anomalies.Any(x => string.Equals(x.Code, "ACTIVE_JOB_PRESSURE", StringComparison.Ordinal))
+            && items.All(x => !string.Equals(x.Code, "CAPACITY_REBALANCE", StringComparison.Ordinal)))
+        {
+            items.Add(new QueriedContinuousImprovementItem(
+                Code: "ACTIVE_JOB_PRESSURE_REVIEW",
+                Priority: "Medium",
+                Metric: "Active job pressure",
+                CurrentState: "Accepted active jobs remain elevated for the selected review window.",
+                TargetState: "Reduce active-job pressure back into standard operating range.",
+                RecommendedAction: "Review intake-to-assignment lag, identify stalled active jobs, and escalate one throughput improvement item into the next backlog.",
+                ReviewOwner: "Operations Manager"));
+        }
+
+        var prioritizedItems = items
+            .OrderBy(x => PriorityRank(x.Priority))
+            .ThenBy(x => x.Code, StringComparer.Ordinal)
+            .ToArray();
+
+        return new QueriedContinuousImprovementOverview(
+            CadenceName: "Weekly KPI Review",
+            ReviewWindowDays: windowDays,
+            NextReviewOnUtc: nowUtc.Date.AddDays(7),
+            PrioritizationRule: "High items become immediate backlog candidates; Medium items require planned follow-up in the next review cycle; Low items remain watchlist signals.",
+            ImprovementItems: prioritizedItems);
     }
 
     private static IReadOnlyList<QueriedManagementAnomalyIndicator> BuildAnomalies(
@@ -192,6 +343,115 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
         }
 
         return anomalies;
+    }
+
+    private async Task<QueriedAssignmentQualitySummary> BuildAssignmentQualitySummaryAsync(
+        Guid tenantId,
+        DateTime windowFromUtc,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        var jobs = await LoadAllJobsAsync(tenantId, cancellationToken);
+        var jobsInWindow = jobs
+            .Where(x => x.CreatedAtUtc >= windowFromUtc && x.CreatedAtUtc <= nowUtc)
+            .ToArray();
+
+        var assignmentEventsInWindow = await this.auditLogRepository.CountAsync(
+            new AuditLogQuerySpecification(
+                TenantId: tenantId,
+                Action: "AssignWorker:",
+                OccurredFromUtc: new DateTimeOffset(windowFromUtc),
+                OccurredToUtc: new DateTimeOffset(nowUtc)),
+            cancellationToken);
+
+        var acceptedJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Accepted);
+        var pendingAcceptanceJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.PendingAcceptance);
+        var rejectedJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Rejected);
+        var cancelledJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Cancelled);
+        var completedJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Completed);
+
+        var denominator = Math.Max(1, assignmentEventsInWindow);
+        var acceptanceRatePercent = decimal.Round(acceptedJobs * 100m / denominator, 2, MidpointRounding.AwayFromZero);
+        var completionRatePercent = decimal.Round(completedJobs * 100m / denominator, 2, MidpointRounding.AwayFromZero);
+
+        IReadOnlyList<QueriedManagementDrilldownItem> statusDrilldown =
+        [
+            new QueriedManagementDrilldownItem("Accepted", acceptedJobs),
+            new QueriedManagementDrilldownItem("PendingAcceptance", pendingAcceptanceJobs),
+            new QueriedManagementDrilldownItem("Rejected", rejectedJobs),
+            new QueriedManagementDrilldownItem("Cancelled", cancelledJobs),
+            new QueriedManagementDrilldownItem("Completed", completedJobs),
+        ];
+
+        return new QueriedAssignmentQualitySummary(
+            AssignmentEventsInWindow: assignmentEventsInWindow,
+            AcceptedJobs: acceptedJobs,
+            PendingAcceptanceJobs: pendingAcceptanceJobs,
+            RejectedJobs: rejectedJobs,
+            CancelledJobs: cancelledJobs,
+            CompletedJobs: completedJobs,
+            AcceptanceRatePercent: acceptanceRatePercent,
+            CompletionRatePercent: completionRatePercent,
+            StatusDrilldown: statusDrilldown);
+    }
+
+    private async Task<QueriedWorkforceUtilizationSummary> BuildWorkforceUtilizationSummaryAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var workers = await LoadAllWorkersAsync(tenantId, cancellationToken);
+        var activeWorkers = workers.Where(x => x.IsActive).ToArray();
+        var activeWorkerIds = activeWorkers.Select(x => x.Id).ToArray();
+
+        var activeJobCounts = activeWorkerIds.Length == 0
+            ? new Dictionary<Guid, int>()
+            : new Dictionary<Guid, int>(await this.jobRepository.GetActiveJobCountsByWorkerAsync(tenantId, activeWorkerIds, cancellationToken));
+
+        var availableWorkers = activeWorkers.Count(x => x.AvailabilityStatus == WorkerAvailabilityStatus.Available);
+        var busyWorkers = activeWorkers.Count(x => x.AvailabilityStatus == WorkerAvailabilityStatus.Busy);
+        var utilizedWorkers = activeWorkers.Count(x => activeJobCounts.TryGetValue(x.Id, out var count) && count > 0);
+        var overloadedWorkers = activeWorkers.Count(x => activeJobCounts.TryGetValue(x.Id, out var count) && count >= 2);
+        var utilizationRatePercent = activeWorkers.Length == 0
+            ? 0m
+            : decimal.Round(utilizedWorkers * 100m / activeWorkers.Length, 2, MidpointRounding.AwayFromZero);
+        var averageActiveJobsPerUtilizedWorker = utilizedWorkers == 0
+            ? 0m
+            : decimal.Round((decimal)activeJobCounts.Values.Where(x => x > 0).Average(), 2, MidpointRounding.AwayFromZero);
+        var averageInternalRating = activeWorkers.Length == 0
+            ? 0m
+            : decimal.Round(activeWorkers.Average(x => x.InternalRating), 2, MidpointRounding.AwayFromZero);
+
+        var availabilityDrilldown = activeWorkers
+            .GroupBy(x => x.AvailabilityStatus.ToString())
+            .Select(x => new QueriedManagementDrilldownItem(x.Key, x.Count()))
+            .OrderByDescending(x => x.Count)
+            .ToArray();
+
+        var workerLoadDrilldown = activeWorkers
+            .Select(x => activeJobCounts.TryGetValue(x.Id, out var count)
+                ? count switch
+                {
+                    0 => "Idle",
+                    1 => "SingleActiveJob",
+                    _ => "MultiActiveJobs",
+                }
+                : "Idle")
+            .GroupBy(x => x)
+            .Select(x => new QueriedManagementDrilldownItem(x.Key, x.Count()))
+            .OrderByDescending(x => x.Count)
+            .ToArray();
+
+        return new QueriedWorkforceUtilizationSummary(
+            ActiveWorkers: activeWorkers.Length,
+            AvailableWorkers: availableWorkers,
+            BusyWorkers: busyWorkers,
+            UtilizedWorkers: utilizedWorkers,
+            OverloadedWorkers: overloadedWorkers,
+            UtilizationRatePercent: utilizationRatePercent,
+            AverageActiveJobsPerUtilizedWorker: averageActiveJobsPerUtilizedWorker,
+            AverageInternalRating: averageInternalRating,
+            AvailabilityDrilldown: availabilityDrilldown,
+            WorkerLoadDrilldown: workerLoadDrilldown);
     }
 
     private static bool IsManagementRole(AuthenticatedPrincipal principal)
@@ -369,5 +629,78 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
                 breached++;
                 break;
         }
+    }
+
+    private static int PriorityRank(string priority)
+    {
+        return priority switch
+        {
+            "High" => 0,
+            "Medium" => 1,
+            _ => 2,
+        };
+    }
+
+    private async Task<IReadOnlyList<Job>> LoadAllJobsAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var jobs = new List<Job>();
+        var page = 1;
+
+        while (true)
+        {
+            var batch = await this.jobRepository.QueryAsync(
+                new JobQuerySpecification(
+                    TenantId: tenantId,
+                    Page: new PageSpecification(page, 200)),
+                cancellationToken);
+
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            jobs.AddRange(batch);
+
+            if (batch.Count < 200)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        return jobs;
+    }
+
+    private async Task<IReadOnlyList<WorkerProfile>> LoadAllWorkersAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var workers = new List<WorkerProfile>();
+        var page = 1;
+
+        while (true)
+        {
+            var batch = await this.workerProfileRepository.QueryAsync(
+                new WorkerProfileQuerySpecification(
+                    TenantId: tenantId,
+                    IncludeInactive: true,
+                    Page: new PageSpecification(page, 200)),
+                cancellationToken);
+
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            workers.AddRange(batch);
+
+            if (batch.Count < 200)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        return workers;
     }
 }

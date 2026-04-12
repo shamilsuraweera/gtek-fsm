@@ -65,6 +65,174 @@
 						<p class="audit-summary-label">Denied Actions (24h)</p>
 						<p class="audit-summary-value">@Overview.DeniedActions24h</p>
 					</article>
+					<article class="audit-summary-card">
+						<p class="audit-summary-label">Assignment Acceptance</p>
+						<p class="audit-summary-value">@FormatPercent(Overview.AssignmentQuality.AcceptanceRatePercent)</p>
+					</article>
+					<article class="audit-summary-card">
+						<p class="audit-summary-label">Worker Utilization</p>
+						<p class="audit-summary-value">@FormatPercent(Overview.WorkforceUtilization.UtilizationRatePercent)</p>
+					</article>
+				</section>
+
+				<section class="trend-grid">
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>SLA Posture</h2>
+						</header>
+						<div class="insight-metric-grid">
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Response</span>
+								<strong>@Overview.DecisioningMetrics.SlaOutcomes.ResponseOnTrack / @Overview.DecisioningMetrics.SlaOutcomes.ResponseAtRisk / @Overview.DecisioningMetrics.SlaOutcomes.ResponseBreached</strong>
+								<span class="audit-muted">On track / at risk / breached</span>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Assignment</span>
+								<strong>@Overview.DecisioningMetrics.SlaOutcomes.AssignmentOnTrack / @Overview.DecisioningMetrics.SlaOutcomes.AssignmentAtRisk / @Overview.DecisioningMetrics.SlaOutcomes.AssignmentBreached</strong>
+								<span class="audit-muted">On track / at risk / breached</span>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Completion</span>
+								<strong>@Overview.DecisioningMetrics.SlaOutcomes.CompletionOnTrack / @Overview.DecisioningMetrics.SlaOutcomes.CompletionAtRisk / @Overview.DecisioningMetrics.SlaOutcomes.CompletionBreached</strong>
+								<span class="audit-muted">On track / at risk / breached</span>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Escalations</span>
+								<strong>@Overview.DecisioningMetrics.SlaOutcomes.EscalationsAtRiskInWindow / @Overview.DecisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow</strong>
+								<span class="audit-muted">At risk / breached in window</span>
+							</div>
+						</div>
+					</article>
+
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>Assignment Quality</h2>
+						</header>
+						<div class="insight-metric-grid">
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Assignment Events</span>
+								<strong>@Overview.AssignmentQuality.AssignmentEventsInWindow</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Accepted</span>
+								<strong>@Overview.AssignmentQuality.AcceptedJobs</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Pending Acceptance</span>
+								<strong>@Overview.AssignmentQuality.PendingAcceptanceJobs</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Completed</span>
+								<strong>@Overview.AssignmentQuality.CompletedJobs</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Rejected</span>
+								<strong>@Overview.AssignmentQuality.RejectedJobs</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Completion Rate</span>
+								<strong>@FormatPercent(Overview.AssignmentQuality.CompletionRatePercent)</strong>
+							</div>
+						</div>
+						<div class="audit-table-wrap compact-table-wrap">
+							<table class="audit-table">
+								<thead>
+									<tr>
+										<th>Status</th>
+										<th>Count</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var item in Overview.AssignmentQuality.StatusDrilldown)
+									{
+										<tr>
+											<td>@item.Key</td>
+											<td>@item.Count</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+					</article>
+				</section>
+
+				<section class="trend-grid">
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>Worker Utilization</h2>
+						</header>
+						<div class="insight-metric-grid">
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Active Workers</span>
+								<strong>@Overview.WorkforceUtilization.ActiveWorkers</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Available</span>
+								<strong>@Overview.WorkforceUtilization.AvailableWorkers</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Busy</span>
+								<strong>@Overview.WorkforceUtilization.BusyWorkers</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Utilized</span>
+								<strong>@Overview.WorkforceUtilization.UtilizedWorkers</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Overloaded</span>
+								<strong>@Overview.WorkforceUtilization.OverloadedWorkers</strong>
+							</div>
+							<div class="insight-metric-card">
+								<span class="audit-summary-label">Avg Active Jobs / Utilized Worker</span>
+								<strong>@Overview.WorkforceUtilization.AverageActiveJobsPerUtilizedWorker.ToString("0.00")</strong>
+							</div>
+						</div>
+					</article>
+
+					<article class="audit-panel">
+						<header class="audit-panel-header">
+							<h2>Availability and Load</h2>
+						</header>
+						<div class="audit-table-wrap compact-table-wrap">
+							<table class="audit-table">
+								<thead>
+									<tr>
+										<th>Availability</th>
+										<th>Count</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var item in Overview.WorkforceUtilization.AvailabilityDrilldown)
+									{
+										<tr>
+											<td>@item.Key</td>
+											<td>@item.Count</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+						<div class="audit-table-wrap compact-table-wrap">
+							<table class="audit-table">
+								<thead>
+									<tr>
+										<th>Load Band</th>
+										<th>Count</th>
+									</tr>
+								</thead>
+								<tbody>
+									@foreach (var item in Overview.WorkforceUtilization.WorkerLoadDrilldown)
+									{
+										<tr>
+											<td>@item.Key</td>
+											<td>@item.Count</td>
+										</tr>
+									}
+								</tbody>
+							</table>
+						</div>
+						<p class="audit-muted">Average internal rating: @Overview.WorkforceUtilization.AverageInternalRating.ToString("0.00")</p>
+					</article>
 				</section>
 
 				<section class="trend-grid">
@@ -115,6 +283,37 @@
 							</article>
 						}
 					</div>
+				</section>
+
+				<section class="audit-panel">
+					<header class="audit-panel-header">
+						<h2>Continuous Improvement Cadence</h2>
+					</header>
+					<p class="audit-muted">@Overview.ContinuousImprovement.CadenceName for the last @Overview.ContinuousImprovement.ReviewWindowDays day(s). Next review: @Overview.ContinuousImprovement.NextReviewOnUtc.ToLocalTime().ToString("yyyy-MM-dd")</p>
+					<p class="audit-muted">@Overview.ContinuousImprovement.PrioritizationRule</p>
+
+					@if (Overview.ContinuousImprovement.ImprovementItems.Count == 0)
+					{
+						<p class="workspace-hint">No KPI regressions currently require backlog action. Keep monitoring the existing trend and anomaly views.</p>
+					}
+					else
+					{
+						<div class="oversight-list">
+							@foreach (var item in Overview.ContinuousImprovement.ImprovementItems)
+							{
+								<article class="oversight-item improvement-item">
+									<div>
+										<p class="oversight-title">@item.Code</p>
+										<p class="audit-muted"><strong>@item.Metric</strong> · @item.CurrentState</p>
+										<p class="audit-muted">Target: @item.TargetState</p>
+										<p class="audit-muted">Action: @item.RecommendedAction</p>
+										<p class="audit-muted">Owner: @item.ReviewOwner</p>
+									</div>
+									<span class="audit-pill @GetRiskClass(item.Priority)">@item.Priority</span>
+								</article>
+							}
+						</div>
+					}
 				</section>
 
 				<section class="trend-grid">
@@ -249,6 +448,11 @@
 		var ratio = (decimal)current.Value / max;
 		return Math.Clamp(ratio * 100m, 15m, 100m);
 	}
+
+	private static string FormatPercent(decimal value)
+	{
+		return $"{value:0.##}%";
+	}
 }
 
 <style>
@@ -299,5 +503,28 @@
 	.trend-label {
 		font-size: 0.75rem;
 		color: #475467;
+	}
+
+	.insight-metric-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 0.75rem;
+	}
+
+	.insight-metric-card {
+		display: grid;
+		gap: 0.35rem;
+		padding: 0.85rem;
+		border: 1px solid #d0d5dd;
+		border-radius: 0.75rem;
+		background: #f8fafc;
+	}
+
+	.compact-table-wrap {
+		margin-top: 1rem;
+	}
+
+	.improvement-item {
+		align-items: flex-start;
 	}
 </style>

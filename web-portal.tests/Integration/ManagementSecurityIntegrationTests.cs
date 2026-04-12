@@ -1,6 +1,8 @@
 namespace GTEK.FSM.WebPortal.Tests.Integration;
 
 using Bunit;
+using System.Reflection;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Responses;
 using GTEK.FSM.WebPortal.Pages.Management;
 using GTEK.FSM.WebPortal.Services;
 using GTEK.FSM.WebPortal.Services.Management;
@@ -14,12 +16,15 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Categories.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Responses;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 public sealed class ManagementSecurityIntegrationTests : TestContext
 {
     public ManagementSecurityIntegrationTests()
     {
         this.Services.AddScoped<ResilientDataFetcher>();
+        this.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("http://localhost/") });
+        this.Services.AddScoped<PortalAuthState>(sp => BuildPortalAuthState(sp.GetRequiredService<IJSRuntime>()));
         this.Services.AddScoped<UiSecurityContext>();
         this.Services.AddScoped<IManagementWorkersApiClient>(_ => new FakeManagementWorkersApiClient());
         this.Services.AddScoped<IManagementSubscriptionsApiClient>(_ => new FakeManagementSubscriptionsApiClient());
@@ -38,6 +43,7 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
         {
             Assert.Contains("Anomaly Indicators", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("DENIED_ACTION_SPIKE", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Continuous Improvement Cadence", cut.Markup, StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(3));
     }
 
@@ -99,6 +105,31 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
             Assert.Contains("ELEC", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("Electrical", cut.Markup, StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(3));
+    }
+
+    private static PortalAuthState BuildPortalAuthState(IJSRuntime jsRuntime)
+    {
+        var authState = new PortalAuthState(new HttpClient { BaseAddress = new Uri("http://localhost/") }, jsRuntime);
+
+        typeof(PortalAuthState)
+            .GetProperty(nameof(PortalAuthState.Session), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?.SetValue(authState, new AuthSessionResponse
+            {
+                AccessToken = "test-token",
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1),
+                UserId = "manager-01",
+                TenantId = "TENANT-01",
+                TenantCode = "tenant-01",
+                DisplayName = "Manager Operator",
+                Email = "manager@example.com",
+                Role = PortalRole.Manager,
+            });
+
+        typeof(PortalAuthState)
+            .GetProperty(nameof(PortalAuthState.IsInitialized), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?.SetValue(authState, true);
+
+        return authState;
     }
 
     private sealed class FakeManagementWorkersApiClient : IManagementWorkersApiClient
@@ -238,6 +269,26 @@ public sealed class ManagementSecurityIntegrationTests : TestContext
                 [
                     new ManagementDrilldownItemResponse { Key = "Success", Count = 6 },
                 ],
+                ContinuousImprovement = new ManagementContinuousImprovementResponse
+                {
+                    CadenceName = "Weekly KPI Review",
+                    ReviewWindowDays = 7,
+                    NextReviewOnUtc = DateTime.UtcNow.AddDays(7),
+                    PrioritizationRule = "High items become immediate backlog candidates.",
+                    ImprovementItems =
+                    [
+                        new ManagementImprovementItemResponse
+                        {
+                            Code = "ASSIGNMENT_ACCEPTANCE_TUNING",
+                            Priority = "High",
+                            Metric = "Assignment acceptance rate",
+                            CurrentState = "66.67% across active assignment events.",
+                            TargetState = "Maintain at least 80% assignment acceptance.",
+                            RecommendedAction = "Review rejected and pending assignment bands.",
+                            ReviewOwner = "Dispatch Lead",
+                        },
+                    ],
+                },
             });
         }
     }

@@ -4,6 +4,7 @@ using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
 using GTEK.FSM.Backend.Application.Decisioning;
+using GTEK.FSM.Backend.Application.Feedback;
 using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
@@ -29,6 +30,8 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
+using FeedbackSource = GTEK.FSM.Backend.Domain.Enums.FeedbackSource;
+using FeedbackType = GTEK.FSM.Backend.Domain.Enums.FeedbackType;
 
 namespace GTEK.FSM.Backend.Api.Routing;
 
@@ -1502,6 +1505,245 @@ public static class V1RouteGroupExtensions
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
 
+        // Feedback endpoints
+        v1.MapPost("/requests/{requestId:guid}/feedback", async (
+            Guid requestId,
+            GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.SubmitFeedbackRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing or invalid.");
+            }
+
+            var userIdGuid = principal.UserId;
+
+            if (request.ServiceRequestId == Guid.Empty || request.ServiceRequestId != requestId)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "REQUEST_ID_MISMATCH",
+                    "The feedback payload must target the same service request as the route.");
+            }
+
+            var feedbackSource = principal.IsInRole("Worker")
+                ? FeedbackSource.Worker
+                : principal.IsInRole("Customer")
+                    ? FeedbackSource.Customer
+                    : (FeedbackSource?)null;
+
+            if (feedbackSource is null)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status403Forbidden,
+                    "AUTH_FORBIDDEN_ROLE",
+                    "Only customer and worker roles can submit request feedback.");
+            }
+
+            if (request.JobId == Guid.Empty || request.ServiceRequestId == Guid.Empty)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "INVALID_REQUEST",
+                    "Job ID and Service Request ID are required.");
+            }
+
+            if (request.Rating < 0 || request.Rating > 5)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "INVALID_RATING",
+                    "Rating must be between 0 and 5.");
+            }
+
+            if (!Enum.IsDefined(typeof(FeedbackType), request.Type))
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "INVALID_FEEDBACK_TYPE",
+                    "Feedback type is invalid.");
+            }
+
+            if (!string.IsNullOrEmpty(request.Comment) && request.Comment.Length > 1000)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "COMMENT_TOO_LONG",
+                    "Comment cannot exceed 1000 characters.");
+            }
+
+            try
+            {
+                var feedbackId = await feedbackService.SubmitFeedbackAsync(
+                    tenantIdValue,
+                    request.JobId,
+                    request.ServiceRequestId,
+                    userIdGuid,
+                    feedbackSource.Value,
+                    request.Rating > 0 ? request.Rating : null,
+                    request.Comment,
+                    (FeedbackType)request.Type,
+                    cancellationToken);
+
+                return Results.Created(
+                    $"/api/v1/feedback/{feedbackId}",
+                    ApiResponse<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse>.Ok(
+                        data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
+                        {
+                            Id = feedbackId,
+                            JobId = request.JobId,
+                            ServiceRequestId = request.ServiceRequestId,
+                            ProvidedByUserId = userIdGuid,
+                            Source = (int)feedbackSource.Value,
+                            Rating = request.Rating,
+                            Comment = request.Comment ?? string.Empty,
+                            Type = request.Type,
+                            IsActionable = request.Rating < 3 || (!string.IsNullOrEmpty(request.Comment) && request.Comment.ToLowerInvariant().Contains("issue")),
+                            CreatedAtUtc = DateTime.UtcNow,
+                        },
+                        message: "Feedback submitted successfully.",
+                        traceId: context.TraceIdentifier));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "FEEDBACK_VALIDATION_ERROR",
+                    ex.Message);
+            }
+        })
+        .RequireAuthorization();
+
+        v1.MapGet("/requests/{requestId:guid}/feedback", async (
+            Guid requestId,
+            HttpContext context,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            CancellationToken cancellationToken) =>
+        {
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing.");
+            }
+
+            var feedbacks = await feedbackService.GetFeedbackForServiceRequestAsync(tenantIdValue, requestId, cancellationToken);
+            var responses = feedbacks
+                .Select(f => new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
+                {
+                    Id = f.Id,
+                    JobId = f.JobId,
+                    ServiceRequestId = f.ServiceRequestId,
+                    ProvidedByUserId = f.ProvidedByUserId,
+                    Source = (int)f.Source,
+                    Rating = f.Rating,
+                    Comment = f.Comment,
+                    Type = (int)f.Type,
+                    IsActionable = f.IsActionable,
+                    CreatedAtUtc = f.CreatedAtUtc,
+                })
+                .ToList();
+
+            return Results.Ok(ApiResponse<IReadOnlyList<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse>>.Ok(
+                data: responses,
+                message: "Feedback retrieved successfully.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization();
+
+        v1.MapGet("/management/feedback", async (
+            HttpContext context,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            int skip = 0,
+            int take = 50,
+            CancellationToken cancellationToken = default) =>
+        {
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing.");
+            }
+
+            var queryResult = await feedbackService.QueryFeedbackAsync(tenantIdValue, skip, take, cancellationToken);
+            var feedbacks = queryResult.Items;
+            var totalCount = queryResult.TotalCount;
+            var responses = feedbacks
+                .Select(f => new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
+                {
+                    Id = f.Id,
+                    JobId = f.JobId,
+                    ServiceRequestId = f.ServiceRequestId,
+                    ProvidedByUserId = f.ProvidedByUserId,
+                    Source = (int)f.Source,
+                    Rating = f.Rating,
+                    Comment = f.Comment,
+                    Type = (int)f.Type,
+                    IsActionable = f.IsActionable,
+                    CreatedAtUtc = f.CreatedAtUtc,
+                })
+                .ToList();
+
+            return Results.Ok(ApiResponse<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackPageResponse>.Ok(
+                data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackPageResponse
+                {
+                    Items = responses,
+                    TotalCount = totalCount,
+                },
+                message: "Feedback page retrieved successfully.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapGet("/management/feedback/statistics", async (
+            HttpContext context,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            CancellationToken cancellationToken) =>
+        {
+            var tenantIdValue = tenantContextAccessor.GetCurrentTenantId() ?? Guid.Empty;
+            if (tenantIdValue == Guid.Empty)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_TENANT", "Tenant context is missing.");
+            }
+
+            var stats = await feedbackService.GetFeedbackStatisticsAsync(tenantIdValue, cancellationToken);
+
+            return Results.Ok(ApiResponse<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackStatisticsResponse>.Ok(
+                data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackStatisticsResponse
+                {
+                    TotalFeedbackCount = stats.TotalFeedbackCount,
+                    AverageRating = stats.AverageRating,
+                    CustomerFeedbackCount = stats.CustomerFeedbackCount,
+                    WorkerFeedbackCount = stats.WorkerFeedbackCount,
+                    AverageCustomerRating = stats.AverageCustomerRating,
+                    AverageWorkerRating = stats.AverageWorkerRating,
+                    ActionableFeedbackCount = stats.ActionableFeedbackCount,
+                    FeedbackCountByType = stats.FeedbackCountByType.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value),
+                },
+                message: "Feedback statistics retrieved successfully.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
         // Operational endpoints (for example /health) remain outside versioned groups.
         return app;
     }
@@ -1621,6 +1863,49 @@ public static class V1RouteGroupExtensions
                     EscalationsBreachedInWindow = overview.DecisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow,
                 },
             },
+            AssignmentQuality = new ManagementAssignmentQualitySummaryResponse
+            {
+                AssignmentEventsInWindow = overview.AssignmentQuality.AssignmentEventsInWindow,
+                AcceptedJobs = overview.AssignmentQuality.AcceptedJobs,
+                PendingAcceptanceJobs = overview.AssignmentQuality.PendingAcceptanceJobs,
+                RejectedJobs = overview.AssignmentQuality.RejectedJobs,
+                CancelledJobs = overview.AssignmentQuality.CancelledJobs,
+                CompletedJobs = overview.AssignmentQuality.CompletedJobs,
+                AcceptanceRatePercent = overview.AssignmentQuality.AcceptanceRatePercent,
+                CompletionRatePercent = overview.AssignmentQuality.CompletionRatePercent,
+                StatusDrilldown = overview.AssignmentQuality.StatusDrilldown
+                    .Select(x => new ManagementDrilldownItemResponse
+                    {
+                        Key = x.Key,
+                        Count = x.Count,
+                    })
+                    .ToArray(),
+            },
+            WorkforceUtilization = new ManagementWorkforceUtilizationSummaryResponse
+            {
+                ActiveWorkers = overview.WorkforceUtilization.ActiveWorkers,
+                AvailableWorkers = overview.WorkforceUtilization.AvailableWorkers,
+                BusyWorkers = overview.WorkforceUtilization.BusyWorkers,
+                UtilizedWorkers = overview.WorkforceUtilization.UtilizedWorkers,
+                OverloadedWorkers = overview.WorkforceUtilization.OverloadedWorkers,
+                UtilizationRatePercent = overview.WorkforceUtilization.UtilizationRatePercent,
+                AverageActiveJobsPerUtilizedWorker = overview.WorkforceUtilization.AverageActiveJobsPerUtilizedWorker,
+                AverageInternalRating = overview.WorkforceUtilization.AverageInternalRating,
+                AvailabilityDrilldown = overview.WorkforceUtilization.AvailabilityDrilldown
+                    .Select(x => new ManagementDrilldownItemResponse
+                    {
+                        Key = x.Key,
+                        Count = x.Count,
+                    })
+                    .ToArray(),
+                WorkerLoadDrilldown = overview.WorkforceUtilization.WorkerLoadDrilldown
+                    .Select(x => new ManagementDrilldownItemResponse
+                    {
+                        Key = x.Key,
+                        Count = x.Count,
+                    })
+                    .ToArray(),
+            },
             IntakeTrend = overview.IntakeTrend
                 .Select(x => new ManagementTrendPointResponse
                 {
@@ -1657,6 +1942,25 @@ public static class V1RouteGroupExtensions
                     Count = x.Count,
                 })
                 .ToArray(),
+            ContinuousImprovement = new ManagementContinuousImprovementResponse
+            {
+                CadenceName = overview.ContinuousImprovement.CadenceName,
+                ReviewWindowDays = overview.ContinuousImprovement.ReviewWindowDays,
+                NextReviewOnUtc = overview.ContinuousImprovement.NextReviewOnUtc,
+                PrioritizationRule = overview.ContinuousImprovement.PrioritizationRule,
+                ImprovementItems = overview.ContinuousImprovement.ImprovementItems
+                    .Select(x => new ManagementImprovementItemResponse
+                    {
+                        Code = x.Code,
+                        Priority = x.Priority,
+                        Metric = x.Metric,
+                        CurrentState = x.CurrentState,
+                        TargetState = x.TargetState,
+                        RecommendedAction = x.RecommendedAction,
+                        ReviewOwner = x.ReviewOwner,
+                    })
+                    .ToArray(),
+            },
         };
     }
 

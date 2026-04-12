@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Common;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
@@ -39,7 +40,10 @@ public sealed class RequestWorkspaceApiClient : IRequestWorkspaceApiClient
         var envelope = await ReadSuccessEnvelopeAsync<GetServiceRequestDetailResponse>(response, cancellationToken);
         var detail = envelope.Data ?? throw new RequestWorkspaceApiException(HttpStatusCode.InternalServerError, "REQUEST_DETAIL_EMPTY", "The request detail response did not include a payload.");
 
-        return MapSnapshot(detail);
+        using var feedbackResponse = await this.httpClient.GetAsync($"api/v1/requests/{requestId}/feedback", cancellationToken);
+        var feedbackEnvelope = await ReadSuccessEnvelopeAsync<List<FeedbackResponse>>(feedbackResponse, cancellationToken);
+
+        return MapSnapshot(detail, feedbackEnvelope.Data ?? []);
     }
 
     public async Task<RequestWorkspaceOperationResult> TransitionStatusAsync(string requestId, RequestStage nextStage, string? rowVersion, CancellationToken cancellationToken = default)
@@ -92,7 +96,7 @@ public sealed class RequestWorkspaceApiClient : IRequestWorkspaceApiClient
             envelope.Data?.RowVersion);
     }
 
-    private static RequestWorkspaceSnapshot MapSnapshot(GetServiceRequestDetailResponse detail)
+    private static RequestWorkspaceSnapshot MapSnapshot(GetServiceRequestDetailResponse detail, IReadOnlyList<FeedbackResponse> feedback)
     {
         var requestId = detail.RequestId ?? string.Empty;
         var stage = ParseStage(detail.Status);
@@ -134,6 +138,7 @@ public sealed class RequestWorkspaceApiClient : IRequestWorkspaceApiClient
                         ? $"{x.EventType}: {x.Message}"
                         : $"{x.EventType}: {x.Message} ({x.ActorUserId})"))
                 .ToList(),
+            Feedback = feedback.ToList(),
         };
     }
 
@@ -226,6 +231,8 @@ public sealed class RequestWorkspaceSnapshot
     public string? ActiveJobStatus { get; set; }
 
     public List<RequestWorkspaceTimelineEntry> Timeline { get; set; } = [];
+
+    public List<FeedbackResponse> Feedback { get; set; } = [];
 }
 
 public sealed record RequestWorkspaceTimelineEntry(Guid Id, DateTime Timestamp, string Message);

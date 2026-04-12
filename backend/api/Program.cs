@@ -1,10 +1,12 @@
 using GTEK.FSM.Backend.Application;
 using GTEK.FSM.Backend.Api.Authentication;
+using GTEK.FSM.Backend.Api.Automation;
 using GTEK.FSM.Backend.Api.Authorization;
 using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Realtime;
 using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Api.Tenancy;
+using GTEK.FSM.Backend.Application.Automation;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Infrastructure;
@@ -35,6 +37,7 @@ var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins")
 
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.Configure<OperationalAutomationSettings>(builder.Configuration.GetSection(OperationalAutomationSettings.SectionName));
 builder.Services.AddApiAuthentication(builder.Configuration, builder.Environment);
 builder.Services.AddApiAuthorizationPolicies();
 builder.Services.AddCors(options =>
@@ -52,6 +55,7 @@ builder.Services.AddScoped<IJwtTokenIssuer, JwtTokenIssuer>();
 builder.Services.AddScoped<ILocalAuthService, LocalAuthService>();
 builder.Services.AddScoped<ILocalAuthBootstrapService, LocalAuthBootstrapService>();
 builder.Services.AddScoped<IOperationalUpdatePublisher, SignalROperationalUpdatePublisher>();
+builder.Services.AddHostedService<OperationalAutomationHostedService>();
 builder.Services.AddSignalR(options =>
 {
 	options.EnableDetailedErrors = signalROptions.EnableDetailedErrors;

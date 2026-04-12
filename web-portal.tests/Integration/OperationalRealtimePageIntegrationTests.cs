@@ -1,6 +1,9 @@
 namespace GTEK.FSM.WebPortal.Tests.Integration;
 
 using Bunit;
+using System.Reflection;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
 using GTEK.FSM.Shared.Contracts.Vocabulary;
 using GTEK.FSM.WebPortal.Models;
@@ -10,6 +13,7 @@ using GTEK.FSM.WebPortal.Services.Realtime;
 using GTEK.FSM.WebPortal.Services.Requests;
 using GTEK.FSM.WebPortal.Services.Security;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.JSInterop;
 
 public sealed class OperationalRealtimePageIntegrationTests : TestContext
 {
@@ -100,6 +104,24 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
     }
 
     [Fact]
+    public void RequestWorkspace_FeedbackReview_RendersLinkedEntries()
+    {
+        var realtimeClient = new FakeOperationalRealtimeClient();
+        var workspaceApiClient = FakeRequestWorkspaceApiClient.CreateDefault();
+        RegisterServices(realtimeClient, workspaceApiClient, this.Services);
+
+        var cut = this.RenderComponent<RequestWorkspace>(parameters => parameters
+            .Add(component => component.RequestId, workspaceApiClient.Snapshot.Item.RequestId));
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Feedback Review", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Customer · Service Quality · rated 4.5/5", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Worker · Communication · rated 3.5/5", cut.Markup, StringComparison.Ordinal);
+        }, TimeSpan.FromSeconds(3));
+    }
+
+    [Fact]
     public async Task Assignments_AssignmentUpdate_UpdatesVisibleRequestAssignment()
     {
         var realtimeClient = new FakeOperationalRealtimeClient();
@@ -157,9 +179,36 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
     private static void RegisterServices(FakeOperationalRealtimeClient realtimeClient, FakeRequestWorkspaceApiClient workspaceApiClient, IServiceCollection services)
     {
         services.AddScoped<ResilientDataFetcher>();
+        services.AddScoped(_ => new HttpClient { BaseAddress = new Uri("http://localhost/") });
+        services.AddScoped<PortalAuthState>(sp => BuildPortalAuthState(sp.GetRequiredService<IJSRuntime>()));
         services.AddScoped<UiSecurityContext>();
         services.AddScoped<IOperationalRealtimeClient>(_ => realtimeClient);
         services.AddScoped<IRequestWorkspaceApiClient>(_ => workspaceApiClient);
+    }
+
+    private static PortalAuthState BuildPortalAuthState(IJSRuntime jsRuntime)
+    {
+        var authState = new PortalAuthState(new HttpClient { BaseAddress = new Uri("http://localhost/") }, jsRuntime);
+
+        typeof(PortalAuthState)
+            .GetProperty(nameof(PortalAuthState.Session), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?.SetValue(authState, new AuthSessionResponse
+            {
+                AccessToken = "test-token",
+                ExpiresAtUtc = DateTimeOffset.UtcNow.AddHours(1),
+                UserId = "support-01",
+                TenantId = "TENANT-01",
+                TenantCode = "tenant-01",
+                DisplayName = "Support Operator",
+                Email = "support@example.com",
+                Role = PortalRole.Support,
+            });
+
+        typeof(PortalAuthState)
+            .GetProperty(nameof(PortalAuthState.IsInitialized), BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?.SetValue(authState, true);
+
+        return authState;
     }
 
     private sealed class FakeOperationalRealtimeClient : IOperationalRealtimeClient
@@ -283,6 +332,35 @@ public sealed class OperationalRealtimePageIntegrationTests : TestContext
                     [
                         new RequestWorkspaceTimelineEntry(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-65), "REQUEST_CREATED: Service request created."),
                         new RequestWorkspaceTimelineEntry(Guid.NewGuid(), DateTime.UtcNow.AddMinutes(-15), "JOB_ASSIGNED: Job assignment status: Assigned. (worker-01)"),
+                    ],
+                    Feedback =
+                    [
+                        new FeedbackResponse
+                        {
+                            Id = Guid.NewGuid(),
+                            JobId = Guid.NewGuid(),
+                            ServiceRequestId = Guid.Parse(requestId),
+                            ProvidedByUserId = Guid.NewGuid(),
+                            Source = 0,
+                            Rating = 4.5m,
+                            Comment = "Resolved on the first visit.",
+                            Type = 0,
+                            IsActionable = false,
+                            CreatedAtUtc = DateTime.UtcNow.AddMinutes(-10),
+                        },
+                        new FeedbackResponse
+                        {
+                            Id = Guid.NewGuid(),
+                            JobId = Guid.NewGuid(),
+                            ServiceRequestId = Guid.Parse(requestId),
+                            ProvidedByUserId = Guid.NewGuid(),
+                            Source = 1,
+                            Rating = 3.5m,
+                            Comment = "Customer site access delayed completion.",
+                            Type = 3,
+                            IsActionable = true,
+                            CreatedAtUtc = DateTime.UtcNow.AddMinutes(-5),
+                        },
                     ],
                 },
             };

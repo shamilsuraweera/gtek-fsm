@@ -70,6 +70,24 @@
                                           <Picker x:Name="StatusPicker" Title="Select request status" />
                                           <Button Text="Publish Request Status" Clicked="OnPublishStatusClicked" />
                                           <Label x:Name="StatusResultLabel" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+
+                                          <Label Text="Worker Feedback" FontSize="15" FontAttributes="Bold" Margin="0,6,0,0" />
+                                          <Label x:Name="WorkerFeedbackHintLabel"
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                                          <Picker x:Name="WorkerFeedbackTypePicker" Title="Select feedback category" />
+                                          <Picker x:Name="WorkerRatingPicker" Title="Select rating" />
+                                          <Editor x:Name="WorkerFeedbackCommentEditor"
+                                                  Placeholder="Describe blockers, quality observations, or follow-up issues"
+                                                  AutoSize="TextChanges"
+                                                  MaxLength="1000"
+                                                  HeightRequest="90" />
+                                          <Button x:Name="SubmitWorkerFeedbackButton"
+                                                  Text="Submit Worker Feedback"
+                                                  Clicked="OnSubmitWorkerFeedbackClicked" />
+                                          <Label x:Name="WorkerFeedbackStatusLabel"
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
                                    </VerticalStackLayout>
                             </Border>
                      </VerticalStackLayout>

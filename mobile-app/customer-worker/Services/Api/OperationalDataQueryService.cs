@@ -12,6 +12,7 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Requests.Responses;
 using GTEK.FSM.MobileApp.Services.Diagnostics;
 using GTEK.FSM.MobileApp.Services.Identity;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Jobs.Responses;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback;
 using GTEK.FSM.Shared.Contracts.Results;
 
 public sealed record LiveQueryResult<T>(bool IsLive, IReadOnlyList<T> Items, string Message = "");
@@ -44,6 +45,8 @@ public sealed record RequestDetailQueryResult(bool IsSuccess, GetServiceRequestD
 
 public sealed record RequestStatusTransitionResult(bool IsSuccess, TransitionServiceRequestStatusResponse Transition, string Message = "", string ErrorCode = "", bool IsConflict = false);
 
+public sealed record FeedbackSubmissionResult(bool IsSuccess, FeedbackResponse Feedback, string Message = "", string ErrorCode = "", bool IsConflict = false);
+
 public interface IWorkerExecutionService
 {
     Task<JobDetailQueryResult> GetJobDetailAsync(string jobId, CancellationToken cancellationToken = default);
@@ -62,7 +65,18 @@ public interface IRequestDetailQueryService
     Task<RequestDetailQueryResult> GetRequestDetailAsync(string requestId, CancellationToken cancellationToken = default);
 }
 
-public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService, ICategoryQueryService, IServiceRequestCreationService, IWorkerExecutionService, IRequestDetailQueryService
+public interface IFeedbackSubmissionService
+{
+    Task<FeedbackSubmissionResult> SubmitRequestFeedbackAsync(
+        string requestId,
+        string jobId,
+        decimal rating,
+        string? comment,
+        int type,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class OperationalDataQueryService : IRequestQueryService, IJobQueryService, ICategoryQueryService, IServiceRequestCreationService, IWorkerExecutionService, IRequestDetailQueryService, IFeedbackSubmissionService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -77,6 +91,7 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
     private static readonly GetJobDetailResponse EmptyJobDetail = new();
     private static readonly GetServiceRequestDetailResponse EmptyRequestDetail = new();
     private static readonly TransitionServiceRequestStatusResponse EmptyRequestTransition = new();
+    private static readonly FeedbackResponse EmptyFeedback = new();
 
     public OperationalDataQueryService(
         HttpClient httpClient,
@@ -254,6 +269,61 @@ public sealed class OperationalDataQueryService : IRequestQueryService, IJobQuer
             "requests.transition",
             EmptyRequestTransition,
             static (isSuccess, data, message, errorCode, isConflict) => new RequestStatusTransitionResult(isSuccess, data, message, errorCode, isConflict),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<FeedbackSubmissionResult> SubmitRequestFeedbackAsync(
+        string requestId,
+        string jobId,
+        decimal rating,
+        string? comment,
+        int type,
+        CancellationToken cancellationToken = default)
+    {
+        if (!Guid.TryParse(requestId, out _))
+        {
+            return new FeedbackSubmissionResult(false, EmptyFeedback, "Invalid request ID.", "INVALID_REQUEST_ID");
+        }
+
+        if (!Guid.TryParse(jobId, out _))
+        {
+            return new FeedbackSubmissionResult(false, EmptyFeedback, "Invalid job ID.", "INVALID_JOB_ID");
+        }
+
+        if (rating < 0 || rating > 5)
+        {
+            return new FeedbackSubmissionResult(false, EmptyFeedback, "Rating must be between 0 and 5.", "INVALID_RATING");
+        }
+
+        var token = _tokenProvider.GetAccessToken();
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            _diagnostics.Warn("feedback.submit", "Feedback submission skipped because JWT token is missing.");
+            return new FeedbackSubmissionResult(false, EmptyFeedback, "Missing token", "AUTH_MISSING_TOKEN");
+        }
+
+        var payload = new SubmitFeedbackRequest
+        {
+            JobId = Guid.Parse(jobId),
+            ServiceRequestId = Guid.Parse(requestId),
+            Rating = rating,
+            Comment = comment,
+            Type = type,
+        };
+
+        var jsonPayload = JsonSerializer.Serialize(payload, JsonOptions);
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requests/{requestId}/feedback")
+        {
+            Content = new StringContent(jsonPayload, Encoding.UTF8, "application/json"),
+        };
+
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        return await SendForItemAsync(
+            request,
+            "feedback.submit",
+            EmptyFeedback,
+            static (isSuccess, data, message, errorCode, isConflict) => new FeedbackSubmissionResult(isSuccess, data, message, errorCode, isConflict),
             cancellationToken).ConfigureAwait(false);
     }
 
