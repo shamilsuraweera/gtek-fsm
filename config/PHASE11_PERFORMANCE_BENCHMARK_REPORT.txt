@@ -1,0 +1,58 @@
+GTEK FSM - Phase 11.3 Performance and Load Validation Report
+Date: 2026-04-13
+Environment: Local integration host (ASP.NET Core TestServer + in-memory repositories)
+Scope: Queue operations, lifecycle updates, realtime broadcast fanout
+
+Run command:
+- dotnet test backend/infrastructure.tests/GTEK.FSM.Backend.Infrastructure.Tests.csproj -c Debug --filter "FullyQualifiedName~Phase11PerformanceLoadValidationTests"
+
+Scenario 1: Queue Operations (GET /api/v1/requests)
+- Load profile: 240 measured requests (after warmup)
+- SLO targets:
+  - p95 latency <= 120 ms
+  - throughput >= 55 req/s
+- Measured:
+  - p50 latency: 0.82 ms
+  - p95 latency: 1.16 ms
+  - max latency: 4.47 ms
+  - throughput: 1112.87 req/s
+- Result: PASS
+
+Scenario 2: Lifecycle Updates (PATCH /api/v1/requests/{id}/status)
+- Load profile: 120 measured status transitions (after warmup)
+- SLO targets:
+  - p95 latency <= 160 ms
+  - throughput >= 30 ops/s
+- Measured:
+  - p50 latency: 0.68 ms
+  - p95 latency: 0.99 ms
+  - max latency: 1.12 ms
+  - throughput: 1295.54 ops/s
+- Result: PASS
+
+Scenario 3: Realtime Broadcast Fanout (SignalR OperationalUpdateReceived)
+- Load profile: 36 transitions, 6 concurrent subscribers, tenant channel fanout
+- SLO targets:
+  - fanout success ratio >= 99%
+  - p95 delivery latency <= 500 ms
+- Measured:
+  - fanout success ratio: 100.00%
+  - p50 latency: 0.80 ms
+  - p95 latency: 4.63 ms
+  - max latency: 37.62 ms
+- Result: PASS
+
+Overall result:
+- All three critical performance scenarios met SLO targets.
+- Test status: Passed 3, Failed 0.
+
+Observed bottleneck risks (no current SLO breach):
+1. Package mismatch warning in test project for Microsoft.EntityFrameworkCore 10.0.0 vs 10.0.4 can cause inconsistent performance behavior across environments.
+2. Current benchmark is in-process TestServer and in-memory repository based; does not include SQL, network latency, TLS, or production infrastructure contention.
+3. Realtime benchmark fanout currently validates 6 subscribers; larger-scale fanout may show different saturation behavior.
+
+Tuning and next-step recommendations:
+1. Align EF Core package versions in backend/infrastructure.tests to remove version-conflict warnings and improve repeatability.
+2. Add a second benchmark tier against deployed local API + SQL Server container to capture DB and serialization overhead.
+3. Expand realtime fanout test to staged subscriber levels (10, 25, 50, 100) and record p95/p99 latency growth.
+4. Add trend tracking in CI for these three metrics to detect regressions before release.
