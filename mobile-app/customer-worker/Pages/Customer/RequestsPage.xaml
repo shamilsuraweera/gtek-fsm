@@ -46,7 +46,7 @@
                                                                HeightRequest="240">
                                           <CollectionView.ItemTemplate>
                                                  <DataTemplate>
-                                                        <Border StrokeShape="RoundRectangle 14" Padding="12" Margin="0,0,0,8" BackgroundColor="{AppThemeBinding Light=#FFF9F2, Dark=#2F4A67}">
+                                                        <Border StrokeShape="RoundRectangle 14" Padding="12" Margin="0,0,0,8" BackgroundColor="{AppThemeBinding Light={StaticResource ColorBgSurfaceLight}, Dark={StaticResource ColorBgSurfaceDark}}">
                                                                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" RowSpacing="4">
                                                                       <Label Text="{Binding Title}" FontAttributes="Bold" />
                                                                       <Label Grid.Column="1"

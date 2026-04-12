@@ -5,14 +5,14 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
     <!-- Legacy keys mapped to the simplified mobile palette -->
-    <Color x:Key="Primary">#F38808</Color>
-    <Color x:Key="Light">#F38808</Color>
-    <Color x:Key="Dark">#2B435F</Color>
+    <Color x:Key="Primary">#E18B2C</Color>
+    <Color x:Key="Light">#E18B2C</Color>
+    <Color x:Key="Dark">#182435</Color>
     <Color x:Key="White">White</Color>
     <Color x:Key="Black">Black</Color>
-    <Color x:Key="LightGray">#E4E9EF</Color>
-    <Color x:Key="MidGray">#6F7E8D</Color>
-    <Color x:Key="DarkGray">#4A6077</Color>
+    <Color x:Key="LightGray">#D5DEEA</Color>
+    <Color x:Key="MidGray">#6C7D94</Color>
+    <Color x:Key="DarkGray">#344A63</Color>
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}"/>
     <SolidColorBrush x:Key="LightBrush" Color="{StaticResource Light}"/>
     <SolidColorBrush x:Key="DarkBrush" Color="{StaticResource Dark}"/>
@@ -33,18 +33,18 @@
     <Color x:Key="Blue300Accent">#93A4B5</Color>
 
     <!-- Semantic tokens for mobile screens and components -->
-    <Color x:Key="ColorBgPageLight">#FBFBFC</Color>
-    <Color x:Key="ColorBgPageDark">#2B435F</Color>
+    <Color x:Key="ColorBgPageLight">#F3F6FB</Color>
+    <Color x:Key="ColorBgPageDark">#0E1521</Color>
     <Color x:Key="ColorBgSurfaceLight">#FFFFFF</Color>
-    <Color x:Key="ColorBgSurfaceDark">#35506C</Color>
-    <Color x:Key="ColorTextPrimaryLight">#2B435F</Color>
-    <Color x:Key="ColorTextPrimaryDark">#F7FAFC</Color>
-    <Color x:Key="ColorTextMutedLight">#6F7E8D</Color>
-    <Color x:Key="ColorTextMutedDark">#D3DCE5</Color>
-    <Color x:Key="ColorBorderDefaultLight">#E4E9EF</Color>
-    <Color x:Key="ColorBorderDefaultDark">#4A6077</Color>
-    <Color x:Key="ColorAccentLight">#F38808</Color>
-    <Color x:Key="ColorAccentDark">#F6A74A</Color>
+    <Color x:Key="ColorBgSurfaceDark">#141E2C</Color>
+    <Color x:Key="ColorTextPrimaryLight">#1E2A3A</Color>
+    <Color x:Key="ColorTextPrimaryDark">#F3F7FD</Color>
+    <Color x:Key="ColorTextMutedLight">#5A6C84</Color>
+    <Color x:Key="ColorTextMutedDark">#A7B6CB</Color>
+    <Color x:Key="ColorBorderDefaultLight">#D8E1EC</Color>
+    <Color x:Key="ColorBorderDefaultDark">#293A52</Color>
+    <Color x:Key="ColorAccentLight">#E18B2C</Color>
+    <Color x:Key="ColorAccentDark">#F1A44A</Color>
 
     <SolidColorBrush x:Key="ColorBgPageBrush"
                      Color="{AppThemeBinding Light={StaticResource ColorBgPageLight}, Dark={StaticResource ColorBgPageDark}}"/>

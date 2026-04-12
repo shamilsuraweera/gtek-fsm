@@ -4,7 +4,7 @@
 
 .top-row {
     min-height: 3.5rem;
-    background-color: rgba(0,0,0,0.2);
+    background-color: color-mix(in srgb, var(--sidebar-grad-end) 88%, #000000 12%);
 }
 
 .navbar-brand {
@@ -67,12 +67,18 @@
 
 .nav-item ::deep a.active {
     background-color: var(--nav-active-bg);
-    color: white;
+    color: var(--color-text-primary);
+    font-weight: var(--font-weight-semibold);
 }
 
 .nav-item ::deep a:hover {
     background-color: var(--nav-hover-bg);
-    color: white;
+    color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .nav-item ::deep a.active,
+[data-theme="dark"] .nav-item ::deep a:hover {
+    color: #ffffff;
 }
 
 @media (min-width: 641px) {

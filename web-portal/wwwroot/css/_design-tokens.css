@@ -19,21 +19,27 @@
   --color-gray-900: #171717;
   --color-gray-950: #0A0A0A;
 
-  /* Semantic - Light Mode */
-  --color-bg-page: #FFFFFF;
-   --color-bg-surface: #F8FAFC;
-  --color-bg-surface-elevated: #FFFFFF;
-   --color-text-primary: #2B435F;
-   --color-text-secondary: #344f6f;
-   --color-text-muted: #5A6F87;
-  --color-text-disabled: #A3A3A3;
-   --color-border-default: #DBE4EE;
+   /* Semantic - Light Mode */
+   --color-bg-page: #F3F6FB;
+   --color-bg-surface: #FFFFFF;
+   --color-bg-surface-elevated: #FFFFFF;
+   --color-text-primary: #1E2A3A;
+   --color-text-secondary: #314156;
+   --color-text-muted: #5A6C84;
+   --color-text-disabled: #A3A3A3;
+   --color-border-default: #D8E1EC;
   --color-border-subtle: #F5F5F5;
   --color-border-strong: #D4D4D4;
-   --color-accent: #F38808;
-   --color-accent-hover: #D97706;
-   --color-accent-active: #B45309;
-   --color-accent-light: #FFE8CC;
+   --color-accent: #E18B2C;
+   --color-accent-hover: #CC7720;
+   --color-accent-active: #A95E1A;
+   --color-accent-light: #FFE9CE;
+
+   --sidebar-grad-start: #F6F8FC;
+   --sidebar-grad-end: #EDEFF5;
+   --nav-text: #344358;
+   --nav-hover-bg: #E4E9F3;
+   --nav-active-bg: linear-gradient(90deg, #DBE4F5 0%, #CEDBF2 100%);
 
   /* Status Colors - Light Mode */
   --color-status-success: #10B981;
@@ -61,7 +67,7 @@
      ======================================== */
   
   /* Font Families */
-  --font-family-primary: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+   --font-family-primary: "Manrope", "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
   --font-family-mono: "Courier New", "Consolas", "Monaco", monospace;
 
   /* Display */
@@ -165,20 +171,26 @@
 @media (prefers-color-scheme: dark) {
   :root {
     /* Semantic - Dark Mode */
-      --color-bg-page: #111B29;
-      --color-bg-surface: #1A2A3D;
-      --color-bg-surface-elevated: #24384F;
+      --color-bg-page: #0E1521;
+      --color-bg-surface: #141E2C;
+      --color-bg-surface-elevated: #1C2A3E;
     --color-text-primary: #FFFFFF;
-      --color-text-secondary: #DDE6F1;
-      --color-text-muted: #B8C5D5;
+      --color-text-secondary: #D6DFEC;
+      --color-text-muted: #A7B6CB;
     --color-text-disabled: #6B7280;
-      --color-border-default: #31465F;
-      --color-border-subtle: #24384F;
-      --color-border-strong: #3A5572;
-      --color-accent: #F6A23D;
-      --color-accent-hover: #F38808;
-      --color-accent-active: #D97706;
-      --color-accent-light: #4F3414;
+      --color-border-default: #293A52;
+      --color-border-subtle: #1C2A3E;
+      --color-border-strong: #35506F;
+      --color-accent: #F1A44A;
+      --color-accent-hover: #E18B2C;
+      --color-accent-active: #CC7720;
+      --color-accent-light: #4A331A;
+
+      --sidebar-grad-start: #0A101A;
+      --sidebar-grad-end: #111B2A;
+      --nav-text: #D3DCEE;
+      --nav-hover-bg: #1A2A41;
+      --nav-active-bg: linear-gradient(90deg, #405E8E 0%, #5560B0 100%);
 
     /* Status Colors - Dark Mode */
     --color-status-success: #10B981;
