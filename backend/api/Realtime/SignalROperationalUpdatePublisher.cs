@@ -1,6 +1,8 @@
 using GTEK.FSM.Backend.Application.Realtime;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime;
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 
 using Microsoft.AspNetCore.SignalR;
 
@@ -13,11 +15,25 @@ public sealed class SignalROperationalUpdatePublisher : IOperationalUpdatePublis
     private const string JobAssignmentUpdatedEventType = "job.assignment_updated";
     private const string ServiceRequestSlaEscalatedEventType = "service_request.sla_escalated";
 
-    private readonly IHubContext<OperationsHub> hubContext;
+    private static readonly Meter Meter = new("GTEK.FSM.Backend.Api", "1.0.0");
+    private static readonly Counter<long> PublishCounter = Meter.CreateCounter<long>(
+        name: "realtime_publishes_total",
+        unit: "events",
+        description: "Total realtime events published.");
+    private static readonly Histogram<double> PublishDurationHistogram = Meter.CreateHistogram<double>(
+        name: "realtime_publish_duration_ms",
+        unit: "ms",
+        description: "Realtime publish duration in milliseconds.");
 
-    public SignalROperationalUpdatePublisher(IHubContext<OperationsHub> hubContext)
+    private readonly IHubContext<OperationsHub> hubContext;
+    private readonly ILogger<SignalROperationalUpdatePublisher> logger;
+
+    public SignalROperationalUpdatePublisher(
+        IHubContext<OperationsHub> hubContext,
+        ILogger<SignalROperationalUpdatePublisher> logger)
     {
         this.hubContext = hubContext;
+        this.logger = logger;
     }
 
     public Task PublishServiceRequestStatusUpdatedAsync(TransitionedServiceRequestPayload payload, CancellationToken cancellationToken = default)
@@ -38,11 +54,14 @@ public sealed class SignalROperationalUpdatePublisher : IOperationalUpdatePublis
             },
         };
 
-        return this.hubContext.Clients
+        return this.PublishAsync(
+            payload.TenantId,
+            ServiceRequestStatusUpdatedEventType,
+            () => this.hubContext.Clients
             .Groups(
                 OperationsHubGroups.ForTenant(payload.TenantId),
                 OperationsHubGroups.ForRequest(payload.TenantId, payload.RequestId))
-            .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken);
+            .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken));
     }
 
     public Task PublishJobAssignmentUpdatedAsync(AssignedServiceRequestPayload payload, CancellationToken cancellationToken = default)
@@ -65,12 +84,15 @@ public sealed class SignalROperationalUpdatePublisher : IOperationalUpdatePublis
             },
         };
 
-        return this.hubContext.Clients
+        return this.PublishAsync(
+            payload.TenantId,
+            JobAssignmentUpdatedEventType,
+            () => this.hubContext.Clients
             .Groups(
                 OperationsHubGroups.ForTenant(payload.TenantId),
                 OperationsHubGroups.ForRequest(payload.TenantId, payload.RequestId),
                 OperationsHubGroups.ForJob(payload.TenantId, payload.JobId))
-            .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken);
+            .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken));
     }
 
     public Task PublishSlaEscalationTriggeredAsync(SlaEscalationTriggeredPayload payload, CancellationToken cancellationToken = default)
@@ -93,10 +115,51 @@ public sealed class SignalROperationalUpdatePublisher : IOperationalUpdatePublis
             },
         };
 
-        return this.hubContext.Clients
+        return this.PublishAsync(
+            payload.TenantId,
+            ServiceRequestSlaEscalatedEventType,
+            () => this.hubContext.Clients
             .Groups(
                 OperationsHubGroups.ForTenant(payload.TenantId),
                 OperationsHubGroups.ForRequest(payload.TenantId, payload.RequestId))
-            .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken);
+            .SendAsync(OperationalUpdateReceivedMethod, envelope, cancellationToken));
+    }
+
+    private async Task PublishAsync(Guid tenantId, string eventType, Func<Task> publishAction)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var tenantTag = tenantId.ToString();
+        var outcome = "success";
+
+        try
+        {
+            await publishAction();
+        }
+        catch
+        {
+            outcome = "failure";
+            throw;
+        }
+        finally
+        {
+            stopwatch.Stop();
+
+            PublishCounter.Add(1,
+                new KeyValuePair<string, object?>("event_type", eventType),
+                new KeyValuePair<string, object?>("outcome", outcome),
+                new KeyValuePair<string, object?>("tenant", tenantTag));
+
+            PublishDurationHistogram.Record(stopwatch.Elapsed.TotalMilliseconds,
+                new KeyValuePair<string, object?>("event_type", eventType),
+                new KeyValuePair<string, object?>("outcome", outcome),
+                new KeyValuePair<string, object?>("tenant", tenantTag));
+
+            this.logger.LogInformation(
+                "realtime_publish eventType={EventType} tenantId={TenantId} outcome={Outcome} elapsedMs={ElapsedMs}",
+                eventType,
+                tenantTag,
+                outcome,
+                stopwatch.Elapsed.TotalMilliseconds);
+        }
     }
 }

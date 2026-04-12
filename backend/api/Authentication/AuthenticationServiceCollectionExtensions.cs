@@ -15,7 +15,8 @@ public static class AuthenticationServiceCollectionExtensions
 
         var jwtOptions = new JwtAuthenticationOptions();
         configuration.GetSection(JwtAuthenticationOptions.SectionName).Bind(jwtOptions);
-        jwtOptions.Validate();
+        var allowPlaceholderSecrets = environment.IsDevelopment() || environment.IsEnvironment("Local");
+        jwtOptions.Validate(allowPlaceholderSecrets);
 
         var hubPath = configuration.GetSection("SignalR").GetValue<string>("HubPath") ?? "/hubs/pipeline";
 

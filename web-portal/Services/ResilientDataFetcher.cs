@@ -1,9 +1,3 @@
-//-----------------------------------------------------------------------
-// <copyright file="ResilientDataFetcher.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
-//-----------------------------------------------------------------------
-
 using GTEK.FSM.WebPortal.Models;
 
 namespace GTEK.FSM.WebPortal.Services;

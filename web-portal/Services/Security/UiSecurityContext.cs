@@ -1,9 +1,3 @@
-//-----------------------------------------------------------------------
-// <copyright file="UiSecurityContext.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
-//-----------------------------------------------------------------------
-
 using GTEK.FSM.Shared.Contracts.Vocabulary;
 
 namespace GTEK.FSM.WebPortal.Services.Security;

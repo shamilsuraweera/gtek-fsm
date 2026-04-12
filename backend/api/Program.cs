@@ -27,6 +27,8 @@ builder.Configuration
 	.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
 	.AddEnvironmentVariables();
 
+SecurityConfigurationValidator.ValidateForEnvironment(builder.Configuration, builder.Environment);
+
 var signalROptions = builder.Configuration.GetSection("SignalR").Get<SignalROptions>() ?? new SignalROptions();
 var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
 	?? new[] { "http://localhost:5001" };
@@ -72,6 +74,7 @@ if (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Local"))
 }
 
 app.UseGlobalExceptionHandling();
+app.UseRequestObservability();
 app.UseHttpsRedirection();
 app.UseCors("PortalLocal");
 app.UseAuthentication();

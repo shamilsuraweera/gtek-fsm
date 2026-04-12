@@ -21,6 +21,7 @@ services:
       - gtek-fsm-net
 
   backend-api:
+    image: ${BACKEND_API_IMAGE:-gtek-fsm-backend-api:local}
     build:
       context: .
       dockerfile: backend/api/Dockerfile

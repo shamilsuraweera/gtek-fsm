@@ -1,9 +1,3 @@
-//-----------------------------------------------------------------------
-// <copyright file="PortalRole.cs" company="PlaceholderCompany">
-// Copyright (c) PlaceholderCompany. All rights reserved.
-// </copyright>
-//-----------------------------------------------------------------------
-
 namespace GTEK.FSM.WebPortal.Services.Security;
 
 /// <summary>
