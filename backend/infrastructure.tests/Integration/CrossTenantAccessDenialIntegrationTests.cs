@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 
+using GTEK.FSM.Backend.Api.Authentication;
 using GTEK.FSM.Backend.Api.Authorization;
 using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
@@ -10,6 +11,7 @@ using GTEK.FSM.Backend.Api.Tenancy;
 using GTEK.FSM.Backend.Application;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Infrastructure.Identity;
+using GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Requests;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Builder;
@@ -149,6 +151,7 @@ public class CrossTenantAccessDenialIntegrationTests
         builder.Services.AddHttpContextAccessor();
         builder.Services.AddScoped<IAuthenticatedPrincipalAccessor, HttpContextAuthenticatedPrincipalAccessor>();
         builder.Services.AddScoped<ITenantContextAccessor, HttpContextTenantContextAccessor>();
+        builder.Services.AddSingleton<ILocalAuthService, StubLocalAuthService>();
 
         builder.Services.Configure<TenantResolutionOptions>(_ => { });
 
@@ -180,6 +183,15 @@ public class CrossTenantAccessDenialIntegrationTests
         public const string TenantId = "X-Test-Tenant-Id";
         public const string Role = "X-Test-Role";
         public const string TokenVersion = "X-Test-Ver";
+    }
+
+    private sealed class StubLocalAuthService : ILocalAuthService
+    {
+        public Task<LocalAuthResult> LoginAsync(LoginRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(LocalAuthResult.Fail(401, "STUB", "stub"));
+
+        public Task<LocalAuthResult> RegisterAsync(RegisterLocalUserRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(LocalAuthResult.Fail(401, "STUB", "stub"));
     }
 
     private sealed class TestAuthHandler : AuthenticationHandler<AuthenticationSchemeOptions>

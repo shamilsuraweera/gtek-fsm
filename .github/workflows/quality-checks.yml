@@ -90,3 +90,66 @@ jobs:
           echo "   - Indentation & spacing: Standardized"
           echo ""
           echo "💡 Developers: Enable 'Format Document on Save' in your IDE"
+
+  security-hygiene:
+    name: Security Hygiene Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate production appsettings secrets are not committed
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          files = [
+              Path("backend/api/appsettings.Production.json"),
+              Path("backend/api/appsettings.Production.example.json"),
+          ]
+
+          secret_paths = [
+              ("Authentication", "Jwt", "SigningKey"),
+              ("Database", "ConnectionString"),
+              ("ConnectionStrings", "MainDb"),
+              ("Storage", "Blob", "ConnectionString"),
+              ("Storage", "S3", "AccessKey"),
+              ("Storage", "S3", "SecretKey"),
+              ("ExternalServices", "Notifications", "ApiKey"),
+              ("ExternalServices", "Maps", "ApiKey"),
+              ("ExternalServices", "Payments", "ApiKey"),
+              ("ExternalServices", "Payments", "WebhookSecret"),
+              ("ExternalServices", "Webhooks", "SigningSecret"),
+          ]
+
+          def get_path_value(obj, path):
+              current = obj
+              for key in path:
+                  if not isinstance(current, dict) or key not in current:
+                      return ""
+                  current = current[key]
+              return current
+
+          violations = []
+          for file_path in files:
+              data = json.loads(file_path.read_text(encoding="utf-8"))
+              for path in secret_paths:
+                  value = get_path_value(data, path)
+                  if isinstance(value, str) and value.strip() != "":
+                      violations.append(f"{file_path}: {'.'.join(path)} must be empty")
+
+          if violations:
+              print("❌ Production config secret policy violations found:")
+              for violation in violations:
+                  print(f"  - {violation}")
+              raise SystemExit(1)
+
+          print("✅ Production appsettings secret policy passed.")
+          PY
