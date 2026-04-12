@@ -4,6 +4,7 @@ using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Categories;
 using GTEK.FSM.Backend.Application.Decisioning;
+using GTEK.FSM.Backend.Application.Feedback;
 using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.ServiceRequests;
 using GTEK.FSM.Backend.Application.Subscriptions;
@@ -1498,6 +1499,197 @@ public static class V1RouteGroupExtensions
             return Results.Ok(ApiResponse<object>.Ok(
                 data: new { targetTenantId = tenantId, operation = "cross-tenant-managed-probe" },
                 message: "Privileged management guard passed.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        // Feedback endpoints
+        v1.MapPost("/requests/{requestId:guid}/feedback", async (
+            Guid requestId,
+            GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.SubmitFeedbackRequest request,
+            HttpContext context,
+            IAuthenticatedPrincipalAccessor principalAccessor,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            CancellationToken cancellationToken) =>
+        {
+            var principal = principalAccessor.GetCurrent();
+            if (principal is null)
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_UNAUTHORIZED", "Authentication is required.");
+            }
+
+            var tenantId = tenantContextAccessor.GetCurrentTenantId();
+            var userId = principal.Claims.FirstOrDefault(c => c.Type == "sub")?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userIdGuid))
+            {
+                return BuildFailure(context, StatusCodes.Status401Unauthorized, "AUTH_INVALID_SUBJECT", "User ID is missing or invalid.");
+            }
+            
+            if (request.JobId == Guid.Empty || request.ServiceRequestId == Guid.Empty)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "INVALID_REQUEST",
+                    "Job ID and Service Request ID are required.");
+            }
+
+            if (request.Rating < 0 || request.Rating > 5)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "INVALID_RATING",
+                    "Rating must be between 0 and 5.");
+            }
+
+            if (!string.IsNullOrEmpty(request.Comment) && request.Comment.Length > 1000)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "COMMENT_TOO_LONG",
+                    "Comment cannot exceed 1000 characters.");
+            }
+
+            try
+            {
+                var feedbackId = await feedbackService.SubmitFeedbackAsync(
+                    tenantId,
+                    request.JobId,
+                    request.ServiceRequestId,
+                    userIdGuid,
+                    (global::GTEK.FSM.Backend.Domain.Enums.FeedbackSource)(request.Rating > 0 ? 0 : 1), // Infer source from context
+                    request.Rating > 0 ? request.Rating : null,
+                    request.Comment,
+                    (global::GTEK.FSM.Backend.Domain.Enums.FeedbackType)request.Type,
+                    cancellationToken);
+
+                return Results.Created(
+                    $"/api/v1/feedback/{feedbackId}",
+                    ApiResponse<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse>.Ok(
+                        data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
+                        {
+                            Id = feedbackId,
+                            JobId = request.JobId,
+                            ServiceRequestId = request.ServiceRequestId,
+                            ProvidedByUserId = userIdGuid,
+                            Source = 0,
+                            Rating = request.Rating,
+                            Comment = request.Comment ?? string.Empty,
+                            Type = request.Type,
+                            IsActionable = request.Rating < 3 || (!string.IsNullOrEmpty(request.Comment) && request.Comment.ToLowerInvariant().Contains("issue")),
+                            CreatedAtUtc = DateTime.UtcNow
+                        },
+                        message: "Feedback submitted successfully.",
+                        traceId: context.TraceIdentifier));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "FEEDBACK_VALIDATION_ERROR",
+                    ex.Message);
+            }
+        })
+        .RequireAuthorization();
+
+        v1.MapGet("/requests/{requestId:guid}/feedback", async (
+            Guid requestId,
+            HttpContext context,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            CancellationToken cancellationToken) =>
+        {
+            var tenantId = tenantContextAccessor.GetCurrentTenantId();
+
+            var feedbacks = await feedbackService.GetFeedbackForServiceRequestAsync(tenantId, requestId, cancellationToken);
+            var responses = feedbacks
+                .Select(f => new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
+                {
+                    Id = f.Id,
+                    JobId = f.JobId,
+                    ServiceRequestId = f.ServiceRequestId,
+                    ProvidedByUserId = f.ProvidedByUserId,
+                    Source = (int)f.Source,
+                    Rating = f.Rating,
+                    Comment = f.Comment,
+                    Type = (int)f.Type,
+                    IsActionable = f.IsActionable,
+                    CreatedAtUtc = f.CreatedAtUtc
+                })
+                .ToList();
+
+            return Results.Ok(ApiResponse<IReadOnlyList<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse>>.Ok(
+                data: responses,
+                message: "Feedback retrieved successfully.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization();
+
+        v1.MapGet("/management/feedback", async (
+            HttpContext context,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            int skip = 0,
+            int take = 50,
+            CancellationToken cancellationToken = default) =>
+        {
+            var tenantId = tenantContextAccessor.GetCurrentTenantId();
+
+            var (feedbacks, totalCount) = await feedbackService.QueryFeedbackAsync(tenantId, skip, take, cancellationToken);
+            var responses = feedbacks
+                .Select(f => new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackResponse
+                {
+                    Id = f.Id,
+                    JobId = f.JobId,
+                    ServiceRequestId = f.ServiceRequestId,
+                    ProvidedByUserId = f.ProvidedByUserId,
+                    Source = (int)f.Source,
+                    Rating = f.Rating,
+                    Comment = f.Comment,
+                    Type = (int)f.Type,
+                    IsActionable = f.IsActionable,
+                    CreatedAtUtc = f.CreatedAtUtc
+                })
+                .ToList();
+
+            return Results.Ok(ApiResponse<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackPageResponse>.Ok(
+                data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackPageResponse
+                {
+                    Items = responses,
+                    TotalCount = totalCount
+                },
+                message: "Feedback page retrieved successfully.",
+                traceId: context.TraceIdentifier));
+        })
+        .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);
+
+        v1.MapGet("/management/feedback/statistics", async (
+            HttpContext context,
+            ITenantContextAccessor tenantContextAccessor,
+            IFeedbackService feedbackService,
+            CancellationToken cancellationToken) =>
+        {
+            var tenantId = tenantContextAccessor.GetCurrentTenantId();
+
+            var stats = await feedbackService.GetFeedbackStatisticsAsync(tenantId, cancellationToken);
+
+            return Results.Ok(ApiResponse<GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackStatisticsResponse>.Ok(
+                data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackStatisticsResponse
+                {
+                    TotalFeedbackCount = stats.TotalFeedbackCount,
+                    AverageRating = stats.AverageRating,
+                    CustomerFeedbackCount = stats.CustomerFeedbackCount,
+                    WorkerFeedbackCount = stats.WorkerFeedbackCount,
+                    AverageCustomerRating = stats.AverageCustomerRating,
+                    AverageWorkerRating = stats.AverageWorkerRating,
+                    ActionableFeedbackCount = stats.ActionableFeedbackCount,
+                    FeedbackCountByType = stats.FeedbackCountByType
+                },
+                message: "Feedback statistics retrieved successfully.",
                 traceId: context.TraceIdentifier));
         })
         .RequireAuthorization(AuthorizationPolicyCatalog.ManagementFlow);

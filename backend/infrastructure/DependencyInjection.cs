@@ -47,6 +47,7 @@ public static class DependencyInjection
         services.AddScoped<IAuditLogRepository, AuditLogRepository>();
         services.AddScoped<ICategoryRepository, CategoryRepository>();
         services.AddScoped<IWorkerProfileRepository, WorkerProfileRepository>();
+        services.AddScoped<IFeedbackRepository, FeedbackRepository>();
         services.AddScoped<IUnitOfWork, EfUnitOfWork>();
         services.AddScoped<OsrmRoadDistanceProvider>();
         services.AddScoped<IRoadDistanceProvider>(sp =>

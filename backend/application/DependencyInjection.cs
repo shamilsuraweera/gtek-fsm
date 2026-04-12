@@ -2,6 +2,7 @@ using GTEK.FSM.Backend.Application.Audit;
 using GTEK.FSM.Backend.Application.Automation;
 using GTEK.FSM.Backend.Application.Categories;
 using GTEK.FSM.Backend.Application.Decisioning;
+using GTEK.FSM.Backend.Application.Feedback;
 using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Reporting;
 using GTEK.FSM.Backend.Application.Realtime;
@@ -42,6 +43,7 @@ public static class DependencyInjection
         services.AddScoped<IWorkerQueryService, WorkerQueryService>();
         services.AddScoped<IWorkerManagementService, WorkerManagementService>();
         services.AddScoped<IWorkerMatchingService, WorkerMatchingService>();
+        services.AddScoped<IFeedbackService, FeedbackService>();
         services.AddSingleton<IDecisioningMetricsCollector, InMemoryDecisioningMetricsCollector>();
 
         return services;
