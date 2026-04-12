@@ -4,6 +4,9 @@ SHELL := /bin/bash
         run-api run-portal run-mobile run-all \
         dev-db-init dev-db-reset dev-db-seed \
         dev-up dev-down dev-logs dev-reset \
+	release-staging release-production \
+	verify-staging verify-production \
+	rollback-staging rollback-production \
         clean
 
 # Build targets
@@ -54,6 +57,25 @@ dev-logs:
 
 dev-reset:
 	./deploy/scripts/dev-reset.sh
+
+# Release targets
+release-staging:
+	./deploy/scripts/release-deploy.sh staging $(IMAGE_TAG)
+
+release-production:
+	./deploy/scripts/release-deploy.sh production $(IMAGE_TAG)
+
+verify-staging:
+	./deploy/scripts/release-verify.sh staging
+
+verify-production:
+	./deploy/scripts/release-verify.sh production
+
+rollback-staging:
+	./deploy/scripts/release-rollback.sh staging $(ROLLBACK_TAG)
+
+rollback-production:
+	./deploy/scripts/release-rollback.sh production $(ROLLBACK_TAG)
 
 # Utility targets
 clean:

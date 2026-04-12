@@ -251,6 +251,12 @@ make dev-up            # ./deploy/scripts/dev-up.sh
 make dev-down          # ./deploy/scripts/dev-down.sh
 make dev-logs          # ./deploy/scripts/dev-logs.sh
 make dev-reset         # ./deploy/scripts/dev-reset.sh
+make release-staging IMAGE_TAG=<tag>         # Deploy API image to staging
+make verify-staging                           # Verify staging health + readiness
+make rollback-staging ROLLBACK_TAG=<tag>     # Roll back staging API image
+make release-production IMAGE_TAG=<tag>       # Deploy API image to production
+make verify-production                        # Verify production health + readiness
+make rollback-production ROLLBACK_TAG=<tag>   # Roll back production API image
 ```text
 
 ---
@@ -339,6 +345,40 @@ make build
 ./deploy/scripts/start-all.sh
 ````
 
+### Release and Rollback (Phase 11.4)
+
+```bash
+# 1. Prepare environment files (one-time per environment)
+cp .env.staging.example .env.staging
+cp .env.production.example .env.production
+
+# 2. Deploy a specific backend image to staging
+make release-staging IMAGE_TAG=ghcr.io/your-org/gtek-fsm-backend-api:2026.03.15.1
+
+# 3. Run post-deploy verification
+make verify-staging
+
+# 4. Promote same image to production after approval
+make release-production IMAGE_TAG=ghcr.io/your-org/gtek-fsm-backend-api:2026.03.15.1
+make verify-production
+
+# 5. Roll back if verification or SLO checks fail
+make rollback-production ROLLBACK_TAG=ghcr.io/your-org/gtek-fsm-backend-api:2026.03.14.3
+make verify-production
+```
+
+Rollback triggers:
+
+- Health or readiness check fails after deployment.
+- Error rate or latency SLO regression compared to prior baseline.
+- Security regression or critical functional failure discovered in smoke checks.
+
+Operational notes:
+
+- Release scripts are idempotent for the backend container rollout (`docker compose up -d`).
+- Rollback uses the exact previously known-good image tag and re-runs health checks.
+- Keep a deployment log with image tag, timestamp, approver, and rollback decision.
+
 ---
 
 ## Environment Configuration
@@ -356,6 +396,13 @@ COMPOSE_PROJECT_NAME=gtek-fsm-dev
 SQL_SA_PASSWORD=YourStrongPassword123!
 ASPNETCORE_ENVIRONMENT=Development
 ```text
+
+For staged rollouts, also create environment-specific files:
+
+```bash
+cp .env.staging.example .env.staging
+cp .env.production.example .env.production
+```
 
 ### Connection Strings
 
