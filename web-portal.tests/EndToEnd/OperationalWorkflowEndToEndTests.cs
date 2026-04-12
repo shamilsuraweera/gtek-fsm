@@ -35,6 +35,8 @@ public sealed class OperationalWorkflowEndToEndTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("DENIED_ACTION_SPIKE", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Continuous Improvement Cadence", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("SLA_BREACH_RECOVERY", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("CATEGORY_UPDATED", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("Assignment Quality", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("Worker Utilization", cut.Markup, StringComparison.Ordinal);
@@ -117,6 +119,26 @@ public sealed class OperationalWorkflowEndToEndTests : TestContext
                 [
                     new ManagementDrilldownItemResponse { Key = "Success", Count = 6 },
                 ],
+                ContinuousImprovement = new ManagementContinuousImprovementResponse
+                {
+                    CadenceName = "Weekly KPI Review",
+                    ReviewWindowDays = 7,
+                    NextReviewOnUtc = DateTime.UtcNow.AddDays(7),
+                    PrioritizationRule = "High items become immediate backlog candidates.",
+                    ImprovementItems =
+                    [
+                        new ManagementImprovementItemResponse
+                        {
+                            Code = "SLA_BREACH_RECOVERY",
+                            Priority = "High",
+                            Metric = "Completion SLA health",
+                            CurrentState = "2 completion breaches were recorded in the active review window.",
+                            TargetState = "Zero breached completion SLAs.",
+                            RecommendedAction = "Open a recovery backlog item for the breached workflow.",
+                            ReviewOwner = "Service Delivery Manager",
+                        },
+                    ],
+                },
             });
         }
     }

@@ -165,6 +165,9 @@ public class ManagementReportingIntegrationTests
         Assert.Equal(1, envelope.Data.WorkforceUtilization.BusyWorkers);
         Assert.Equal(2, envelope.Data.WorkforceUtilization.UtilizedWorkers);
         Assert.Equal(1, envelope.Data.WorkforceUtilization.OverloadedWorkers);
+        Assert.Equal("Weekly KPI Review", envelope.Data.ContinuousImprovement.CadenceName);
+        Assert.Contains(envelope.Data.ContinuousImprovement.ImprovementItems, item => item.Code == "SLA_BREACH_RECOVERY");
+        Assert.Contains(envelope.Data.ContinuousImprovement.ImprovementItems, item => item.Code == "ASSIGNMENT_ACCEPTANCE_TUNING");
     }
 
     [Fact]

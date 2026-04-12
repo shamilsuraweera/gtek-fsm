@@ -27,6 +27,38 @@ public sealed class GetManagementAnalyticsOverviewResponse
     public IReadOnlyList<ManagementDrilldownItemResponse> ActionDrilldown { get; set; } = Array.Empty<ManagementDrilldownItemResponse>();
 
     public IReadOnlyList<ManagementDrilldownItemResponse> OutcomeDrilldown { get; set; } = Array.Empty<ManagementDrilldownItemResponse>();
+
+    public ManagementContinuousImprovementResponse ContinuousImprovement { get; set; } = new();
+}
+
+public sealed class ManagementContinuousImprovementResponse
+{
+    public string CadenceName { get; set; } = string.Empty;
+
+    public int ReviewWindowDays { get; set; }
+
+    public DateTime NextReviewOnUtc { get; set; }
+
+    public string PrioritizationRule { get; set; } = string.Empty;
+
+    public IReadOnlyList<ManagementImprovementItemResponse> ImprovementItems { get; set; } = Array.Empty<ManagementImprovementItemResponse>();
+}
+
+public sealed class ManagementImprovementItemResponse
+{
+    public string Code { get; set; } = string.Empty;
+
+    public string Priority { get; set; } = string.Empty;
+
+    public string Metric { get; set; } = string.Empty;
+
+    public string CurrentState { get; set; } = string.Empty;
+
+    public string TargetState { get; set; } = string.Empty;
+
+    public string RecommendedAction { get; set; } = string.Empty;
+
+    public string ReviewOwner { get; set; } = string.Empty;
 }
 
 public sealed class ManagementDecisioningMetricsResponse

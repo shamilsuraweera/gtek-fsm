@@ -1,0 +1,74 @@
+{
+  "cadence": {
+    "name": "Weekly KPI Review",
+    "reviewWindowDays": 7,
+    "frequency": "Weekly",
+    "meetingOwner": "Operations Manager",
+    "backlogExpectation": "Every high-priority KPI regression becomes an explicit backlog item in the next review cycle."
+  },
+  "rules": [
+    {
+      "code": "COMPLETION_RECOVERY",
+      "priority": "High",
+      "metric": "Completion rate",
+      "trigger": "Completion rate in the active review window falls below 70%.",
+      "target": "Maintain at least 70% completion throughput in-window.",
+      "recommendedAction": "Create a backlog item to reduce blocked or aging work and track recovery in the next weekly review.",
+      "reviewOwner": "Operations Manager"
+    },
+    {
+      "code": "ASSIGNMENT_ACCEPTANCE_TUNING",
+      "priority": "High",
+      "metric": "Assignment acceptance rate",
+      "trigger": "Assignment acceptance falls below 80% for the review window.",
+      "target": "Maintain at least 80% assignment acceptance.",
+      "recommendedAction": "Review rejection and pending-acceptance patterns, then schedule a dispatch tuning task.",
+      "reviewOwner": "Dispatch Lead"
+    },
+    {
+      "code": "JOB_COMPLETION_FOLLOW_THROUGH",
+      "priority": "High",
+      "metric": "Job completion rate",
+      "trigger": "Job completion conversion from assignment events falls below 65%.",
+      "target": "Maintain at least 65% completion conversion from assignments.",
+      "recommendedAction": "Add a backlog item for recurring completion blockers and verify the outcome in the next review.",
+      "reviewOwner": "Field Operations Lead"
+    },
+    {
+      "code": "SLA_BREACH_RECOVERY",
+      "priority": "High",
+      "metric": "Completion SLA health",
+      "trigger": "Any completion SLA breach or breached escalation is observed in the review window.",
+      "target": "Zero breached completion SLAs in the active review cycle.",
+      "recommendedAction": "Open an SLA recovery backlog item and inspect the staffing, escalation, and handoff causes.",
+      "reviewOwner": "Service Delivery Manager"
+    },
+    {
+      "code": "CAPACITY_REBALANCE",
+      "priority": "Medium",
+      "metric": "Workforce utilization",
+      "trigger": "Utilization exceeds 85% or any worker enters an overloaded state.",
+      "target": "Keep utilization below 85% and eliminate overloaded worker pockets.",
+      "recommendedAction": "Plan a workload rebalance or staffing adjustment item before the next review.",
+      "reviewOwner": "Workforce Manager"
+    },
+    {
+      "code": "DECISIONING_SIGNAL_TUNING",
+      "priority": "Medium",
+      "metric": "Decisioning quality",
+      "trigger": "High-confidence match rate falls below 75% or p95 decisioning latency exceeds 250 ms.",
+      "target": "Maintain at least 75% high-confidence matches and p95 latency at or below 250 ms.",
+      "recommendedAction": "Add a tuning task for ranking weights, inputs, or cache performance if the signal persists.",
+      "reviewOwner": "Platform Optimization Lead"
+    },
+    {
+      "code": "GOVERNANCE_ACCESS_REVIEW",
+      "priority": "Medium",
+      "metric": "Denied sensitive actions",
+      "trigger": "Three or more denied or failed sensitive actions occur in 24 hours.",
+      "target": "Keep denied sensitive actions below 3 per 24-hour review window.",
+      "recommendedAction": "Create a governance follow-up item for role misuse, permission drift, or operator guidance issues.",
+      "reviewOwner": "Security and Governance Lead"
+    }
+  ]
+}

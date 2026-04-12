@@ -74,6 +74,53 @@ jobs:
           echo "   📄 config/ANALYZER_SUPPRESSIONS_GUIDE.md"
           echo ""
 
+        - name: Validate continuous improvement cadence artifacts
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          doc_path = Path("config/CONTINUOUS_IMPROVEMENT_CADENCE.md")
+          rules_path = Path("config/CONTINUOUS_IMPROVEMENT_KPI_RULES.json")
+
+          if not doc_path.exists():
+            raise SystemExit("Missing config/CONTINUOUS_IMPROVEMENT_CADENCE.md")
+
+          if not rules_path.exists():
+            raise SystemExit("Missing config/CONTINUOUS_IMPROVEMENT_KPI_RULES.json")
+
+          rules = json.loads(rules_path.read_text(encoding="utf-8"))
+          cadence = rules.get("cadence")
+          items = rules.get("rules")
+
+          if not isinstance(cadence, dict):
+            raise SystemExit("cadence must be an object")
+
+          required_cadence_fields = ["name", "reviewWindowDays", "frequency", "meetingOwner", "backlogExpectation"]
+          missing_cadence = [field for field in required_cadence_fields if not cadence.get(field)]
+          if missing_cadence:
+            raise SystemExit(f"cadence is missing required fields: {', '.join(missing_cadence)}")
+
+          if not isinstance(items, list) or len(items) == 0:
+            raise SystemExit("rules must be a non-empty list")
+
+          seen_codes = set()
+          for item in items:
+            for field in ["code", "priority", "metric", "trigger", "target", "recommendedAction", "reviewOwner"]:
+              if not item.get(field):
+                raise SystemExit(f"rule is missing required field: {field}")
+
+            if item["code"] in seen_codes:
+              raise SystemExit(f"duplicate rule code found: {item['code']}")
+
+            if item["priority"] not in {"High", "Medium", "Low"}:
+              raise SystemExit(f"invalid priority for rule {item['code']}: {item['priority']}")
+
+            seen_codes.add(item["code"])
+
+          print("✅ Continuous improvement cadence artifacts validated.")
+          PY
+
   editorconfig-check:
     name: EditorConfig Validation
     runs-on: ubuntu-latest

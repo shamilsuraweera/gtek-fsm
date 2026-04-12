@@ -1942,6 +1942,25 @@ public static class V1RouteGroupExtensions
                     Count = x.Count,
                 })
                 .ToArray(),
+            ContinuousImprovement = new ManagementContinuousImprovementResponse
+            {
+                CadenceName = overview.ContinuousImprovement.CadenceName,
+                ReviewWindowDays = overview.ContinuousImprovement.ReviewWindowDays,
+                NextReviewOnUtc = overview.ContinuousImprovement.NextReviewOnUtc,
+                PrioritizationRule = overview.ContinuousImprovement.PrioritizationRule,
+                ImprovementItems = overview.ContinuousImprovement.ImprovementItems
+                    .Select(x => new ManagementImprovementItemResponse
+                    {
+                        Code = x.Code,
+                        Priority = x.Priority,
+                        Metric = x.Metric,
+                        CurrentState = x.CurrentState,
+                        TargetState = x.TargetState,
+                        RecommendedAction = x.RecommendedAction,
+                        ReviewOwner = x.ReviewOwner,
+                    })
+                    .ToArray(),
+            },
         };
     }
 

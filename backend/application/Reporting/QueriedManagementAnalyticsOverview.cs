@@ -13,13 +13,30 @@ public sealed record QueriedManagementAnalyticsOverview(
     IReadOnlyList<QueriedManagementTrendPoint> CompletionTrend,
     IReadOnlyList<QueriedManagementAnomalyIndicator> Anomalies,
     IReadOnlyList<QueriedManagementDrilldownItem> ActionDrilldown,
-    IReadOnlyList<QueriedManagementDrilldownItem> OutcomeDrilldown);
+    IReadOnlyList<QueriedManagementDrilldownItem> OutcomeDrilldown,
+    QueriedContinuousImprovementOverview ContinuousImprovement);
 
 public sealed record QueriedManagementTrendPoint(DateTime DateUtc, int Value);
 
 public sealed record QueriedManagementAnomalyIndicator(string Code, string Severity, string Message);
 
 public sealed record QueriedManagementDrilldownItem(string Key, int Count);
+
+public sealed record QueriedContinuousImprovementOverview(
+    string CadenceName,
+    int ReviewWindowDays,
+    DateTime NextReviewOnUtc,
+    string PrioritizationRule,
+    IReadOnlyList<QueriedContinuousImprovementItem> ImprovementItems);
+
+public sealed record QueriedContinuousImprovementItem(
+    string Code,
+    string Priority,
+    string Metric,
+    string CurrentState,
+    string TargetState,
+    string RecommendedAction,
+    string ReviewOwner);
 
 public sealed record QueriedDecisioningMetricsOverview(
     int MatchEvaluationCount,

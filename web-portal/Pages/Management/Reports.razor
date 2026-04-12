@@ -285,6 +285,37 @@
 					</div>
 				</section>
 
+				<section class="audit-panel">
+					<header class="audit-panel-header">
+						<h2>Continuous Improvement Cadence</h2>
+					</header>
+					<p class="audit-muted">@Overview.ContinuousImprovement.CadenceName for the last @Overview.ContinuousImprovement.ReviewWindowDays day(s). Next review: @Overview.ContinuousImprovement.NextReviewOnUtc.ToLocalTime().ToString("yyyy-MM-dd")</p>
+					<p class="audit-muted">@Overview.ContinuousImprovement.PrioritizationRule</p>
+
+					@if (Overview.ContinuousImprovement.ImprovementItems.Count == 0)
+					{
+						<p class="workspace-hint">No KPI regressions currently require backlog action. Keep monitoring the existing trend and anomaly views.</p>
+					}
+					else
+					{
+						<div class="oversight-list">
+							@foreach (var item in Overview.ContinuousImprovement.ImprovementItems)
+							{
+								<article class="oversight-item improvement-item">
+									<div>
+										<p class="oversight-title">@item.Code</p>
+										<p class="audit-muted"><strong>@item.Metric</strong> · @item.CurrentState</p>
+										<p class="audit-muted">Target: @item.TargetState</p>
+										<p class="audit-muted">Action: @item.RecommendedAction</p>
+										<p class="audit-muted">Owner: @item.ReviewOwner</p>
+									</div>
+									<span class="audit-pill @GetRiskClass(item.Priority)">@item.Priority</span>
+								</article>
+							}
+						</div>
+					}
+				</section>
+
 				<section class="trend-grid">
 					<article class="audit-panel">
 						<header class="audit-panel-header">
@@ -491,5 +522,9 @@
 
 	.compact-table-wrap {
 		margin-top: 1rem;
+	}
+
+	.improvement-item {
+		align-items: flex-start;
 	}
 </style>
