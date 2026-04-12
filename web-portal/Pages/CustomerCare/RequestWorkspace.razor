@@ -6,6 +6,7 @@
 @using GTEK.FSM.WebPortal.Services
 @using GTEK.FSM.WebPortal.Services.Realtime
 @using GTEK.FSM.WebPortal.Services.Requests
+@using GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback
 @using GTEK.FSM.Shared.Contracts.Api.Contracts.Realtime
 
 @inject NavigationManager Navigation
@@ -133,6 +134,27 @@
                         }
                     </ol>
                 </section>
+
+                <section class="workspace-panel">
+                    <h3>Feedback Review</h3>
+                    @if (FeedbackEntries.Count == 0)
+                    {
+                        <p class="workspace-hint">No feedback has been submitted for this request yet.</p>
+                    }
+                    else
+                    {
+                        <p class="workspace-hint">@FeedbackEntries.Count submission(s) recorded. Average rating: @AverageFeedbackRating.ToString("0.0")</p>
+                        <ol class="workspace-timeline">
+                            @foreach (var feedback in FeedbackEntries)
+                            {
+                                <li class="workspace-timeline-item" @key="feedback.Id">
+                                    <span class="workspace-timeline-time mono">@feedback.CreatedAtUtc.ToLocalTime().ToString("MM-dd HH:mm")</span>
+                                    <span>@DescribeFeedback(feedback)</span>
+                                </li>
+                            }
+                        </ol>
+                    }
+                </section>
             </section>
         }
     </DataFetchStateDisplay>
@@ -171,6 +193,12 @@
     private bool CanAssign => ActiveItem is not null && !string.IsNullOrWhiteSpace(workerUserIdInput);
 
     private bool CanReassign => CanAssign && !string.Equals(workerUserIdInput.Trim(), ActiveItem?.AssignedWorkerId, StringComparison.Ordinal);
+
+    private IReadOnlyList<FeedbackResponse> FeedbackEntries => workspaceSnapshot?.Feedback ?? [];
+
+    private decimal AverageFeedbackRating => FeedbackEntries.Count == 0
+        ? 0m
+        : FeedbackEntries.Average(static feedback => feedback.Rating);
 
     protected override async Task OnInitializedAsync()
     {
@@ -352,6 +380,26 @@
     private void GoBackToQueue()
     {
         Navigation.NavigateTo("/customer-care/requests");
+    }
+
+    private static string DescribeFeedback(FeedbackResponse feedback)
+    {
+        var source = feedback.Source == 1 ? "Worker" : "Customer";
+        var type = feedback.Type switch
+        {
+            0 => "Service Quality",
+            1 => "Worker Behavior",
+            2 => "Response Timeliness",
+            3 => "Communication",
+            4 => "Technical Competence",
+            _ => "Other",
+        };
+
+        var rating = feedback.Rating > 0 ? $"rated {feedback.Rating:0.#}/5" : "submitted comment-only feedback";
+        var actionability = feedback.IsActionable ? "Actionable" : "Informational";
+        var comment = string.IsNullOrWhiteSpace(feedback.Comment) ? "No comment provided." : feedback.Comment;
+
+        return $"{source} · {type} · {rating} · {actionability}. {comment}";
     }
 
     private async Task EnsureRealtimeConnectedAsync()

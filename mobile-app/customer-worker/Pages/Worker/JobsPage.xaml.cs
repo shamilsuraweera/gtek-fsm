@@ -21,6 +21,7 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
     private readonly ObservableCollection<WorkerJobViewModel> _jobs;
     private readonly IJobQueryService _jobQueryService;
     private readonly IWorkerExecutionService _workerExecutionService;
+    private readonly IFeedbackSubmissionService? _feedbackSubmissionService;
     private readonly IMobileOperationalRealtimeClient? _realtimeClient;
     private readonly IDisposable? _assignmentSubscription;
     private WorkerJobViewModel _selectedJob;
@@ -33,6 +34,11 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
         InitializeComponent();
 
         StatusPicker.ItemsSource = RequestLifecycleStatuses;
+        WorkerFeedbackTypePicker.ItemsSource = WorkerFeedbackTypeOptions;
+        WorkerFeedbackTypePicker.ItemDisplayBinding = new Binding(nameof(FeedbackTypeOption.Label));
+        WorkerFeedbackTypePicker.SelectedItem = WorkerFeedbackTypeOptions[0];
+        WorkerRatingPicker.ItemsSource = FeedbackRatings;
+        WorkerRatingPicker.SelectedItem = FeedbackRatings[^1];
 
         _jobs = new ObservableCollection<WorkerJobViewModel>
         {
@@ -77,6 +83,7 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
 
         _jobQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IJobQueryService>();
         _workerExecutionService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IWorkerExecutionService>();
+        _feedbackSubmissionService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IFeedbackSubmissionService>();
         _realtimeClient = Application.Current?.Handler?.MauiContext?.Services?.GetService<IMobileOperationalRealtimeClient>();
         if (_realtimeClient is not null)
         {
@@ -86,6 +93,18 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
 
         _ = LoadLiveJobsAsync();
     }
+
+    private static int[] FeedbackRatings { get; } = [1, 2, 3, 4, 5];
+
+    private static FeedbackTypeOption[] WorkerFeedbackTypeOptions { get; } =
+    [
+        new(0, "Service Quality"),
+        new(1, "Worker Behavior"),
+        new(2, "Response Timeliness"),
+        new(3, "Communication"),
+        new(4, "Technical Competence"),
+        new(5, "Other"),
+    ];
 
     public void Dispose()
     {
@@ -162,6 +181,59 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
         await ApplyTransitionAsync("Completed", "Request completed");
     }
 
+    private async void OnSubmitWorkerFeedbackClicked(object sender, EventArgs e)
+    {
+        if (_selectedJob is null || _feedbackSubmissionService is null || _isSubmitting)
+        {
+            return;
+        }
+
+        if (!IsCompletedStatus(_selectedJob.StatusLabel))
+        {
+            WorkerFeedbackStatusLabel.Text = "Worker feedback is available after the linked request is completed.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedJob.RequestId))
+        {
+            WorkerFeedbackStatusLabel.Text = "Missing request linkage. Refresh detail and retry.";
+            return;
+        }
+
+        if (WorkerFeedbackTypePicker.SelectedItem is not FeedbackTypeOption feedbackType
+            || WorkerRatingPicker.SelectedItem is not int rating)
+        {
+            WorkerFeedbackStatusLabel.Text = "Select both a feedback category and rating before submitting.";
+            return;
+        }
+
+        _isSubmitting = true;
+        try
+        {
+            WorkerFeedbackStatusLabel.Text = "Submitting worker feedback...";
+
+            var submission = await _feedbackSubmissionService.SubmitRequestFeedbackAsync(
+                requestId: _selectedJob.RequestId,
+                jobId: _selectedJob.Id,
+                rating: rating,
+                comment: WorkerFeedbackCommentEditor.Text,
+                type: feedbackType.Value);
+
+            WorkerFeedbackStatusLabel.Text = submission.IsSuccess
+                ? "Worker feedback submitted."
+                : submission.Message;
+
+            if (submission.IsSuccess)
+            {
+                WorkerFeedbackCommentEditor.Text = string.Empty;
+            }
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
+    }
+
     private async void OnResumeWorkClicked(object sender, EventArgs e)
     {
         await ApplyTransitionAsync("InProgress", "Work resumed");
@@ -176,6 +248,7 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
         AcceptAssignmentButton.IsEnabled = !selected.Accepted;
         StatusPicker.SelectedItem = WorkerJobJourney.ToApiStatus(selected.StatusLabel);
         StatusResultLabel.Text ??= string.Empty;
+        UpdateWorkerFeedbackAvailability(selected);
     }
 
     private static Color ResolveStatusColor(string status)
@@ -291,6 +364,7 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
             ReplaceJob(workingSelection, updated);
             StatusPicker.SelectedItem = WorkerJobJourney.ToApiStatus(transition.Transition.CurrentStatus);
             StatusResultLabel.Text = WorkerJobJourney.BuildTransitionSuccessMessage(successMessage, updated.Id, DateTime.Now);
+            UpdateWorkerFeedbackAvailability(updated);
 
             await LoadLiveJobsAsync();
         }
@@ -420,6 +494,25 @@ public partial class JobsPage : ContentPage, IDisposable, IQueryAttributable
         }
     }
 
+    private void UpdateWorkerFeedbackAvailability(WorkerJobViewModel selected)
+    {
+        var canSubmit = IsCompletedStatus(selected.StatusLabel) && !string.IsNullOrWhiteSpace(selected.RequestId);
+
+        SubmitWorkerFeedbackButton.IsEnabled = canSubmit;
+        WorkerFeedbackTypePicker.IsEnabled = canSubmit;
+        WorkerRatingPicker.IsEnabled = canSubmit;
+        WorkerFeedbackCommentEditor.IsEnabled = canSubmit;
+        WorkerFeedbackHintLabel.Text = canSubmit
+            ? "Capture field-side feedback after completion so management can review quality and blockers."
+            : "Worker feedback unlocks once the linked request reaches Completed.";
+        WorkerFeedbackStatusLabel.Text ??= string.Empty;
+    }
+
+    private static bool IsCompletedStatus(string? status)
+    {
+        return string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static WorkerJobSnapshot ToSnapshot(WorkerJobViewModel viewModel)
     {
         return new WorkerJobSnapshot(
@@ -483,3 +576,5 @@ internal sealed record WorkerJobViewModel
 
     public string RequestRowVersion { get; init; }
 }
+
+internal sealed record FeedbackTypeOption(int Value, string Label);

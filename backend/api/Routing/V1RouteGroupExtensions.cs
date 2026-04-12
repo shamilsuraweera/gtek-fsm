@@ -30,6 +30,8 @@ using GTEK.FSM.Shared.Contracts.Api.Contracts.Subscriptions.Responses;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Requests;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Workers.Responses;
 using GTEK.FSM.Shared.Contracts.Results;
+using FeedbackSource = GTEK.FSM.Backend.Domain.Enums.FeedbackSource;
+using FeedbackType = GTEK.FSM.Backend.Domain.Enums.FeedbackType;
 
 namespace GTEK.FSM.Backend.Api.Routing;
 
@@ -1526,7 +1528,31 @@ public static class V1RouteGroupExtensions
             }
 
             var userIdGuid = principal.UserId;
-            
+
+            if (request.ServiceRequestId == Guid.Empty || request.ServiceRequestId != requestId)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "REQUEST_ID_MISMATCH",
+                    "The feedback payload must target the same service request as the route.");
+            }
+
+            var feedbackSource = principal.IsInRole("Worker")
+                ? FeedbackSource.Worker
+                : principal.IsInRole("Customer")
+                    ? FeedbackSource.Customer
+                    : (FeedbackSource?)null;
+
+            if (feedbackSource is null)
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status403Forbidden,
+                    "AUTH_FORBIDDEN_ROLE",
+                    "Only customer and worker roles can submit request feedback.");
+            }
+
             if (request.JobId == Guid.Empty || request.ServiceRequestId == Guid.Empty)
             {
                 return BuildFailure(
@@ -1545,6 +1571,15 @@ public static class V1RouteGroupExtensions
                     "Rating must be between 0 and 5.");
             }
 
+            if (!Enum.IsDefined(typeof(FeedbackType), request.Type))
+            {
+                return BuildFailure(
+                    context,
+                    StatusCodes.Status400BadRequest,
+                    "INVALID_FEEDBACK_TYPE",
+                    "Feedback type is invalid.");
+            }
+
             if (!string.IsNullOrEmpty(request.Comment) && request.Comment.Length > 1000)
             {
                 return BuildFailure(
@@ -1561,10 +1596,10 @@ public static class V1RouteGroupExtensions
                     request.JobId,
                     request.ServiceRequestId,
                     userIdGuid,
-                    (global::GTEK.FSM.Backend.Domain.Enums.FeedbackSource)(request.Rating > 0 ? 0 : 1), // Infer source from context
+                    feedbackSource.Value,
                     request.Rating > 0 ? request.Rating : null,
                     request.Comment,
-                    (global::GTEK.FSM.Backend.Domain.Enums.FeedbackType)request.Type,
+                    (FeedbackType)request.Type,
                     cancellationToken);
 
                 return Results.Created(
@@ -1576,12 +1611,12 @@ public static class V1RouteGroupExtensions
                             JobId = request.JobId,
                             ServiceRequestId = request.ServiceRequestId,
                             ProvidedByUserId = userIdGuid,
-                            Source = 0,
+                            Source = (int)feedbackSource.Value,
                             Rating = request.Rating,
                             Comment = request.Comment ?? string.Empty,
                             Type = request.Type,
                             IsActionable = request.Rating < 3 || (!string.IsNullOrEmpty(request.Comment) && request.Comment.ToLowerInvariant().Contains("issue")),
-                            CreatedAtUtc = DateTime.UtcNow
+                            CreatedAtUtc = DateTime.UtcNow,
                         },
                         message: "Feedback submitted successfully.",
                         traceId: context.TraceIdentifier));
@@ -1623,7 +1658,7 @@ public static class V1RouteGroupExtensions
                     Comment = f.Comment,
                     Type = (int)f.Type,
                     IsActionable = f.IsActionable,
-                    CreatedAtUtc = f.CreatedAtUtc
+                    CreatedAtUtc = f.CreatedAtUtc,
                 })
                 .ToList();
 
@@ -1663,7 +1698,7 @@ public static class V1RouteGroupExtensions
                     Comment = f.Comment,
                     Type = (int)f.Type,
                     IsActionable = f.IsActionable,
-                    CreatedAtUtc = f.CreatedAtUtc
+                    CreatedAtUtc = f.CreatedAtUtc,
                 })
                 .ToList();
 
@@ -1671,7 +1706,7 @@ public static class V1RouteGroupExtensions
                 data: new GTEK.FSM.Shared.Contracts.Api.Contracts.Feedback.FeedbackPageResponse
                 {
                     Items = responses,
-                    TotalCount = totalCount
+                    TotalCount = totalCount,
                 },
                 message: "Feedback page retrieved successfully.",
                 traceId: context.TraceIdentifier));
@@ -1702,7 +1737,7 @@ public static class V1RouteGroupExtensions
                     AverageCustomerRating = stats.AverageCustomerRating,
                     AverageWorkerRating = stats.AverageWorkerRating,
                     ActionableFeedbackCount = stats.ActionableFeedbackCount,
-                    FeedbackCountByType = stats.FeedbackCountByType.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value)
+                    FeedbackCountByType = stats.FeedbackCountByType.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value),
                 },
                 message: "Feedback statistics retrieved successfully.",
                 traceId: context.TraceIdentifier));

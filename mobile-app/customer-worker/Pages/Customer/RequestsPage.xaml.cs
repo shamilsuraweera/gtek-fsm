@@ -16,11 +16,13 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
     private readonly IRequestDetailQueryService _requestDetailQueryService;
     private readonly ICategoryQueryService _categoryQueryService;
     private readonly IServiceRequestCreationService _requestCreationService;
+    private readonly IFeedbackSubmissionService? _feedbackSubmissionService;
     private readonly IMobileOperationalRealtimeClient? _realtimeClient;
     private readonly IDisposable? _statusSubscription;
     private CustomerRequestViewModel _selectedRequest;
     private bool _isSubmitting;
     private string _pendingRequestId;
+    private string _selectedRequestActiveJobId = string.Empty;
 
     public RequestsPage()
     {
@@ -58,6 +60,11 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
 
         RequestsCollectionView.ItemsSource = _requests;
             CategoryPicker.ItemsSource = _categories;
+        CustomerFeedbackTypePicker.ItemsSource = CustomerFeedbackTypeOptions;
+        CustomerFeedbackTypePicker.ItemDisplayBinding = new Binding(nameof(FeedbackTypeOption.Label));
+        CustomerFeedbackTypePicker.SelectedItem = CustomerFeedbackTypeOptions[0];
+        CustomerRatingPicker.ItemsSource = FeedbackRatings;
+        CustomerRatingPicker.SelectedItem = FeedbackRatings[^1];
         RequestsCollectionView.SelectedItem = _requests[0];
         RenderRequestDetail(_requests[0]);
             CreateRequestFeedbackLabel.Text = string.Empty;
@@ -66,6 +73,7 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         _requestDetailQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IRequestDetailQueryService>();
             _categoryQueryService = Application.Current?.Handler?.MauiContext?.Services?.GetService<ICategoryQueryService>();
             _requestCreationService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IServiceRequestCreationService>();
+        _feedbackSubmissionService = Application.Current?.Handler?.MauiContext?.Services?.GetService<IFeedbackSubmissionService>();
         _realtimeClient = Application.Current?.Handler?.MauiContext?.Services?.GetService<IMobileOperationalRealtimeClient>();
         if (_realtimeClient is not null)
         {
@@ -76,6 +84,18 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         _ = LoadLiveRequestsAsync();
         _ = LoadCategoriesAsync();
     }
+
+    private static int[] FeedbackRatings { get; } = [1, 2, 3, 4, 5];
+
+    private static FeedbackTypeOption[] CustomerFeedbackTypeOptions { get; } =
+    [
+        new(0, "Service Quality"),
+        new(1, "Worker Behavior"),
+        new(2, "Response Timeliness"),
+        new(3, "Communication"),
+        new(4, "Technical Competence"),
+        new(5, "Other"),
+    ];
 
     public void Dispose()
     {
@@ -110,6 +130,8 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         SelectedRequestWorkerLabel.Text = "Assigned worker: checking detail...";
         SelectedRequestJobLabel.Text = "Active job: checking detail...";
         SelectedRequestUpdatedLabel.Text = string.Empty;
+        _selectedRequestActiveJobId = string.Empty;
+        UpdateCustomerFeedbackAvailability(request.StatusLabel);
 
         var stageLabels = new[] { "New", "Assigned", "In Progress", "Completed" };
         StatusTimelineLayout.Children.Clear();
@@ -168,6 +190,59 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         }
 
         await DisplayAlertAsync("Technician", $"Messaging pathway placeholder opened for {_selectedRequest.Id}.", "OK");
+    }
+
+    private async void OnSubmitCustomerFeedbackClicked(object sender, EventArgs e)
+    {
+        if (_selectedRequest is null || _feedbackSubmissionService is null || _isSubmitting)
+        {
+            return;
+        }
+
+        if (!IsCompletedStatus(_selectedRequest.StatusLabel))
+        {
+            CustomerFeedbackStatusLabel.Text = "Feedback is available after the request is completed.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedRequestActiveJobId))
+        {
+            CustomerFeedbackStatusLabel.Text = "A completed job link is required before feedback can be submitted.";
+            return;
+        }
+
+        if (CustomerFeedbackTypePicker.SelectedItem is not FeedbackTypeOption feedbackType
+            || CustomerRatingPicker.SelectedItem is not int rating)
+        {
+            CustomerFeedbackStatusLabel.Text = "Select both a feedback category and rating before submitting.";
+            return;
+        }
+
+        _isSubmitting = true;
+        try
+        {
+            CustomerFeedbackStatusLabel.Text = "Submitting feedback...";
+
+            var submission = await _feedbackSubmissionService.SubmitRequestFeedbackAsync(
+                requestId: _selectedRequest.Id,
+                jobId: _selectedRequestActiveJobId,
+                rating: rating,
+                comment: CustomerFeedbackCommentEditor.Text,
+                type: feedbackType.Value);
+
+            CustomerFeedbackStatusLabel.Text = submission.IsSuccess
+                ? "Feedback submitted."
+                : submission.Message;
+
+            if (submission.IsSuccess)
+            {
+                CustomerFeedbackCommentEditor.Text = string.Empty;
+            }
+        }
+        finally
+        {
+            _isSubmitting = false;
+        }
     }
 
     private async Task LoadLiveRequestsAsync()
@@ -370,10 +445,12 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
         ReplaceRequest(request, syncedRequest);
 
         var presentation = CustomerRequestJourney.BuildDetailPresentation(detail.Detail);
+        _selectedRequestActiveJobId = detail.Detail.ActiveJobId ?? string.Empty;
         SelectedRequestLifecycleLabel.Text = presentation.LifecycleText;
         SelectedRequestWorkerLabel.Text = presentation.WorkerText;
         SelectedRequestJobLabel.Text = presentation.JobText;
         SelectedRequestUpdatedLabel.Text = presentation.UpdatedText;
+        UpdateCustomerFeedbackAvailability(syncedRequest.StatusLabel);
 
         RenderTimeline(presentation.TimelineLines);
     }
@@ -412,6 +489,28 @@ public partial class RequestsPage : ContentPage, IDisposable, IQueryAttributable
     private static Color ResolveStageColor(string stage)
     {
         return MobileOperationalRealtimeMapper.ResolveRequestStageColor(stage);
+    }
+
+    private void UpdateCustomerFeedbackAvailability(string? statusLabel)
+    {
+        var isCompleted = IsCompletedStatus(statusLabel);
+        var canSubmit = isCompleted && !string.IsNullOrWhiteSpace(_selectedRequestActiveJobId);
+
+        SubmitCustomerFeedbackButton.IsEnabled = canSubmit;
+        CustomerFeedbackTypePicker.IsEnabled = canSubmit;
+        CustomerRatingPicker.IsEnabled = canSubmit;
+        CustomerFeedbackCommentEditor.IsEnabled = canSubmit;
+        CustomerFeedbackHintLabel.Text = canSubmit
+            ? "Submit customer feedback for this completed request so management can review service quality trends."
+            : isCompleted
+                ? "Feedback unlocks once the completed request is linked to a job record."
+                : "Feedback becomes available after the request reaches Completed.";
+        CustomerFeedbackStatusLabel.Text ??= string.Empty;
+    }
+
+    private static bool IsCompletedStatus(string? status)
+    {
+        return string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
     }
 
     private Task HandleStatusUpdateAsync(ServiceRequestStatusUpdatedEvent payload)
@@ -516,3 +615,5 @@ internal sealed record CustomerRequestViewModel
 
     public int CurrentStage { get; init; }
 }
+
+internal sealed record FeedbackTypeOption(int Value, string Label);

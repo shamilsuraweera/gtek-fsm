@@ -98,6 +98,24 @@
 
                                           <Label Text="Activity Timeline" FontSize="15" FontAttributes="Bold" Margin="0,8,0,0" />
                                           <VerticalStackLayout x:Name="RequestTimelineLayout" Spacing="6" />
+
+                                          <Label Text="Service Feedback" FontSize="15" FontAttributes="Bold" Margin="0,8,0,0" />
+                                          <Label x:Name="CustomerFeedbackHintLabel"
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
+                                          <Picker x:Name="CustomerFeedbackTypePicker" Title="Select feedback category" />
+                                          <Picker x:Name="CustomerRatingPicker" Title="Select rating" />
+                                          <Editor x:Name="CustomerFeedbackCommentEditor"
+                                                  Placeholder="Share what went well or what needs improvement"
+                                                  AutoSize="TextChanges"
+                                                  MaxLength="1000"
+                                                  HeightRequest="90" />
+                                          <Button x:Name="SubmitCustomerFeedbackButton"
+                                                  Text="Submit Feedback"
+                                                  Clicked="OnSubmitCustomerFeedbackClicked" />
+                                          <Label x:Name="CustomerFeedbackStatusLabel"
+                                                 FontSize="12"
+                                                 TextColor="{AppThemeBinding Light={StaticResource ColorTextMutedLight}, Dark={StaticResource ColorTextMutedDark}}" />
                                    </VerticalStackLayout>
                             </Border>
                      </VerticalStackLayout>
