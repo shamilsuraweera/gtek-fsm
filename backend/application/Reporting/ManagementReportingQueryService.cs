@@ -2,6 +2,7 @@ using GTEK.FSM.Backend.Application.Identity;
 using GTEK.FSM.Backend.Application.Decisioning;
 using GTEK.FSM.Backend.Application.Persistence.Repositories;
 using GTEK.FSM.Backend.Application.Persistence.Specifications;
+using GTEK.FSM.Backend.Domain.Aggregates;
 using GTEK.FSM.Backend.Domain.Enums;
 using GTEK.FSM.Shared.Contracts.Api.Contracts.Reports.Requests;
 
@@ -13,17 +14,20 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
 
     private readonly IServiceRequestRepository serviceRequestRepository;
     private readonly IJobRepository jobRepository;
+    private readonly IWorkerProfileRepository workerProfileRepository;
     private readonly IAuditLogRepository auditLogRepository;
     private readonly IDecisioningMetricsCollector decisioningMetricsCollector;
 
     public ManagementReportingQueryService(
         IServiceRequestRepository serviceRequestRepository,
         IJobRepository jobRepository,
+        IWorkerProfileRepository workerProfileRepository,
         IAuditLogRepository auditLogRepository,
         IDecisioningMetricsCollector decisioningMetricsCollector)
     {
         this.serviceRequestRepository = serviceRequestRepository;
         this.jobRepository = jobRepository;
+        this.workerProfileRepository = workerProfileRepository;
         this.auditLogRepository = auditLogRepository;
         this.decisioningMetricsCollector = decisioningMetricsCollector;
     }
@@ -134,6 +138,14 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
             windowFromUtc,
             trendBuckets,
             cancellationToken);
+        var assignmentQuality = await BuildAssignmentQualitySummaryAsync(
+            principal.TenantId,
+            windowFromUtc,
+            nowUtc,
+            cancellationToken);
+        var workforceUtilization = await BuildWorkforceUtilizationSummaryAsync(
+            principal.TenantId,
+            cancellationToken);
 
         var payload = new QueriedManagementAnalyticsOverview(
             TotalRequestsInWindow: totalRequests,
@@ -142,6 +154,8 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
             SensitiveActions24h: sensitiveActions24h,
             DeniedActions24h: deniedActions24h,
             DecisioningMetrics: decisioningMetrics,
+            AssignmentQuality: assignmentQuality,
+            WorkforceUtilization: workforceUtilization,
             IntakeTrend: intakeTrend,
             CompletionTrend: completionTrend,
             Anomalies: anomalies,
@@ -192,6 +206,115 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
         }
 
         return anomalies;
+    }
+
+    private async Task<QueriedAssignmentQualitySummary> BuildAssignmentQualitySummaryAsync(
+        Guid tenantId,
+        DateTime windowFromUtc,
+        DateTime nowUtc,
+        CancellationToken cancellationToken)
+    {
+        var jobs = await LoadAllJobsAsync(tenantId, cancellationToken);
+        var jobsInWindow = jobs
+            .Where(x => x.CreatedAtUtc >= windowFromUtc && x.CreatedAtUtc <= nowUtc)
+            .ToArray();
+
+        var assignmentEventsInWindow = await this.auditLogRepository.CountAsync(
+            new AuditLogQuerySpecification(
+                TenantId: tenantId,
+                Action: "AssignWorker:",
+                OccurredFromUtc: new DateTimeOffset(windowFromUtc),
+                OccurredToUtc: new DateTimeOffset(nowUtc)),
+            cancellationToken);
+
+        var acceptedJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Accepted);
+        var pendingAcceptanceJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.PendingAcceptance);
+        var rejectedJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Rejected);
+        var cancelledJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Cancelled);
+        var completedJobs = jobsInWindow.Count(x => x.AssignmentStatus == AssignmentStatus.Completed);
+
+        var denominator = Math.Max(1, assignmentEventsInWindow);
+        var acceptanceRatePercent = decimal.Round(acceptedJobs * 100m / denominator, 2, MidpointRounding.AwayFromZero);
+        var completionRatePercent = decimal.Round(completedJobs * 100m / denominator, 2, MidpointRounding.AwayFromZero);
+
+        IReadOnlyList<QueriedManagementDrilldownItem> statusDrilldown =
+        [
+            new QueriedManagementDrilldownItem("Accepted", acceptedJobs),
+            new QueriedManagementDrilldownItem("PendingAcceptance", pendingAcceptanceJobs),
+            new QueriedManagementDrilldownItem("Rejected", rejectedJobs),
+            new QueriedManagementDrilldownItem("Cancelled", cancelledJobs),
+            new QueriedManagementDrilldownItem("Completed", completedJobs),
+        ];
+
+        return new QueriedAssignmentQualitySummary(
+            AssignmentEventsInWindow: assignmentEventsInWindow,
+            AcceptedJobs: acceptedJobs,
+            PendingAcceptanceJobs: pendingAcceptanceJobs,
+            RejectedJobs: rejectedJobs,
+            CancelledJobs: cancelledJobs,
+            CompletedJobs: completedJobs,
+            AcceptanceRatePercent: acceptanceRatePercent,
+            CompletionRatePercent: completionRatePercent,
+            StatusDrilldown: statusDrilldown);
+    }
+
+    private async Task<QueriedWorkforceUtilizationSummary> BuildWorkforceUtilizationSummaryAsync(
+        Guid tenantId,
+        CancellationToken cancellationToken)
+    {
+        var workers = await LoadAllWorkersAsync(tenantId, cancellationToken);
+        var activeWorkers = workers.Where(x => x.IsActive).ToArray();
+        var activeWorkerIds = activeWorkers.Select(x => x.Id).ToArray();
+
+        var activeJobCounts = activeWorkerIds.Length == 0
+            ? new Dictionary<Guid, int>()
+            : new Dictionary<Guid, int>(await this.jobRepository.GetActiveJobCountsByWorkerAsync(tenantId, activeWorkerIds, cancellationToken));
+
+        var availableWorkers = activeWorkers.Count(x => x.AvailabilityStatus == WorkerAvailabilityStatus.Available);
+        var busyWorkers = activeWorkers.Count(x => x.AvailabilityStatus == WorkerAvailabilityStatus.Busy);
+        var utilizedWorkers = activeWorkers.Count(x => activeJobCounts.TryGetValue(x.Id, out var count) && count > 0);
+        var overloadedWorkers = activeWorkers.Count(x => activeJobCounts.TryGetValue(x.Id, out var count) && count >= 2);
+        var utilizationRatePercent = activeWorkers.Length == 0
+            ? 0m
+            : decimal.Round(utilizedWorkers * 100m / activeWorkers.Length, 2, MidpointRounding.AwayFromZero);
+        var averageActiveJobsPerUtilizedWorker = utilizedWorkers == 0
+            ? 0m
+            : decimal.Round((decimal)activeJobCounts.Values.Where(x => x > 0).Average(), 2, MidpointRounding.AwayFromZero);
+        var averageInternalRating = activeWorkers.Length == 0
+            ? 0m
+            : decimal.Round(activeWorkers.Average(x => x.InternalRating), 2, MidpointRounding.AwayFromZero);
+
+        var availabilityDrilldown = activeWorkers
+            .GroupBy(x => x.AvailabilityStatus.ToString())
+            .Select(x => new QueriedManagementDrilldownItem(x.Key, x.Count()))
+            .OrderByDescending(x => x.Count)
+            .ToArray();
+
+        var workerLoadDrilldown = activeWorkers
+            .Select(x => activeJobCounts.TryGetValue(x.Id, out var count)
+                ? count switch
+                {
+                    0 => "Idle",
+                    1 => "SingleActiveJob",
+                    _ => "MultiActiveJobs",
+                }
+                : "Idle")
+            .GroupBy(x => x)
+            .Select(x => new QueriedManagementDrilldownItem(x.Key, x.Count()))
+            .OrderByDescending(x => x.Count)
+            .ToArray();
+
+        return new QueriedWorkforceUtilizationSummary(
+            ActiveWorkers: activeWorkers.Length,
+            AvailableWorkers: availableWorkers,
+            BusyWorkers: busyWorkers,
+            UtilizedWorkers: utilizedWorkers,
+            OverloadedWorkers: overloadedWorkers,
+            UtilizationRatePercent: utilizationRatePercent,
+            AverageActiveJobsPerUtilizedWorker: averageActiveJobsPerUtilizedWorker,
+            AverageInternalRating: averageInternalRating,
+            AvailabilityDrilldown: availabilityDrilldown,
+            WorkerLoadDrilldown: workerLoadDrilldown);
     }
 
     private static bool IsManagementRole(AuthenticatedPrincipal principal)
@@ -369,5 +492,68 @@ internal sealed class ManagementReportingQueryService : IManagementReportingQuer
                 breached++;
                 break;
         }
+    }
+
+    private async Task<IReadOnlyList<Job>> LoadAllJobsAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var jobs = new List<Job>();
+        var page = 1;
+
+        while (true)
+        {
+            var batch = await this.jobRepository.QueryAsync(
+                new JobQuerySpecification(
+                    TenantId: tenantId,
+                    Page: new PageSpecification(page, 200)),
+                cancellationToken);
+
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            jobs.AddRange(batch);
+
+            if (batch.Count < 200)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        return jobs;
+    }
+
+    private async Task<IReadOnlyList<WorkerProfile>> LoadAllWorkersAsync(Guid tenantId, CancellationToken cancellationToken)
+    {
+        var workers = new List<WorkerProfile>();
+        var page = 1;
+
+        while (true)
+        {
+            var batch = await this.workerProfileRepository.QueryAsync(
+                new WorkerProfileQuerySpecification(
+                    TenantId: tenantId,
+                    IncludeInactive: true,
+                    Page: new PageSpecification(page, 200)),
+                cancellationToken);
+
+            if (batch.Count == 0)
+            {
+                break;
+            }
+
+            workers.AddRange(batch);
+
+            if (batch.Count < 200)
+            {
+                break;
+            }
+
+            page++;
+        }
+
+        return workers;
     }
 }

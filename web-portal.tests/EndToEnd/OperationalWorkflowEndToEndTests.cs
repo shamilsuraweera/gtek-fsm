@@ -36,6 +36,9 @@ public sealed class OperationalWorkflowEndToEndTests : TestContext
         {
             Assert.Contains("DENIED_ACTION_SPIKE", cut.Markup, StringComparison.Ordinal);
             Assert.Contains("CATEGORY_UPDATED", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Assignment Quality", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Worker Utilization", cut.Markup, StringComparison.Ordinal);
+            Assert.Contains("Availability and Load", cut.Markup, StringComparison.Ordinal);
         }, TimeSpan.FromSeconds(3));
     }
 
@@ -50,6 +53,43 @@ public sealed class OperationalWorkflowEndToEndTests : TestContext
                 ActiveJobs = 4,
                 SensitiveActions24h = 8,
                 DeniedActions24h = 3,
+                AssignmentQuality = new ManagementAssignmentQualitySummaryResponse
+                {
+                    AssignmentEventsInWindow = 6,
+                    AcceptedJobs = 4,
+                    PendingAcceptanceJobs = 1,
+                    RejectedJobs = 1,
+                    CancelledJobs = 0,
+                    CompletedJobs = 3,
+                    AcceptanceRatePercent = 66.67m,
+                    CompletionRatePercent = 50m,
+                    StatusDrilldown =
+                    [
+                        new ManagementDrilldownItemResponse { Key = "Accepted", Count = 4 },
+                        new ManagementDrilldownItemResponse { Key = "PendingAcceptance", Count = 1 },
+                    ],
+                },
+                WorkforceUtilization = new ManagementWorkforceUtilizationSummaryResponse
+                {
+                    ActiveWorkers = 5,
+                    AvailableWorkers = 2,
+                    BusyWorkers = 3,
+                    UtilizedWorkers = 3,
+                    OverloadedWorkers = 1,
+                    UtilizationRatePercent = 60m,
+                    AverageActiveJobsPerUtilizedWorker = 1.33m,
+                    AverageInternalRating = 4.42m,
+                    AvailabilityDrilldown =
+                    [
+                        new ManagementDrilldownItemResponse { Key = "Busy", Count = 3 },
+                        new ManagementDrilldownItemResponse { Key = "Available", Count = 2 },
+                    ],
+                    WorkerLoadDrilldown =
+                    [
+                        new ManagementDrilldownItemResponse { Key = "SingleActiveJob", Count = 2 },
+                        new ManagementDrilldownItemResponse { Key = "MultiActiveJobs", Count = 1 },
+                    ],
+                },
                 IntakeTrend =
                 [
                     new ManagementTrendPointResponse { DateUtc = DateTime.UtcNow.AddDays(-1), Value = 3 },

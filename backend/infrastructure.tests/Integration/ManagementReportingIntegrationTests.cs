@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using GTEK.FSM.Backend.Api.Authorization;
+using GTEK.FSM.Backend.Api.Authentication;
 using GTEK.FSM.Backend.Api.Middleware;
 using GTEK.FSM.Backend.Api.Routing;
 using GTEK.FSM.Backend.Api.Tenancy;
@@ -42,10 +43,51 @@ public class ManagementReportingIntegrationTests
         requestStore.Seed(otherTenantId, ServiceRequestStatus.New, DateTime.UtcNow.AddDays(-1));
 
         var jobStore = new InMemoryJobStore();
-        jobStore.Seed(tenantId, AssignmentStatus.Accepted);
-        jobStore.Seed(otherTenantId, AssignmentStatus.Accepted);
+        var busyWorkerId = Guid.NewGuid();
+        var overloadedWorkerId = Guid.NewGuid();
+        jobStore.Seed(tenantId, AssignmentStatus.Accepted, busyWorkerId, DateTime.UtcNow.AddDays(-1));
+        jobStore.Seed(tenantId, AssignmentStatus.Accepted, overloadedWorkerId, DateTime.UtcNow.AddDays(-1));
+        jobStore.Seed(tenantId, AssignmentStatus.PendingAcceptance, overloadedWorkerId, DateTime.UtcNow.AddDays(-1));
+        jobStore.Seed(tenantId, AssignmentStatus.Completed, busyWorkerId, DateTime.UtcNow.AddDays(-1));
+        jobStore.Seed(otherTenantId, AssignmentStatus.Accepted, Guid.NewGuid(), DateTime.UtcNow.AddDays(-1));
+
+        var workerStore = new InMemoryWorkerProfileStore();
+        workerStore.Seed(tenantId, Guid.NewGuid(), "W-001", 4.9m, WorkerAvailabilityStatus.Available);
+        workerStore.Seed(tenantId, busyWorkerId, "W-002", 4.5m, WorkerAvailabilityStatus.Busy);
+        workerStore.Seed(tenantId, overloadedWorkerId, "W-003", 4.2m, WorkerAvailabilityStatus.Available);
+        workerStore.Seed(otherTenantId, Guid.NewGuid(), "W-999", 4.1m, WorkerAvailabilityStatus.Available);
 
         var auditStore = new InMemoryAuditLogStore();
+        auditStore.Seed(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Action = $"AssignWorker:{busyWorkerId}",
+            Outcome = "Success",
+            OccurredAtUtc = DateTimeOffset.UtcNow.AddHours(-3),
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+        });
+        auditStore.Seed(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Action = $"AssignWorker:{overloadedWorkerId}",
+            Outcome = "Success",
+            OccurredAtUtc = DateTimeOffset.UtcNow.AddHours(-2),
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+        });
+        auditStore.Seed(new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            Action = $"AssignWorker:{overloadedWorkerId}",
+            Outcome = "Success",
+            OccurredAtUtc = DateTimeOffset.UtcNow.AddHours(-1),
+            EntityType = "ServiceRequest",
+            EntityId = Guid.NewGuid(),
+        });
         auditStore.Seed(new AuditLog
         {
             Id = Guid.NewGuid(),
@@ -92,7 +134,7 @@ public class ManagementReportingIntegrationTests
         metricsCollector.RecordMatchEvaluation(tenantId, DateTime.UtcNow.AddMinutes(-20), 200, 5, 0.84m);
         metricsCollector.RecordMatchEvaluation(tenantId, DateTime.UtcNow.AddMinutes(-10), 300, 3, 0.74m);
 
-        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, auditStore, metricsCollector);
+        await using var app = await BuildTestApplicationAsync(requestStore, jobStore, workerStore, auditStore, metricsCollector);
         using var client = app.GetTestClient();
 
         using var request = CreateAuthenticatedRequest(HttpMethod.Get, "/api/v1/management/reports/overview?windowDays=7&trendBuckets=7", "Manager", tenantId, Guid.NewGuid());
@@ -106,14 +148,23 @@ public class ManagementReportingIntegrationTests
         Assert.NotNull(envelope.Data);
         Assert.Equal(2, envelope.Data!.TotalRequestsInWindow);
         Assert.Equal(1, envelope.Data.CompletedRequestsInWindow);
-        Assert.Equal(1, envelope.Data.ActiveJobs);
-        Assert.Equal(3, envelope.Data.SensitiveActions24h);
+        Assert.Equal(2, envelope.Data.ActiveJobs);
+        Assert.Equal(6, envelope.Data.SensitiveActions24h);
         Assert.Equal(1, envelope.Data.DeniedActions24h);
         Assert.Equal(3, envelope.Data.DecisioningMetrics.MatchEvaluationCount);
         Assert.Equal(200m, envelope.Data.DecisioningMetrics.AverageMatchLatencyMs);
         Assert.True(envelope.Data.DecisioningMetrics.P95MatchLatencyMs >= 200m);
         Assert.Equal(1, envelope.Data.DecisioningMetrics.SlaOutcomes.CompletionBreached);
         Assert.Equal(1, envelope.Data.DecisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow);
+        Assert.Equal(3, envelope.Data.AssignmentQuality.AssignmentEventsInWindow);
+        Assert.Equal(2, envelope.Data.AssignmentQuality.AcceptedJobs);
+        Assert.Equal(1, envelope.Data.AssignmentQuality.PendingAcceptanceJobs);
+        Assert.Equal(1, envelope.Data.AssignmentQuality.CompletedJobs);
+        Assert.Equal(3, envelope.Data.WorkforceUtilization.ActiveWorkers);
+        Assert.Equal(2, envelope.Data.WorkforceUtilization.AvailableWorkers);
+        Assert.Equal(1, envelope.Data.WorkforceUtilization.BusyWorkers);
+        Assert.Equal(2, envelope.Data.WorkforceUtilization.UtilizedWorkers);
+        Assert.Equal(1, envelope.Data.WorkforceUtilization.OverloadedWorkers);
     }
 
     [Fact]
@@ -124,6 +175,7 @@ public class ManagementReportingIntegrationTests
         await using var app = await BuildTestApplicationAsync(
             new InMemoryServiceRequestStore(),
             new InMemoryJobStore(),
+            new InMemoryWorkerProfileStore(),
             new InMemoryAuditLogStore(),
             null);
         using var client = app.GetTestClient();
@@ -148,6 +200,7 @@ public class ManagementReportingIntegrationTests
     private static async Task<WebApplication> BuildTestApplicationAsync(
         InMemoryServiceRequestStore requestStore,
         InMemoryJobStore jobStore,
+        InMemoryWorkerProfileStore workerStore,
         InMemoryAuditLogStore auditStore,
         IDecisioningMetricsCollector? metricsCollector)
     {
@@ -160,7 +213,9 @@ public class ManagementReportingIntegrationTests
         builder.Services.AddScoped<ITenantContextAccessor, HttpContextTenantContextAccessor>();
         builder.Services.AddScoped<IServiceRequestRepository>(_ => requestStore);
         builder.Services.AddScoped<IJobRepository>(_ => jobStore);
+        builder.Services.AddScoped<IWorkerProfileRepository>(_ => workerStore);
         builder.Services.AddScoped<IAuditLogRepository>(_ => auditStore);
+        builder.Services.AddScoped<ILocalAuthService, StubLocalAuthService>();
         if (metricsCollector is not null)
         {
             builder.Services.AddSingleton<IDecisioningMetricsCollector>(_ => metricsCollector);
@@ -186,6 +241,19 @@ public class ManagementReportingIntegrationTests
 
         await app.StartAsync();
         return app;
+    }
+
+    private sealed class StubLocalAuthService : ILocalAuthService
+    {
+        public Task<LocalAuthResult> LoginAsync(GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Requests.LoginRequest request, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<LocalAuthResult> RegisterAsync(GTEK.FSM.Shared.Contracts.Api.Contracts.Auth.Requests.RegisterLocalUserRequest request, CancellationToken cancellationToken = default)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     private static class TestAuthHeaders
@@ -375,9 +443,9 @@ public class ManagementReportingIntegrationTests
     {
         private readonly List<JobRow> rows = [];
 
-        public void Seed(Guid tenantId, AssignmentStatus status)
+        public void Seed(Guid tenantId, AssignmentStatus status, Guid? workerId = null, DateTime? createdAtUtc = null)
         {
-            this.rows.Add(new JobRow(tenantId, status));
+            this.rows.Add(new JobRow(Guid.NewGuid(), tenantId, status, workerId, createdAtUtc ?? DateTime.UtcNow));
         }
 
         public Task<int> CountAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default)
@@ -401,16 +469,138 @@ public class ManagementReportingIntegrationTests
 
         public Task<IReadOnlyList<Job>> ListByWorkerAsync(Guid tenantId, Guid workerUserId, CancellationToken cancellationToken = default) => throw new NotImplementedException();
 
-        public Task<IReadOnlyList<Job>> QueryAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<Job>> QueryAsync(JobQuerySpecification specification, CancellationToken cancellationToken = default)
+        {
+            var query = this.rows.Where(x => x.TenantId == specification.TenantId);
+
+            if (specification.AssignmentStatus.HasValue)
+            {
+                query = query.Where(x => x.Status == specification.AssignmentStatus.Value);
+            }
+
+            if (specification.AssignedWorkerUserId.HasValue)
+            {
+                query = query.Where(x => x.AssignedWorkerUserId == specification.AssignedWorkerUserId.Value);
+            }
+
+            if (specification.ScheduledFromUtc.HasValue)
+            {
+                query = query.Where(x => x.CreatedAtUtc >= specification.ScheduledFromUtc.Value);
+            }
+
+            if (specification.ScheduledToUtc.HasValue)
+            {
+                query = query.Where(x => x.CreatedAtUtc <= specification.ScheduledToUtc.Value);
+            }
+
+            query = specification.SortDirection == SortDirection.Ascending
+                ? query.OrderBy(x => x.CreatedAtUtc)
+                : query.OrderByDescending(x => x.CreatedAtUtc);
+
+            var page = specification.Page ?? new PageSpecification();
+            IReadOnlyList<Job> result = query
+                .Skip(page.Skip)
+                .Take(page.Take)
+                .Select(ToAggregate)
+                .ToArray();
+
+            return Task.FromResult(result);
+        }
 
         public Task<IReadOnlyDictionary<Guid, int>> GetActiveJobCountsByWorkerAsync(
-            Guid tenantId, IReadOnlyList<Guid> workerIds, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+            Guid tenantId, IReadOnlyList<Guid> workerIds, CancellationToken cancellationToken = default)
+        {
+            IReadOnlyDictionary<Guid, int> result = this.rows
+                .Where(x => x.TenantId == tenantId
+                    && x.AssignedWorkerUserId.HasValue
+                    && workerIds.Contains(x.AssignedWorkerUserId.Value)
+                    && (x.Status == AssignmentStatus.PendingAcceptance || x.Status == AssignmentStatus.Accepted))
+                .GroupBy(x => x.AssignedWorkerUserId!.Value)
+                .ToDictionary(x => x.Key, x => x.Count());
+
+            return Task.FromResult(result);
+        }
 
         public void Remove(Job aggregate) => throw new NotImplementedException();
 
         public void Update(Job aggregate) => throw new NotImplementedException();
 
-        private sealed record JobRow(Guid TenantId, AssignmentStatus Status);
+        private static Job ToAggregate(JobRow row)
+        {
+            var aggregate = new Job(row.Id, row.TenantId, Guid.NewGuid());
+            typeof(Job).GetProperty(nameof(Job.CreatedAtUtc))!.SetValue(aggregate, row.CreatedAtUtc);
+            typeof(Job).GetProperty(nameof(Job.UpdatedAtUtc))!.SetValue(aggregate, row.CreatedAtUtc);
+            typeof(Job).GetProperty(nameof(Job.AssignmentStatus))!.SetValue(aggregate, row.Status);
+            typeof(Job).GetProperty(nameof(Job.AssignedWorkerUserId))!.SetValue(aggregate, row.AssignedWorkerUserId);
+            return aggregate;
+        }
+
+        private sealed record JobRow(Guid Id, Guid TenantId, AssignmentStatus Status, Guid? AssignedWorkerUserId, DateTime CreatedAtUtc);
+    }
+
+    private sealed class InMemoryWorkerProfileStore : IWorkerProfileRepository
+    {
+        private readonly List<WorkerProfile> items = [];
+
+        public void Seed(Guid tenantId, Guid workerId, string workerCode, decimal rating, WorkerAvailabilityStatus availabilityStatus, bool isActive = true)
+        {
+            var worker = new WorkerProfile(workerId, tenantId, workerCode, workerCode, rating);
+            worker.SetAvailability(availabilityStatus);
+            if (!isActive)
+            {
+                worker.Deactivate();
+            }
+
+            this.items.Add(worker);
+        }
+
+        public Task<WorkerProfile?> GetByIdAsync(Guid tenantId, Guid workerId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(this.items.FirstOrDefault(x => x.TenantId == tenantId && x.Id == workerId));
+        }
+
+        public Task<WorkerProfile?> GetForUpdateAsync(Guid tenantId, Guid workerId, CancellationToken cancellationToken = default) => GetByIdAsync(tenantId, workerId, cancellationToken);
+
+        public Task<WorkerProfile?> GetByCodeAsync(Guid tenantId, string workerCode, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(this.items.FirstOrDefault(x => x.TenantId == tenantId && x.WorkerCode == workerCode));
+        }
+
+        public Task<IReadOnlyList<WorkerProfile>> QueryAsync(WorkerProfileQuerySpecification specification, CancellationToken cancellationToken = default)
+        {
+            var query = this.items.Where(x => x.TenantId == specification.TenantId);
+
+            if (!specification.IncludeInactive)
+            {
+                query = query.Where(x => x.IsActive);
+            }
+
+            var page = specification.Page ?? new PageSpecification();
+            IReadOnlyList<WorkerProfile> result = query
+                .OrderBy(x => x.DisplayName)
+                .Skip(page.Skip)
+                .Take(page.Take)
+                .ToArray();
+
+            return Task.FromResult(result);
+        }
+
+        public Task<int> CountAsync(WorkerProfileQuerySpecification specification, CancellationToken cancellationToken = default)
+        {
+            var query = this.items.Where(x => x.TenantId == specification.TenantId);
+            if (!specification.IncludeInactive)
+            {
+                query = query.Where(x => x.IsActive);
+            }
+
+            return Task.FromResult(query.Count());
+        }
+
+        public Task AddAsync(WorkerProfile aggregate, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+
+        public void Remove(WorkerProfile aggregate) => throw new NotImplementedException();
+
+        public void Update(WorkerProfile aggregate) => throw new NotImplementedException();
     }
 
     private sealed class InMemoryAuditLogStore : IAuditLogRepository

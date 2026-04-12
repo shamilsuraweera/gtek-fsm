@@ -1621,6 +1621,49 @@ public static class V1RouteGroupExtensions
                     EscalationsBreachedInWindow = overview.DecisioningMetrics.SlaOutcomes.EscalationsBreachedInWindow,
                 },
             },
+            AssignmentQuality = new ManagementAssignmentQualitySummaryResponse
+            {
+                AssignmentEventsInWindow = overview.AssignmentQuality.AssignmentEventsInWindow,
+                AcceptedJobs = overview.AssignmentQuality.AcceptedJobs,
+                PendingAcceptanceJobs = overview.AssignmentQuality.PendingAcceptanceJobs,
+                RejectedJobs = overview.AssignmentQuality.RejectedJobs,
+                CancelledJobs = overview.AssignmentQuality.CancelledJobs,
+                CompletedJobs = overview.AssignmentQuality.CompletedJobs,
+                AcceptanceRatePercent = overview.AssignmentQuality.AcceptanceRatePercent,
+                CompletionRatePercent = overview.AssignmentQuality.CompletionRatePercent,
+                StatusDrilldown = overview.AssignmentQuality.StatusDrilldown
+                    .Select(x => new ManagementDrilldownItemResponse
+                    {
+                        Key = x.Key,
+                        Count = x.Count,
+                    })
+                    .ToArray(),
+            },
+            WorkforceUtilization = new ManagementWorkforceUtilizationSummaryResponse
+            {
+                ActiveWorkers = overview.WorkforceUtilization.ActiveWorkers,
+                AvailableWorkers = overview.WorkforceUtilization.AvailableWorkers,
+                BusyWorkers = overview.WorkforceUtilization.BusyWorkers,
+                UtilizedWorkers = overview.WorkforceUtilization.UtilizedWorkers,
+                OverloadedWorkers = overview.WorkforceUtilization.OverloadedWorkers,
+                UtilizationRatePercent = overview.WorkforceUtilization.UtilizationRatePercent,
+                AverageActiveJobsPerUtilizedWorker = overview.WorkforceUtilization.AverageActiveJobsPerUtilizedWorker,
+                AverageInternalRating = overview.WorkforceUtilization.AverageInternalRating,
+                AvailabilityDrilldown = overview.WorkforceUtilization.AvailabilityDrilldown
+                    .Select(x => new ManagementDrilldownItemResponse
+                    {
+                        Key = x.Key,
+                        Count = x.Count,
+                    })
+                    .ToArray(),
+                WorkerLoadDrilldown = overview.WorkforceUtilization.WorkerLoadDrilldown
+                    .Select(x => new ManagementDrilldownItemResponse
+                    {
+                        Key = x.Key,
+                        Count = x.Count,
+                    })
+                    .ToArray(),
+            },
             IntakeTrend = overview.IntakeTrend
                 .Select(x => new ManagementTrendPointResponse
                 {

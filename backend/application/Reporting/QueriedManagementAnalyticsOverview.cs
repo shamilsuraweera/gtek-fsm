@@ -7,6 +7,8 @@ public sealed record QueriedManagementAnalyticsOverview(
     int SensitiveActions24h,
     int DeniedActions24h,
     QueriedDecisioningMetricsOverview DecisioningMetrics,
+    QueriedAssignmentQualitySummary AssignmentQuality,
+    QueriedWorkforceUtilizationSummary WorkforceUtilization,
     IReadOnlyList<QueriedManagementTrendPoint> IntakeTrend,
     IReadOnlyList<QueriedManagementTrendPoint> CompletionTrend,
     IReadOnlyList<QueriedManagementAnomalyIndicator> Anomalies,
@@ -40,3 +42,26 @@ public sealed record QueriedSlaOutcomeSummary(
     int CompletionBreached,
     int EscalationsAtRiskInWindow,
     int EscalationsBreachedInWindow);
+
+public sealed record QueriedAssignmentQualitySummary(
+    int AssignmentEventsInWindow,
+    int AcceptedJobs,
+    int PendingAcceptanceJobs,
+    int RejectedJobs,
+    int CancelledJobs,
+    int CompletedJobs,
+    decimal AcceptanceRatePercent,
+    decimal CompletionRatePercent,
+    IReadOnlyList<QueriedManagementDrilldownItem> StatusDrilldown);
+
+public sealed record QueriedWorkforceUtilizationSummary(
+    int ActiveWorkers,
+    int AvailableWorkers,
+    int BusyWorkers,
+    int UtilizedWorkers,
+    int OverloadedWorkers,
+    decimal UtilizationRatePercent,
+    decimal AverageActiveJobsPerUtilizedWorker,
+    decimal AverageInternalRating,
+    IReadOnlyList<QueriedManagementDrilldownItem> AvailabilityDrilldown,
+    IReadOnlyList<QueriedManagementDrilldownItem> WorkerLoadDrilldown);

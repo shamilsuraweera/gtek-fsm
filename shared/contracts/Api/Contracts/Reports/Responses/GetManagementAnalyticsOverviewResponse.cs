@@ -14,6 +14,10 @@ public sealed class GetManagementAnalyticsOverviewResponse
 
     public ManagementDecisioningMetricsResponse DecisioningMetrics { get; set; } = new();
 
+    public ManagementAssignmentQualitySummaryResponse AssignmentQuality { get; set; } = new();
+
+    public ManagementWorkforceUtilizationSummaryResponse WorkforceUtilization { get; set; } = new();
+
     public IReadOnlyList<ManagementTrendPointResponse> IntakeTrend { get; set; } = Array.Empty<ManagementTrendPointResponse>();
 
     public IReadOnlyList<ManagementTrendPointResponse> CompletionTrend { get; set; } = Array.Empty<ManagementTrendPointResponse>();
@@ -65,6 +69,50 @@ public sealed class ManagementSlaOutcomeSummaryResponse
     public int EscalationsAtRiskInWindow { get; set; }
 
     public int EscalationsBreachedInWindow { get; set; }
+}
+
+public sealed class ManagementAssignmentQualitySummaryResponse
+{
+    public int AssignmentEventsInWindow { get; set; }
+
+    public int AcceptedJobs { get; set; }
+
+    public int PendingAcceptanceJobs { get; set; }
+
+    public int RejectedJobs { get; set; }
+
+    public int CancelledJobs { get; set; }
+
+    public int CompletedJobs { get; set; }
+
+    public decimal AcceptanceRatePercent { get; set; }
+
+    public decimal CompletionRatePercent { get; set; }
+
+    public IReadOnlyList<ManagementDrilldownItemResponse> StatusDrilldown { get; set; } = Array.Empty<ManagementDrilldownItemResponse>();
+}
+
+public sealed class ManagementWorkforceUtilizationSummaryResponse
+{
+    public int ActiveWorkers { get; set; }
+
+    public int AvailableWorkers { get; set; }
+
+    public int BusyWorkers { get; set; }
+
+    public int UtilizedWorkers { get; set; }
+
+    public int OverloadedWorkers { get; set; }
+
+    public decimal UtilizationRatePercent { get; set; }
+
+    public decimal AverageActiveJobsPerUtilizedWorker { get; set; }
+
+    public decimal AverageInternalRating { get; set; }
+
+    public IReadOnlyList<ManagementDrilldownItemResponse> AvailabilityDrilldown { get; set; } = Array.Empty<ManagementDrilldownItemResponse>();
+
+    public IReadOnlyList<ManagementDrilldownItemResponse> WorkerLoadDrilldown { get; set; } = Array.Empty<ManagementDrilldownItemResponse>();
 }
 
 public sealed class ManagementTrendPointResponse
