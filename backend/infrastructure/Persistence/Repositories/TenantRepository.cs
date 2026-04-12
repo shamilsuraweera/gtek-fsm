@@ -11,6 +11,14 @@ internal sealed class TenantRepository : EfRepository<Tenant>, ITenantRepository
     {
     }
 
+    public async Task<IReadOnlyList<Tenant>> ListAsync(CancellationToken cancellationToken = default)
+    {
+        return await this.Queryable()
+            .AsNoTracking()
+            .OrderBy(x => x.Code)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<Tenant?> GetByIdAsync(Guid tenantId, CancellationToken cancellationToken = default)
     {
         return this.Queryable()
